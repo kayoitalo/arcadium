@@ -320,7 +320,7 @@ export class OverviewService {
       take: 10,
     });
 
-    const topArtists: TopArtistItem[] = topArtistsGrouped.map((item) => ({
+    const topArtists: TopArtistItem[] = topArtistsGrouped.map((item: any) => ({
       id: null,
       name: item.rawArtistName,
       plays: item._count.id,
@@ -336,7 +336,7 @@ export class OverviewService {
       take: 10,
     });
 
-    const topTracks: TopTrackItem[] = topTracksGrouped.map((item) => ({
+    const topTracks: TopTrackItem[] = topTracksGrouped.map((item: any) => ({
       id: null,
       name: item.rawTrackName,
       artistName: item.rawArtistName,
@@ -353,8 +353,8 @@ export class OverviewService {
     });
 
     const topAlbums: AlbumItem[] = topAlbumsGrouped
-      .filter((a) => a.rawAlbumName)
-      .map((item, idx) => ({
+      .filter((a: any) => a.rawAlbumName)
+      .map((item: any, idx: number) => ({
         id: `alb-${idx}`,
         title: item.rawAlbumName || "Unknown Album",
         artistName: item.rawArtistName,

@@ -132,7 +132,7 @@ export class ListeningSyncService {
 
     // 1. Bulk resolve Artists
     const uniqueNormalizedArtists = Array.from(
-      new Set(items.map((i) => normalizeText(i.rawArtistName)))
+      new Set(items.map((i: ListenItem) => normalizeText(i.rawArtistName)))
     );
 
     const existingArtists = await prisma.artist.findMany({
@@ -140,13 +140,13 @@ export class ListeningSyncService {
     });
 
     const artistMap = new Map<string, string>(); // normName -> artistId
-    existingArtists.forEach((a) => artistMap.set(a.normalizedName, a.id));
+    existingArtists.forEach((a: { id: string; normalizedName: string }) => artistMap.set(a.normalizedName, a.id));
 
     // Find missing artists
-    const missingArtists = items.filter((i) => !artistMap.has(normalizeText(i.rawArtistName)));
+    const missingArtists = items.filter((i: ListenItem) => !artistMap.has(normalizeText(i.rawArtistName)));
     if (missingArtists.length > 0) {
       const missingMap = new Map<string, ListenItem>();
-      missingArtists.forEach((i) => {
+      missingArtists.forEach((i: ListenItem) => {
         const norm = normalizeText(i.rawArtistName);
         if (!missingMap.has(norm)) missingMap.set(norm, i);
       });
@@ -165,7 +165,7 @@ export class ListeningSyncService {
 
     // 2. Bulk resolve Tracks
     const trackKeySet = new Set<string>();
-    items.forEach((i) => {
+    items.forEach((i: ListenItem) => {
       const artistId = artistMap.get(normalizeText(i.rawArtistName));
       if (artistId) {
         trackKeySet.add(`${artistId}|${normalizeText(i.rawTrackName)}`);
@@ -182,10 +182,10 @@ export class ListeningSyncService {
     });
 
     const trackMap = new Map<string, string>(); // artistId|normTrack -> trackId
-    existingTracks.forEach((t) => trackMap.set(`${t.artistId}|${t.normalizedName}`, t.id));
+    existingTracks.forEach((t: { id: string; artistId: string; normalizedName: string }) => trackMap.set(`${t.artistId}|${t.normalizedName}`, t.id));
 
     const missingTracksMap = new Map<string, { artistId: string; rawTrackName: string; normTrack: string }>();
-    items.forEach((i) => {
+    items.forEach((i: ListenItem) => {
       const normArtist = normalizeText(i.rawArtistName);
       const normTrack = normalizeText(i.rawTrackName);
       const artistId = artistMap.get(normArtist);
@@ -210,11 +210,11 @@ export class ListeningSyncService {
 
     // 3. Bulk resolve Albums (optional)
     const albumMap = new Map<string, string>(); // artistId|normAlbum -> albumId
-    const albumItems = items.filter((i) => i.rawAlbumName && normalizeText(i.rawAlbumName));
+    const albumItems = items.filter((i: ListenItem) => i.rawAlbumName && normalizeText(i.rawAlbumName));
 
     if (albumItems.length > 0) {
       const albumKeySet = new Set<string>();
-      albumItems.forEach((i) => {
+      albumItems.forEach((i: ListenItem) => {
         const artistId = artistMap.get(normalizeText(i.rawArtistName));
         if (artistId) {
           albumKeySet.add(`${artistId}|${normalizeText(i.rawAlbumName!)}`);
@@ -230,10 +230,10 @@ export class ListeningSyncService {
             }),
           },
         });
-        existingAlbums.forEach((a) => albumMap.set(`${a.artistId}|${a.normalizedName}`, a.id));
+        existingAlbums.forEach((a: { id: string; artistId: string; normalizedName: string }) => albumMap.set(`${a.artistId}|${a.normalizedName}`, a.id));
 
         const missingAlbumsMap = new Map<string, { artistId: string; rawAlbumName: string; normAlbum: string }>();
-        albumItems.forEach((i) => {
+        albumItems.forEach((i: ListenItem) => {
           const artistId = artistMap.get(normalizeText(i.rawArtistName));
           const normAlbum = normalizeText(i.rawAlbumName!);
           if (artistId && normAlbum) {
@@ -258,7 +258,7 @@ export class ListeningSyncService {
     }
 
     // 4. Construct ListeningEvent bulk records
-    const eventRecords = items.map((item) => {
+    const eventRecords = items.map((item: ListenItem) => {
       const normArtist = normalizeText(item.rawArtistName);
       const normTrack = normalizeText(item.rawTrackName);
       const normAlbum = item.rawAlbumName ? normalizeText(item.rawAlbumName) : null;

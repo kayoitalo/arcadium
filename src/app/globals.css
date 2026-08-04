@@ -1,7 +1,64 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════
+   MUSIC INTELLIGENCE — Design System Tokens (Tailwind v4)
+   ═══════════════════════════════════════════════════════ */
+@theme {
+  /* --- Colors: Background --- */
+  --color-background: #090806;
+  --color-background-secondary: #100e0c;
+
+  /* --- Colors: Surface --- */
+  --color-surface: #15120f;
+  --color-surface-elevated: #1c1814;
+  --color-surface-soft: #211c17;
+  --color-surface-glass: rgba(21, 18, 15, 0.75);
+
+  /* --- Colors: Border --- */
+  --color-border: #332c25;
+  --color-border-subtle: #25201c;
+  --color-border-glow: rgba(180, 122, 70, 0.25);
+
+  /* --- Colors: Text --- */
+  --color-text-primary: #f0e7d8;
+  --color-text-secondary: #b8ab9b;
+  --color-text-muted: #776d62;
+
+  /* --- Colors: Accent --- */
+  --color-accent: #b47a46;
+  --color-accent-hover: #c58b55;
+  --color-accent-gold: #c59a60;
+  --color-accent-copper: #9f603e;
+  --color-accent-burgundy: #602d2d;
+  --color-accent-glow: rgba(180, 122, 70, 0.15);
+
+  /* --- Colors: Status --- */
+  --color-status-success: #72956b;
+  --color-status-warning: #c59a60;
+  --color-status-error: #b06055;
+
+  /* --- Colors: Rank --- */
+  --color-rank-gold: #c59a60;
+  --color-rank-silver: #b8ab9b;
+  --color-rank-bronze: #9f603e;
+
+  /* --- Typography --- */
+  --font-sans: var(--font-inter), "Geist", "Inter", sans-serif;
+  --font-serif: var(--font-instrument-serif), "Instrument Serif", "Georgia", serif;
+
+  /* --- Shadows --- */
+  --shadow-glow: 0 0 30px -5px rgba(180, 122, 70, 0.2);
+  --shadow-card: 0 8px 30px -4px rgba(0, 0, 0, 0.6);
+  --shadow-magazine: 0 20px 40px -10px rgba(0, 0, 0, 0.8);
+
+  /* --- Animations --- */
+  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-spin-slow: spin 20s linear infinite;
+}
+
+/* ═══════════════════════════════════════════════════════
+   CSS Variables (legacy compat for inline style usage)
+   ═══════════════════════════════════════════════════════ */
 :root {
   --background: #090806;
   --background-secondary: #100e0c;
@@ -28,7 +85,9 @@ body {
   background-attachment: fixed;
 }
 
-/* Editorial Surface Utility Classes */
+/* ═══════════════════════════════════════════════════════
+   Editorial Surface Utility Classes
+   ═══════════════════════════════════════════════════════ */
 .glass-panel {
   background: rgba(21, 18, 15, 0.85);
   backdrop-filter: blur(16px);
@@ -57,7 +116,9 @@ body {
   box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
 }
 
-/* Custom Editorial Scrollbars */
+/* ═══════════════════════════════════════════════════════
+   Custom Editorial Scrollbars
+   ═══════════════════════════════════════════════════════ */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -75,4 +136,3 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #b47a46;
 }
-
