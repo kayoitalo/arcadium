@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #090806;
+  --background-secondary: #100e0c;
+  --surface: #15120f;
+  --surface-elevated: #1c1814;
+  --surface-soft: #211c17;
+  --border: #332c25;
+  --border-subtle: #25201c;
+  --text-primary: #f0e7d8;
+  --text-secondary: #b8ab9b;
+  --text-muted: #776d62;
+  --accent-primary: #b47a46;
+  --accent-gold: #c59a60;
+  --accent-copper: #9f603e;
+}
+
+body {
+  color: var(--text-primary);
+  background-color: var(--background);
+  background-image: 
+    radial-gradient(at 15% 10%, rgba(180, 122, 70, 0.07) 0px, transparent 45%),
+    radial-gradient(at 85% 20%, rgba(197, 154, 96, 0.05) 0px, transparent 40%),
+    radial-gradient(at 50% 90%, rgba(96, 45, 45, 0.04) 0px, transparent 50%);
+  background-attachment: fixed;
+}
+
+/* Editorial Surface Utility Classes */
+.glass-panel {
+  background: rgba(21, 18, 15, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(51, 44, 37, 0.7);
+}
+
+.glass-card {
+  background: rgba(28, 24, 20, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(51, 44, 37, 0.6);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card:hover {
+  background: rgba(33, 28, 23, 0.9);
+  border-color: rgba(180, 122, 70, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px -5px rgba(0, 0, 0, 0.7), 0 0 25px -5px rgba(180, 122, 70, 0.15);
+}
+
+.editorial-card {
+  background: #15120f;
+  border: 1px solid #332c25;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
+}
+
+/* Custom Editorial Scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: #090806;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #332c25;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b47a46;
+}
+
