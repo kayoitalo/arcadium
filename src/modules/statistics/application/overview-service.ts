@@ -49,6 +49,8 @@ export interface TopArtistItem {
   name: string;
   plays: number;
   share: number; // 0 to 1
+  country?: string | null;
+  tags?: string[];
 }
 
 export interface TopTrackItem {
@@ -320,12 +322,30 @@ export class OverviewService {
       take: 10,
     });
 
-    const topArtists: TopArtistItem[] = topArtistsGrouped.map((item: any) => ({
-      id: null,
-      name: item.rawArtistName,
-      plays: item._count.id,
-      share: Number((item._count.id / currentPlays).toFixed(3)),
-    }));
+    const topArtistNames = topArtistsGrouped.map((a: any) => a.rawArtistName);
+    const dbArtists = await prisma.artist.findMany({
+      where: { name: { in: topArtistNames } },
+      select: { name: true, country: true, tags: true },
+    });
+    const artistMetaMap = new Map<string, { country: string | null; tags: string[] }>();
+    dbArtists.forEach((a: any) => {
+      artistMetaMap.set(a.name, {
+        country: a.country,
+        tags: a.tags ? a.tags.split(",").map((t: string) => t.trim()).filter(Boolean) : [],
+      });
+    });
+
+    const topArtists: TopArtistItem[] = topArtistsGrouped.map((item: any) => {
+      const meta = artistMetaMap.get(item.rawArtistName);
+      return {
+        id: null,
+        name: item.rawArtistName,
+        plays: item._count.id,
+        share: Number((item._count.id / currentPlays).toFixed(3)),
+        country: meta?.country || null,
+        tags: meta?.tags || [],
+      };
+    });
 
     // Top Tracks
     const topTracksGrouped = await prisma.listeningEvent.groupBy({

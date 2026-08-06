@@ -76,6 +76,10 @@ export default function DiscoveryPage() {
   const [items, setItems] = useState<Candidate[]>(INITIAL_RECOMMENDATIONS);
   const [lastAction, setLastAction] = useState<{ id: string; prevFeedback?: Candidate["feedback"] } | null>(null);
 
+  const [exporting, setExporting] = useState(false);
+  const [exportResult, setExportResult] = useState<any | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+
   const handleFeedback = (id: string, action: Candidate["feedback"]) => {
     setItems((prev) =>
       prev.map((item) => {
@@ -96,6 +100,34 @@ export default function DiscoveryPage() {
       )
     );
     setLastAction(null);
+  };
+
+  const handleExportSpotify = async () => {
+    setExporting(true);
+    setShowExportModal(true);
+    setExportResult(null);
+
+    // Filter tracks to export: liked or saved items, or all items if none specifically reacted
+    const selection = items.filter((i) => i.feedback === "liked" || i.feedback === "saved");
+    const tracksToExport = (selection.length > 0 ? selection : items).map((i) => ({
+      trackName: i.trackName,
+      artistName: i.artistName,
+    }));
+
+    try {
+      const res = await fetch("/api/spotify/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tracks: tracksToExport }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Export failed");
+      setExportResult(data.data);
+    } catch (err: any) {
+      setExportResult({ error: err?.message || "Export failed" });
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -310,12 +342,118 @@ export default function DiscoveryPage() {
           <button className="px-4 py-2.5 rounded-xl bg-surface border border-border/80 text-text-primary text-xs font-mono font-bold hover:bg-surface-elevated transition-colors">
             SALVAR SESSÃO
           </button>
-          <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-mono font-bold hover:bg-accent-hover transition-all shadow-glow">
+          <button
+            onClick={handleExportSpotify}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-mono font-bold hover:bg-accent-hover transition-all shadow-glow"
+          >
             <ListPlus className="w-4 h-4" />
             <span>EXPORTAR PLAYLIST SPOTIFY</span>
           </button>
         </div>
       </footer>
+
+      {/* Spotify Export Modal */}
+      {showExportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md">
+          <div className="w-full max-w-lg p-6 rounded-2xl bg-surface border border-border space-y-5 shadow-magazine">
+            <div className="flex items-center justify-between border-b border-border/60 pb-3">
+              <div className="flex items-center gap-2">
+                <ListPlus className="w-5 h-5 text-accent-gold" />
+                <h3 className="font-serif text-xl font-bold text-text-primary">
+                  Exportar para o Spotify
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="text-xs font-mono text-text-muted hover:text-text-primary"
+              >
+                FECHAR
+              </button>
+            </div>
+
+            {exporting ? (
+              <div className="py-8 text-center space-y-3 font-mono text-xs text-text-secondary">
+                <div className="w-8 h-8 mx-auto border-2 border-accent-gold border-t-transparent rounded-full animate-spin" />
+                <p>Buscando faixas no catálogo do Spotify...</p>
+              </div>
+            ) : exportResult?.error ? (
+              <div className="p-4 rounded-xl bg-status-error/15 border border-status-error/30 text-status-error text-xs font-mono">
+                {exportResult.error}
+              </div>
+            ) : exportResult ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-surface-elevated border border-border/60 space-y-2 text-xs font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Playlist:</span>
+                    <strong className="text-text-primary">{exportResult.playlistTitle}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Status:</span>
+                    <span className="text-status-success font-bold">
+                      {exportResult.mode === "SPOTIFY_API" ? "Playlist Criada no Spotify" : "Exportação Pronta"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Faixas Resolvidas:</span>
+                    <strong className="text-text-primary">
+                      {exportResult.resolvedCount} de {exportResult.totalItems}
+                    </strong>
+                  </div>
+                </div>
+
+                {/* Resolved list */}
+                <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 text-xs font-mono">
+                  {exportResult.items.map((item: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-2 rounded-lg bg-surface/60 border border-border/40"
+                    >
+                      <span className="truncate text-text-primary">
+                        {item.artistName} — {item.trackName}
+                      </span>
+                      <a
+                        href={item.webUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-accent-gold hover:underline flex-shrink-0 ml-2 text-[10px]"
+                      >
+                        ABRIR NO SPOTIFY
+                      </a>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="pt-2 flex items-center justify-between gap-3">
+                  {exportResult.m3uPayload && (
+                    <button
+                      onClick={() => {
+                        const blob = new Blob([exportResult.m3uPayload], { type: "audio/x-mpegurl" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `${exportResult.playlistTitle}.m3u`;
+                        a.click();
+                      }}
+                      className="px-4 py-2 rounded-xl bg-surface-elevated border border-border text-xs font-mono text-text-secondary hover:text-text-primary"
+                    >
+                      DOWNLOAD .M3U
+                    </button>
+                  )}
+                  <a
+                    href={exportResult.playlistUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 text-center px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-mono font-bold hover:bg-accent-hover shadow-glow"
+                  >
+                    ABRIR PLAYLIST NO SPOTIFY ↗
+                  </a>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

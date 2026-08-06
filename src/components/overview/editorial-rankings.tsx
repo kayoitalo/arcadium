@@ -51,14 +51,29 @@ export function EditorialRankings({ topArtists }: EditorialRankingsProps) {
                   {artist.name.charAt(0).toUpperCase()}
                 </div>
 
-                {/* Name */}
+                {/* Name & Metadata */}
                 <div className="truncate">
-                  <span className="text-sm font-semibold text-text-primary block truncate group-hover:text-accent-gold transition-colors">
-                    {artist.name}
-                  </span>
-                  <span className="text-[11px] text-text-muted font-mono block truncate">
-                    {(artist.share * 100).toFixed(1)}% catalog share
-                  </span>
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="text-sm font-semibold text-text-primary block truncate group-hover:text-accent-gold transition-colors">
+                      {artist.name}
+                    </span>
+                    {artist.country && (
+                      <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-accent-copper/20 text-accent-gold border border-accent-copper/30 uppercase flex-shrink-0">
+                        {artist.country}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px] text-text-muted font-mono truncate">
+                    <span>{(artist.share * 100).toFixed(1)}% catalog share</span>
+                    {artist.tags && artist.tags.length > 0 && (
+                      <>
+                        <span>•</span>
+                        <span className="text-accent-gold/80 truncate capitalize">
+                          {artist.tags[0]}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
 

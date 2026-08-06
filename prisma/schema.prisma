@@ -56,30 +56,37 @@ model SyncRun {
 }
 
 model Artist {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   name           String
   normalizedName String
   mbid           String?
-  metadataStatus String   @default("UNRESOLVED") // UNRESOLVED, RESOLVED
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  country        String?   // e.g. "US", "GB", "SE"
+  type           String?   // e.g. "Group", "Person", "Orchestra"
+  disambiguation String?
+  tags           String?   // Comma-separated or JSON list of top tags/genres
+  metadataStatus String    @default("UNRESOLVED") // UNRESOLVED, RESOLVED, FAILED
+  enrichedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   tracks          Track[]
   albums          Album[]
   listeningEvents ListeningEvent[]
 
   @@index([normalizedName])
+  @@index([metadataStatus])
 }
 
 model Track {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   artistId       String
   name           String
   normalizedName String
   durationMs     Int?
   mbid           String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  enrichedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   artist          Artist           @relation(fields: [artistId], references: [id], onDelete: Cascade)
   listeningEvents ListeningEvent[]
@@ -88,14 +95,16 @@ model Track {
 }
 
 model Album {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   artistId       String
   name           String
   normalizedName String
   releaseYear    Int?
+  primaryType    String?   // e.g. "Album", "EP", "Single"
   mbid           String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  enrichedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   artist          Artist           @relation(fields: [artistId], references: [id], onDelete: Cascade)
   listeningEvents ListeningEvent[]

@@ -4,12 +4,19 @@ import { LastFmHistoryProvider } from "@/modules/listening/infrastructure/lastfm
 import { ListeningSyncService } from "@/modules/listening/application/sync-service";
 import { z } from "zod";
 
+import { verifyCronAuth } from "@/lib/security/cron-auth";
+
 const syncRequestSchema = z.object({
   username: z.string().min(1, "Last.fm username is required"),
   userId: z.string().optional(),
 });
 
 export async function POST(request: Request) {
+  const auth = verifyCronAuth(request);
+  if (!auth.authorized) {
+    return NextResponse.json({ error: auth.error }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const parsed = syncRequestSchema.safeParse(body);

@@ -1,0 +1,37 @@
+name: Scheduled History Sync
+
+on:
+  schedule:
+    # Run hourly at minute 0
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    name: Execute Hourly Listening Sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Sync API Endpoint
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          LASTFM_USERNAME: ${{ secrets.LASTFM_USERNAME }}
+        run: |
+          TARGET_URL="${APP_URL:-https://spotstats.vercel.app}/api/sync"
+          USERNAME="${LASTFM_USERNAME:-kayoitalo}"
+          
+          echo "Triggering background sync at ${TARGET_URL}..."
+          
+          HTTP_STATUS=$(curl -s -o response.json -w "%{http_code}" \
+            -X POST "${TARGET_URL}" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -d "{\"username\": \"${USERNAME}\"}")
+          
+          echo "HTTP Response Code: ${HTTP_STATUS}"
+          cat response.json
+          
+          if [ "${HTTP_STATUS}" -ge 400 ]; then
+            echo "Sync execution failed with status ${HTTP_STATUS}"
+            exit 1
+          fi
