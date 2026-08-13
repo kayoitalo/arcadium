@@ -1,17 +1,26 @@
 "use client";
 
 import { useState } from "react";
+import { useForm } from "react-hook-form";
 import { Settings, RefreshCw, Radio, CheckCircle, AlertCircle, Database, Share2, Shield, Download, Trash2 } from "lucide-react";
 
+interface SyncForm {
+  username: string;
+}
+
 export default function SettingsPage() {
-  const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSync = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!username.trim()) return;
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isValid },
+  } = useForm<SyncForm>({ mode: "onChange" });
+
+  const onSubmit = async (data: SyncForm) => {
+    if (!data.username.trim()) return;
 
     setLoading(true);
     setMessage(null);
@@ -21,17 +30,17 @@ export default function SettingsPage() {
       const res = await fetch("/api/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: username.trim() }),
+        body: JSON.stringify({ username: data.username.trim() }),
       });
 
-      const data = await res.json();
+      const resData = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to trigger sync");
+        throw new Error(resData.error || "Failed to trigger sync");
       }
 
       setMessage(
-        `Sync completed successfully! Fetched: ${data.sync.fetched}, Inserted: ${data.sync.inserted}, Duplicates skipped: ${data.sync.duplicates}`
+        `Sync completed successfully! Fetched: ${resData.sync.fetched}, Inserted: ${resData.sync.inserted}, Duplicates skipped: ${resData.sync.duplicates}`
       );
     } catch (err: any) {
       setError(err?.message || "An unexpected error occurred");
@@ -74,24 +83,25 @@ export default function SettingsPage() {
           </span>
         </div>
 
-        <form onSubmit={handleSync} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-1.5">
             <label className="block text-[10px] font-mono font-bold text-text-muted uppercase tracking-wider">
               Last.fm Username
             </label>
             <input
               type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              {...register("username", { required: "Username is required" })}
               placeholder="Enter your Last.fm username..."
               className="w-full px-4 py-2.5 rounded-xl bg-surface border border-border/80 text-xs focus:outline-none focus:border-accent-gold text-text-primary placeholder:text-text-muted transition-colors font-sans"
-              required
             />
+            {errors.username && (
+              <span className="text-status-error text-[10px] font-mono">{errors.username.message}</span>
+            )}
           </div>
 
           <button
             type="submit"
-            disabled={loading || !username.trim()}
+            disabled={loading || !isValid}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-mono font-bold hover:bg-accent-hover transition-all shadow-glow disabled:opacity-40"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />

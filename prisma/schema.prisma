@@ -16,6 +16,10 @@ model User {
 
   connections     ProviderConnection[]
   listeningEvents ListeningEvent[]
+  sessions        RecommendationSession[]
+  feedbacks       RecommendationFeedback[]
+  aiRuns          AIAnalysisRun[]
+  playlistExports PlaylistExport[]
 }
 
 model ProviderConnection {
@@ -135,4 +139,105 @@ model ListeningEvent {
   @@index([userId, playedAt(sort: Desc)])
   @@index([userId, artistId, playedAt])
   @@index([userId, trackId, playedAt])
+}
+
+// ─── Recommendation Engine ───────────────────────────────────────────
+
+model RecommendationSession {
+  id               String   @id @default(uuid())
+  userId           String
+  mode             String   // SAFE, BALANCED, EXPERIMENTAL
+  context          String?  // GENERAL, WORKING, STUDYING, EXERCISING, RELAXING
+  profilePeriod    String   @default("30d") // Period used for profile building
+  algorithmVersion String   @default("v1")
+  status           String   @default("ACTIVE") // ACTIVE, COMPLETED, EXPIRED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user    User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items   RecommendationItem[]
+  exports PlaylistExport[]
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model RecommendationItem {
+  id              String  @id @default(uuid())
+  sessionId       String
+  artistName      String
+  trackName       String
+  albumName       String?
+  genre           String?
+  score           Float   // Final composite score (0-100)
+  noveltyScore    Float?  // Novelty sub-score
+  scoreComponents Json?   // { artistSimilarity, genreSimilarity, profileRelevance, noveltyFit, feedbackFit, metadataConfidence }
+  rank            Int     // Position in ranked list
+  status          String  @default("PENDING") // PENDING, LIKED, DISLIKED, KNOWN, NOT_INTERESTED, SAVED
+  reason          String? // Human-readable explanation
+  artistId        String? // Link to canonical Artist if resolved
+  trackId         String? // Link to canonical Track if resolved
+  createdAt       DateTime @default(now())
+
+  session  RecommendationSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  feedback RecommendationFeedback[]
+
+  @@index([sessionId, rank])
+}
+
+model RecommendationFeedback {
+  id        String   @id @default(uuid())
+  itemId    String
+  userId    String
+  type      String   // LIKED, DISLIKED, ALREADY_KNOW, NOT_INTERESTED, SAVE_FOR_LATER
+  note      String?
+  createdAt DateTime @default(now())
+
+  item RecommendationItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([itemId])
+}
+
+// ─── AI Analysis ─────────────────────────────────────────────────────
+
+model AIAnalysisRun {
+  id              String   @id @default(uuid())
+  userId          String
+  kind            String   // PROFILE_NARRATIVE, RECOMMENDATION_EXPLANATION
+  provider        String   @default("gemini")
+  model           String?  // e.g. "gemini-2.0-flash"
+  promptVersion   String   @default("v1")
+  inputHash       String?  // SHA-256 of structured input for dedup/caching
+  validatedOutput Json?    // The Zod-validated structured output
+  rawOutput       String?  // Raw model response for debugging
+  status          String   @default("PENDING") // PENDING, COMPLETED, FAILED
+  tokenCount      Int?     // Input + output tokens
+  errorMessage    String?
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind, createdAt(sort: Desc)])
+  @@index([inputHash])
+}
+
+// ─── Playlist Export ─────────────────────────────────────────────────
+
+model PlaylistExport {
+  id                 String   @id @default(uuid())
+  sessionId          String
+  userId             String
+  providerPlaylistId String?  // Spotify playlist ID
+  playlistUrl        String?
+  mode               String   // SPOTIFY_API, FALLBACK_PLAYLIST
+  selectedItemIds    Json?    // Array of RecommendationItem IDs that were exported
+  totalItems         Int      @default(0)
+  resolvedCount      Int      @default(0)
+  createdAt          DateTime @default(now())
+
+  session RecommendationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
 }

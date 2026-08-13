@@ -1,7 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Search, ChevronLeft, ChevronRight, History, Disc, Clock } from "lucide-react";
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  createColumnHelper,
+} from "@tanstack/react-table";
 
 interface HistoryEvent {
   id: string;
@@ -53,6 +59,75 @@ export default function HistoryPage() {
     return `hsl(${hue}, 35%, 25%)`;
   };
 
+  const columns: any[] = useMemo(
+    () => [
+      {
+        id: "trackAndArtist",
+        header: "Track & Artist",
+        accessorFn: (row: any) => row,
+        cell: (info: any) => {
+          const event = info.getValue();
+          return (
+            <div className="flex items-center gap-3">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-text-primary text-xs flex-shrink-0 shadow-card border border-border/50"
+                style={{ backgroundColor: getAvatarGradient(event.rawArtistName) }}
+              >
+                <Disc className="w-4 h-4 text-accent-gold" />
+              </div>
+              <div>
+                <span className="font-semibold text-text-primary block group-hover:text-accent-gold transition-colors">
+                  {event.rawTrackName}
+                </span>
+                <span className="text-xs text-text-secondary block">
+                  {event.rawArtistName}
+                </span>
+              </div>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "rawAlbumName",
+        header: "Album",
+        cell: (info: any) => {
+          const val = info.getValue();
+          return val ? (
+            <span className="px-2 py-1 rounded-md bg-surface border border-border/60 font-mono text-xs text-text-muted">
+              {val}
+            </span>
+          ) : (
+            <span className="text-xs text-text-muted">--</span>
+          );
+        },
+      },
+      {
+        accessorKey: "playedAt",
+        header: () => <div className="text-right">Played At</div>,
+        cell: (info: any) => (
+          <div className="flex items-center justify-end gap-1.5 text-xs text-text-muted font-mono">
+            <Clock className="w-3.5 h-3.5 text-text-muted" />
+            {new Date(info.getValue()).toLocaleString("pt-BR", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </div>
+        ),
+      },
+    ],
+    []
+  );
+
+  const table = useReactTable({
+    data: events,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    manualPagination: true,
+  });
+
   return (
     <div className="space-y-8 pb-12">
       {/* Editorial Header */}
@@ -101,54 +176,26 @@ export default function HistoryPage() {
             <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-left text-xs font-sans">
                 <thead className="bg-surface-elevated/70 text-[10px] font-mono font-semibold text-text-muted uppercase tracking-wider border-b border-border/60">
-                  <tr>
-                    <th className="py-3.5 px-6">Track & Artist</th>
-                    <th className="py-3.5 px-6">Album</th>
-                    <th className="py-3.5 px-6 text-right">Played At</th>
-                  </tr>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <tr key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <th key={header.id} className="py-3.5 px-6">
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                        </th>
+                      ))}
+                    </tr>
+                  ))}
                 </thead>
                 <tbody className="divide-y divide-border/30">
-                  {events.map((event) => (
-                    <tr key={event.id} className="hover:bg-surface-elevated/50 transition-colors group">
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-text-primary text-xs flex-shrink-0 shadow-card border border-border/50"
-                            style={{ backgroundColor: getAvatarGradient(event.rawArtistName) }}
-                          >
-                            <Disc className="w-4 h-4 text-accent-gold" />
-                          </div>
-                          <div>
-                            <span className="font-semibold text-text-primary block group-hover:text-accent-gold transition-colors">
-                              {event.rawTrackName}
-                            </span>
-                            <span className="text-xs text-text-secondary block">
-                              {event.rawArtistName}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 text-text-muted text-xs font-mono">
-                        {event.rawAlbumName ? (
-                          <span className="px-2 py-1 rounded-md bg-surface border border-border/60">
-                            {event.rawAlbumName}
-                          </span>
-                        ) : (
-                          "--"
-                        )}
-                      </td>
-                      <td className="py-4 px-6 text-right text-xs text-text-muted font-mono">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Clock className="w-3.5 h-3.5 text-text-muted" />
-                          {new Date(event.playedAt).toLocaleString("pt-BR", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </div>
-                      </td>
+                  {table.getRowModel().rows.map((row) => (
+                    <tr key={row.id} className="hover:bg-surface-elevated/50 transition-colors group">
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id} className="py-4 px-6">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>

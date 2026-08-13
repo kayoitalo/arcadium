@@ -3,21 +3,35 @@
 import { useState } from "react";
 import { ActivityPoint } from "@/modules/statistics/application/overview-service";
 import { ChevronDown } from "lucide-react";
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 interface ListeningActivityChartProps {
   activity: ActivityPoint[];
 }
 
 export function ListeningActivityChart({ activity }: ListeningActivityChartProps) {
-  const [activeHover, setActiveHover] = useState<ActivityPoint | null>(null);
   const [viewMode, setViewMode] = useState<"day" | "hour">("day");
 
-  const maxHours = Math.max(...activity.map((a) => a.hours), 8);
+  // Recharts custom tooltip
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-surface-elevated border border-border/80 p-3 rounded-lg shadow-glow text-xs font-mono">
+          <p className="text-accent-gold font-semibold mb-1">{data.label}</p>
+          <p className="text-text-primary font-bold">
+            {data.hours}h <span className="text-text-muted font-normal">({data.plays} plays)</span>
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="w-full h-[320px] sm:h-[380px] md:h-[420px] flex flex-col justify-between p-6 rounded-2xl bg-surface/40 border border-border/60 select-none">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-text-muted uppercase block">
             LISTENING ACTIVITY
@@ -34,56 +48,29 @@ export function ListeningActivityChart({ activity }: ListeningActivityChartProps
         </div>
       </div>
 
-      {/* Hover Info Tooltip Bar */}
-      <div className="h-6 flex items-center justify-between text-xs font-mono px-2 my-2">
-        {activeHover ? (
-          <>
-            <span className="text-accent-gold font-semibold">{activeHover.label}</span>
-            <span className="text-text-primary font-bold">{activeHover.hours}h ({activeHover.plays} plays)</span>
-          </>
-        ) : (
-          <span className="text-text-muted text-[11px]">Hover over bars to inspect daily listening output</span>
-        )}
-      </div>
-
       {/* Bar Graph Graphic */}
-      <div className="flex-1 flex items-end justify-between gap-1.5 sm:gap-3 pt-4 border-b border-border/60 relative">
-        {/* Subtle Horizontal Reference Grid Lines */}
-        <div className="absolute inset-x-0 top-0 border-b border-border/30 border-dashed pointer-events-none" />
-        <div className="absolute inset-x-0 top-1/2 border-b border-border/30 border-dashed pointer-events-none" />
-
-        {activity.map((item, idx) => {
-          const heightPercent = Math.min(100, Math.max(10, (item.hours / maxHours) * 100));
-          const isHovered = activeHover?.label === item.label;
-
-          return (
-            <div
-              key={idx}
-              className="flex-1 flex flex-col items-center h-full justify-end group cursor-pointer"
-              onMouseEnter={() => setActiveHover(item)}
-              onMouseLeave={() => setActiveHover(null)}
-            >
-              {/* Vertical Bar */}
-              <div
-                className={`w-full max-w-[20px] rounded-t-sm transition-all duration-300 ${
-                  isHovered
-                    ? "bg-accent-gold shadow-[0_0_15px_rgba(197,154,96,0.5)] scale-y-[1.03]"
-                    : "bg-accent/40 group-hover:bg-accent group-hover:shadow-glow"
-                }`}
-                style={{ height: `${heightPercent}%` }}
-              />
-            </div>
-          );
-        })}
-      </div>
-
-      {/* X-Axis Labels */}
-      <div className="flex justify-between items-center text-[10px] font-mono text-text-muted pt-3">
-        {activity.map((item, idx) => (
-          <span key={idx} className="truncate">
-            {item.label}
-          </span>
-        ))}
+      <div className="flex-1 w-full min-h-0 relative">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={activity} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+            <XAxis 
+              dataKey="label" 
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: "#776d62", fontSize: 10, fontFamily: "monospace" }}
+              dy={10}
+            />
+            <Tooltip 
+              content={<CustomTooltip />}
+              cursor={{ fill: 'rgba(180, 122, 70, 0.05)' }}
+            />
+            <Bar 
+              dataKey="hours" 
+              fill="#b47a46" 
+              radius={[2, 2, 0, 0]}
+              activeBar={{ fill: '#c59a60', stroke: '#c59a60', strokeWidth: 1 }}
+            />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );

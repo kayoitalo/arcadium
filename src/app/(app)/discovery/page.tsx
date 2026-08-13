@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Compass,
   ThumbsUp,
@@ -27,60 +27,56 @@ interface Candidate {
   feedback?: "liked" | "disliked" | "known" | "saved";
 }
 
-const INITIAL_RECOMMENDATIONS: Candidate[] = [
-  {
-    id: "rec-1",
-    artistName: "Cult of Luna",
-    trackName: "The Long Road North",
-    albumName: "The Long Road North",
-    coverUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=600&auto=format&fit=crop",
-    genre: "Post Metal / Atmospheric Sludge",
-    confidenceScore: 94,
-    reason: "Match determinístico de 94%. Recomendado porque você aumentou em 128% o consumo de Sludge Metal e ouviu Deftones frequentemente.",
-  },
-  {
-    id: "rec-2",
-    artistName: "Chat Pile",
-    trackName: "Slaughterhouse",
-    albumName: "God's Country",
-    coverUrl: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=600&auto=format&fit=crop",
-    genre: "Noise Rock / Sludge Metal",
-    confidenceScore: 89,
-    reason: "Match de 89%. Banda em ascensão rápida no seu perfil com sonoridade crua baseada em linhas afiadas de baixo e vocais viscerais.",
-  },
-  {
-    id: "rec-3",
-    artistName: "Julie Christmas",
-    trackName: "Supernatural",
-    albumName: "Ridiculous And Full Of Blood",
-    coverUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=600&auto=format&fit=crop",
-    genre: "Post Metal / Experimental",
-    confidenceScore: 85,
-    reason: "Match de 85%. Apresenta dinâmicas vocais dramáticas e arranjos pesados em colaboração com músicos de Cult of Luna.",
-  },
-  {
-    id: "rec-4",
-    artistName: "Chelsea Wolfe",
-    trackName: "Dusk",
-    albumName: "She Reaches Out To She Reaches Out To She",
-    coverUrl: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?q=80&w=600&auto=format&fit=crop",
-    genre: "Gothic Rock / Industrial",
-    confidenceScore: 82,
-    reason: "Match de 82%. Combina elementos eletrônicos escuros e guitarras graves, alinhado à sua recente queda em gêneros pop.",
-  },
-];
-
 export default function DiscoveryPage() {
-  const [mode, setMode] = useState<"safe" | "balanced" | "experimental">("balanced");
-  const [context, setContext] = useState<string>("general");
-  const [items, setItems] = useState<Candidate[]>(INITIAL_RECOMMENDATIONS);
-  const [lastAction, setLastAction] = useState<{ id: string; prevFeedback?: Candidate["feedback"] } | null>(null);
+  const [mode, setMode] = useState<"SAFE" | "BALANCED" | "EXPERIMENTAL">("BALANCED");
+  const [context, setContext] = useState<string>("GENERAL");
+  const [items, setItems] = useState<any[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [lastAction, setLastAction] = useState<{ id: string; prevFeedback?: string } | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const [exporting, setExporting] = useState(false);
   const [exportResult, setExportResult] = useState<any | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
 
-  const handleFeedback = (id: string, action: Candidate["feedback"]) => {
+  useEffect(() => {
+    fetchSession();
+  }, [mode, context]);
+
+  const fetchSession = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/recommendations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode, context }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setItems(data.items || []);
+        setSessionId(data.sessionId || null);
+      }
+    } catch (err) {
+      console.error("Failed to fetch recommendations", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFeedback = async (id: string, action: string) => {
+    if (!sessionId) return;
+    
+    // Convert lower-case action to upper-case API enum
+    const typeMap: Record<string, string> = {
+      liked: "LIKED",
+      disliked: "DISLIKED",
+      known: "ALREADY_KNOW",
+      saved: "SAVE_FOR_LATER"
+    };
+    
+    const apiType = typeMap[action];
+    
+    // Optimistic UI update
     setItems((prev) =>
       prev.map((item) => {
         if (item.id === id) {
@@ -90,9 +86,22 @@ export default function DiscoveryPage() {
         return item;
       })
     );
+    
+    // Call API
+    try {
+      await fetch(`/api/recommendations/${sessionId}/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId: id, type: apiType }),
+      });
+    } catch (err) {
+      console.error("Feedback failed:", err);
+      // Could revert optimistic update here
+    }
   };
 
   const handleUndo = () => {
+    // Basic optimistic undo (MVP) - real undo would need an API endpoint
     if (!lastAction) return;
     setItems((prev) =>
       prev.map((item) =>
@@ -145,25 +154,25 @@ export default function DiscoveryPage() {
           {/* Mode Selector */}
           <div className="flex p-1 rounded-xl bg-surface border border-border/60 text-xs font-mono">
             <button
-              onClick={() => setMode("safe")}
+              onClick={() => setMode("SAFE")}
               className={`px-3.5 py-1.5 rounded-lg transition-all ${
-                mode === "safe" ? "bg-accent/20 text-accent-gold font-bold border border-accent/40 shadow-glow" : "text-text-secondary"
+                mode === "SAFE" ? "bg-accent/20 text-accent-gold font-bold border border-accent/40 shadow-glow" : "text-text-secondary"
               }`}
             >
               Safe
             </button>
             <button
-              onClick={() => setMode("balanced")}
+              onClick={() => setMode("BALANCED")}
               className={`px-3.5 py-1.5 rounded-lg transition-all ${
-                mode === "balanced" ? "bg-accent/20 text-accent-gold font-bold border border-accent/40 shadow-glow" : "text-text-secondary"
+                mode === "BALANCED" ? "bg-accent/20 text-accent-gold font-bold border border-accent/40 shadow-glow" : "text-text-secondary"
               }`}
             >
               Balanced
             </button>
             <button
-              onClick={() => setMode("experimental")}
+              onClick={() => setMode("EXPERIMENTAL")}
               className={`px-3.5 py-1.5 rounded-lg transition-all ${
-                mode === "experimental" ? "bg-accent/20 text-accent-gold font-bold border border-accent/40 shadow-glow" : "text-text-secondary"
+                mode === "EXPERIMENTAL" ? "bg-accent/20 text-accent-gold font-bold border border-accent/40 shadow-glow" : "text-text-secondary"
               }`}
             >
               Experimental
@@ -190,10 +199,10 @@ export default function DiscoveryPage() {
               onChange={(e) => setContext(e.target.value)}
               className="bg-transparent focus:outline-none text-text-primary cursor-pointer pr-2"
             >
-              <option value="general" className="bg-surface text-text-primary">Context: General</option>
-              <option value="working" className="bg-surface text-text-primary">Context: Working</option>
-              <option value="relaxing" className="bg-surface text-text-primary">Context: Relaxing</option>
-              <option value="night" className="bg-surface text-text-primary">Context: Late Night</option>
+              <option value="GENERAL" className="bg-surface text-text-primary">Context: General</option>
+              <option value="WORKING" className="bg-surface text-text-primary">Context: Working</option>
+              <option value="RELAXING" className="bg-surface text-text-primary">Context: Relaxing</option>
+              <option value="NIGHT" className="bg-surface text-text-primary">Context: Late Night</option>
             </select>
           </div>
         </div>
@@ -214,6 +223,13 @@ export default function DiscoveryPage() {
       )}
 
       {/* Recommendation Grid */}
+      {loading ? (
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="p-6 rounded-2xl bg-surface/20 border border-border/40 animate-pulse h-64"></div>
+          ))}
+        </section>
+      ) : (
       <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {items.map((candidate) => {
           const isLiked = candidate.feedback === "liked";
@@ -326,6 +342,7 @@ export default function DiscoveryPage() {
           );
         })}
       </section>
+      )}
 
       {/* Session Export & Persistence Bar */}
       <footer className="p-6 rounded-2xl bg-surface/50 border border-border/60 flex flex-col sm:flex-row items-center justify-between gap-4">

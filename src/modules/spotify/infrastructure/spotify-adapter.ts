@@ -1,17 +1,6 @@
-export interface SpotifySearchResult {
-  uri: string | null;
-  webUrl: string;
-  matchedTitle?: string;
-  matchedArtist?: string;
-}
+import { PlaylistProvider, PlaylistSearchResult, PlaylistResult } from "../domain/playlist-provider.interface";
 
-export interface SpotifyPlaylistResult {
-  id: string;
-  webUrl: string;
-  name: string;
-}
-
-export class SpotifyAdapter {
+export class SpotifyAdapter implements PlaylistProvider {
   /**
    * Search Spotify catalog for a track matching trackName and artistName.
    * If accessToken is not provided, returns a direct web search URL fallback.
@@ -20,7 +9,7 @@ export class SpotifyAdapter {
     trackName: string,
     artistName: string,
     accessToken?: string
-  ): Promise<SpotifySearchResult> {
+  ): Promise<PlaylistSearchResult> {
     const queryStr = `${artistName} ${trackName}`;
     const webSearchUrl = `https://open.spotify.com/search/${encodeURIComponent(queryStr)}`;
 
@@ -71,7 +60,7 @@ export class SpotifyAdapter {
     spotifyUserId: string,
     title: string,
     description: string
-  ): Promise<SpotifyPlaylistResult | null> {
+  ): Promise<PlaylistResult | null> {
     try {
       const response = await fetch(`https://api.spotify.com/v1/users/${encodeURIComponent(spotifyUserId)}/playlists`, {
         method: "POST",

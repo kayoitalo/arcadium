@@ -26,6 +26,8 @@ export default function OverviewPage() {
   const [period, setPeriod] = useState<PeriodKey>("30d");
   const [data, setData] = useState<OverviewData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [aiStory, setAiStory] = useState<{ headline: string; narrative: string; insight: string } | null>(null);
+  const [loadingAi, setLoadingAi] = useState(true);
 
   useEffect(() => {
     async function fetchOverview() {
@@ -42,7 +44,24 @@ export default function OverviewPage() {
         setLoading(false);
       }
     }
+
+    async function fetchAiNarrative() {
+      setLoadingAi(true);
+      try {
+        const res = await fetch(`/api/ai/narrative?period=${period}`);
+        if (res.ok) {
+          const json = await res.json();
+          setAiStory(json);
+        }
+      } catch (err) {
+        console.error("Failed to load AI narrative", err);
+      } finally {
+        setLoadingAi(false);
+      }
+    }
+
     fetchOverview();
+    fetchAiNarrative();
   }, [period]);
 
   const formatHours = (mins: number) => {
@@ -104,11 +123,18 @@ export default function OverviewPage() {
         <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
             <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl font-normal leading-[1.05] tracking-tight text-text-primary">
-              {data?.aiStory?.headline || "Your July sounded heavier."}
+              {loadingAi ? (
+                <span className="h-12 w-64 bg-surface/40 animate-pulse rounded-lg inline-block"></span>
+              ) : (
+                aiStory?.headline || "Your month sounded heavier."
+              )}
             </h1>
             <p className="text-text-secondary text-sm sm:text-base leading-relaxed font-sans max-w-xl">
-              {data?.aiStory?.narrative ||
-                "You explored darker sounds, expanded your metal horizons, and discovered 18 new artists."}
+              {loadingAi ? (
+                <span className="h-4 w-96 bg-surface/40 animate-pulse rounded inline-block"></span>
+              ) : (
+                aiStory?.narrative || "You explored darker sounds, expanded your metal horizons, and discovered 18 new artists."
+              )}
             </p>
           </div>
 
@@ -199,7 +225,7 @@ export default function OverviewPage() {
         <TasteEvolutionCard
           rising={data?.tasteShift.rising || []}
           declining={data?.tasteShift.declining || []}
-          narrativeInsight={data?.aiStory.insight}
+          narrativeInsight={aiStory?.insight}
         />
         {data?.recommended && <AlbumRecommendation recommendation={data.recommended} />}
       </section>

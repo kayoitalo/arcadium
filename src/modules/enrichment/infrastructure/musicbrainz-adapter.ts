@@ -1,29 +1,7 @@
 import { normalizeText } from "@/modules/listening/domain/normalization";
+import { MetadataProvider, EnrichedArtistResult, EnrichedAlbumResult } from "../domain/metadata-provider.interface";
 
-export interface EnrichedArtistResult {
-  mbid: string;
-  name: string;
-  country: string | null;
-  type: string | null;
-  disambiguation: string | null;
-  tags: string[];
-  score: number; // 0 to 1 confidence
-}
-
-export interface EnrichedAlbumResult {
-  mbid: string;
-  title: string;
-  releaseYear: number | null;
-  primaryType: string | null;
-}
-
-export interface EnrichedTrackResult {
-  mbid: string;
-  title: string;
-  durationMs: number | null;
-}
-
-export class MusicBrainzAdapter {
+export class MusicBrainzAdapter implements MetadataProvider {
   private lastRequestTime = 0;
   private readonly minDelayMs = 1100; // Strictly respect 1 req/sec rate limit
   private readonly userAgent: string;
