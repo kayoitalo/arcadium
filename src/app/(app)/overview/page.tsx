@@ -126,14 +126,14 @@ export default function OverviewPage() {
               {loadingAi ? (
                 <span className="h-12 w-64 bg-surface/40 animate-pulse rounded-lg inline-block"></span>
               ) : (
-                aiStory?.headline || "Your month sounded heavier."
+                aiStory?.headline || data?.aiStory.headline || "Seu histórico musical começa aqui."
               )}
             </h1>
             <p className="text-text-secondary text-sm sm:text-base leading-relaxed font-sans max-w-xl">
               {loadingAi ? (
                 <span className="h-4 w-96 bg-surface/40 animate-pulse rounded inline-block"></span>
               ) : (
-                aiStory?.narrative || "You explored darker sounds, expanded your metal horizons, and discovered 18 new artists."
+                aiStory?.narrative || data?.aiStory.narrative || "Sincronize suas audições para gerar sua análise."
               )}
             </p>
           </div>
@@ -164,11 +164,11 @@ export default function OverviewPage() {
             <span className="text-[10px] font-mono font-bold tracking-wider uppercase">PLAYS</span>
           </div>
           <div className="font-serif text-3xl sm:text-4xl font-bold text-text-primary">
-            {loading ? "..." : data?.summary.totalPlays.toLocaleString() || "1,842"}
+            {loading ? "..." : (data?.summary.totalPlays ?? 0).toLocaleString()}
           </div>
           <div className="text-[11px] font-mono text-status-success flex items-center gap-1">
             <ArrowUpRight className="w-3 h-3" />
-            <span>+{data?.summary.playsChangePercent || 18}% vs prev period</span>
+            <span>{data?.summary.playsChangePercent == null ? "sem comparação anterior" : `${data.summary.playsChangePercent > 0 ? "+" : ""}${data.summary.playsChangePercent}% vs período anterior`}</span>
           </div>
         </div>
 
@@ -179,11 +179,11 @@ export default function OverviewPage() {
             <span className="text-[10px] font-mono font-bold tracking-wider uppercase">ARTISTS</span>
           </div>
           <div className="font-serif text-3xl sm:text-4xl font-bold text-text-primary">
-            {loading ? "..." : data?.summary.uniqueArtists.toLocaleString() || "213"}
+            {loading ? "..." : (data?.summary.uniqueArtists ?? 0).toLocaleString()}
           </div>
           <div className="text-[11px] font-mono text-status-success flex items-center gap-1">
             <ArrowUpRight className="w-3 h-3" />
-            <span>+23% vs prev period</span>
+            <span>artistas distintos</span>
           </div>
         </div>
 
@@ -194,11 +194,11 @@ export default function OverviewPage() {
             <span className="text-[10px] font-mono font-bold tracking-wider uppercase">TRACKS</span>
           </div>
           <div className="font-serif text-3xl sm:text-4xl font-bold text-text-primary">
-            {loading ? "..." : data?.summary.uniqueTracks.toLocaleString() || "687"}
+            {loading ? "..." : (data?.summary.uniqueTracks ?? 0).toLocaleString()}
           </div>
           <div className="text-[11px] font-mono text-status-success flex items-center gap-1">
             <ArrowUpRight className="w-3 h-3" />
-            <span>+15% vs prev period</span>
+            <span>faixas distintas</span>
           </div>
         </div>
 
@@ -209,11 +209,11 @@ export default function OverviewPage() {
             <span className="text-[10px] font-mono font-bold tracking-wider uppercase">LISTENING TIME</span>
           </div>
           <div className="font-serif text-3xl sm:text-4xl font-bold text-text-primary">
-            {loading ? "..." : formatHours(data?.summary.estimatedMinutes || 3861)}
+            {loading ? "..." : formatHours(data?.summary.estimatedMinutes ?? 0)}
           </div>
           <div className="text-[11px] font-mono text-status-success flex items-center gap-1">
             <ArrowUpRight className="w-3 h-3" />
-            <span>+12% vs prev period</span>
+            <span>estimativa de 3,5 min/faixa</span>
           </div>
         </div>
       </section>
@@ -225,60 +225,9 @@ export default function OverviewPage() {
         <TasteEvolutionCard
           rising={data?.tasteShift.rising || []}
           declining={data?.tasteShift.declining || []}
-          narrativeInsight={aiStory?.insight}
+          narrativeInsight={aiStory?.insight || data?.aiStory.insight}
         />
         {data?.recommended && <AlbumRecommendation recommendation={data.recommended} />}
-      </section>
-
-      {/* Listening History Table Section */}
-      <section className="p-6 rounded-2xl bg-surface/40 border border-border/60 space-y-6">
-        <div className="flex items-center justify-between border-b border-border/50 pb-4">
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-text-muted uppercase">
-              LISTENING HISTORY
-            </span>
-          </div>
-          <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface border border-border/80 text-xs font-mono text-text-secondary hover:text-text-primary transition-colors">
-            <Filter className="w-3.5 h-3.5 text-text-muted" />
-            <span>FILTER</span>
-          </button>
-        </div>
-
-        {/* History Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs font-sans">
-            <thead className="text-[10px] font-mono uppercase text-text-muted border-b border-border/60">
-              <tr>
-                <th className="py-3 px-4 w-12">#</th>
-                <th className="py-3 px-4">TRACK</th>
-                <th className="py-3 px-4">ARTIST</th>
-                <th className="py-3 px-4">ALBUM</th>
-                <th className="py-3 px-4">LISTENED</th>
-                <th className="py-3 px-4 text-right">TIME</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/30">
-              {(data?.topTracks || []).slice(0, 5).map((track, idx) => (
-                <tr key={idx} className="hover:bg-surface-elevated/50 transition-colors group">
-                  <td className="py-3.5 px-4 font-mono text-text-muted">{idx + 1}</td>
-                  <td className="py-3.5 px-4 font-semibold text-text-primary group-hover:text-accent-gold transition-colors">
-                    {track.name}
-                  </td>
-                  <td className="py-3.5 px-4 text-text-secondary">{track.artistName}</td>
-                  <td className="py-3.5 px-4 text-text-muted font-mono">
-                    {data?.topAlbums[idx % data.topAlbums.length]?.title || "Album"}
-                  </td>
-                  <td className="py-3.5 px-4 text-text-muted font-mono">
-                    Jul 31, 2024 9:41 PM
-                  </td>
-                  <td className="py-3.5 px-4 text-right text-text-muted font-mono">
-                    4:15
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </section>
 
       {/* Sync Status Observability Footer */}

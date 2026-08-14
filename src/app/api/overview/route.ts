@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
-import { OverviewService, PeriodKey } from "@/modules/statistics/application/overview-service";
+import { createEmptyOverview, OverviewService, PeriodKey } from "@/modules/statistics/application/overview-service";
 
 export const dynamic = "force-dynamic";
 
@@ -11,13 +11,7 @@ export async function GET(request: Request) {
 
     const user = await prisma.user.findFirst();
     if (!user) {
-      return NextResponse.json({
-        period,
-        summary: { totalPlays: 0, uniqueArtists: 0, uniqueTracks: 0, estimatedMinutes: 0, playsChangePercent: null },
-        topArtists: [],
-        topTracks: [],
-        syncStatus: { lastSyncedAt: null, totalStoredEvents: 0 },
-      });
+      return NextResponse.json(createEmptyOverview(period));
     }
 
     const overviewService = new OverviewService();
