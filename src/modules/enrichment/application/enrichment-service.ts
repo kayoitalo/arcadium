@@ -34,9 +34,6 @@ export class EnrichmentService {
     private fallbackCoverArt = new LastFmCoverAdapter(),
   ) {}
 
-  /**
-   * Calculates overall metadata enrichment statistics for the user's artist library.
-   */
   async getCoverageStats(): Promise<EnrichmentCoverage> {
     const [totalArtists, resolvedCount, failedCount, totalCanonicalAlbums, albumsWithCover, pendingCoverLookup] = await Promise.all([
       prisma.artist.count(),
@@ -70,9 +67,6 @@ export class EnrichmentService {
     };
   }
 
-  /**
-   * Batch enriches unresolved top artists using MusicBrainz API.
-   */
   async enrichUnresolvedArtists(batchSize = 5): Promise<EnrichmentSummary> {
     const recentArtistIds = await this.getRecentEntityIds("artistId", batchSize * 5);
     const recentUnresolved = recentArtistIds.length ? await prisma.artist.findMany({
@@ -119,7 +113,6 @@ export class EnrichmentService {
             },
           });
 
-          // Enrich top album if available
           const recentAlbumIds = await this.getRecentEntityIds("albumId", 50);
           const topAlbum = await prisma.album.findFirst({
             where: { artistId: artist.id, enrichedAt: null },
@@ -171,7 +164,6 @@ export class EnrichmentService {
     return summary;
   }
 
-  /** Backfills release-group identities for albums created before this field existed. */
   async enrichMissingReleaseGroups(batchSize = 10): Promise<{ processed: number; resolved: number }> {
     const recentAlbumIds = await this.getRecentEntityIds("albumId", batchSize * 5);
     const recentAlbums = recentAlbumIds.length ? await prisma.album.findMany({
@@ -202,7 +194,7 @@ export class EnrichmentService {
           primaryType: metadata?.primaryType ?? album.primaryType,
           releaseGroupFetchedAt: new Date(),
           enrichedAt: metadata ? new Date() : album.enrichedAt,
-          // A previous release-level miss must be retried when a group becomes available.
+
           coverFetchedAt: metadata?.releaseGroupMbid && !album.coverUrl ? null : album.coverFetchedAt,
         },
       });
@@ -212,7 +204,6 @@ export class EnrichmentService {
     return { processed: albums.length, resolved };
   }
 
-  /** Resolves release artwork first, then falls back to the canonical release group. */
   async enrichMissingAlbumCovers(batchSize = 10): Promise<{ processed: number; resolved: number; missing: number }> {
     const coverWhere: Prisma.AlbumWhereInput = { OR: [
       { coverFetchedAt: null, OR: [{ mbid: { not: null } }, { releaseGroupMbid: { not: null } }] },

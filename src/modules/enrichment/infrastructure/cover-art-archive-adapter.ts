@@ -22,8 +22,7 @@ export class CoverArtArchiveAdapter implements CoverArtProvider {
         const response = await fetch(url, {
           method: "GET",
           headers: { "User-Agent": this.userAgent },
-          // A 307 from CAA proves the cover exists. Do not follow it to the
-          // potentially slow archive.org binary from the application server.
+
           redirect: "manual",
           signal: AbortSignal.timeout(6_000),
         });

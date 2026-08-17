@@ -1,22 +1,11 @@
-/**
- * Profile Builder
- *
- * Blueprint §11.1: Build a compact MusicProfileInput from stored statistics.
- * Include ranked signals and representative evidence, not thousands of scrobbles.
- *
- * Blueprint Decision 11: AI data minimization by construction.
- * Excludes identity, credentials, and exact raw timelines.
- */
+
 
 import { prisma } from "@/lib/db/prisma";
 import { getPeriodRanges, type PeriodKey } from "@/modules/statistics/application/overview-service";
 import type { MusicProfileInput } from "../domain/ai-analysis.types";
 
 export class ProfileBuilder {
-  /**
-   * Build a pseudonymized, aggregated profile input for AI analysis.
-   * No user ID, email, or raw timestamps are included.
-   */
+
   async buildProfile(userId: string, period: PeriodKey = "30d"): Promise<MusicProfileInput> {
     const { current, previous } = getPeriodRanges(period);
 
@@ -25,10 +14,8 @@ export class ProfileBuilder {
         ? { userId }
         : { userId, playedAt: { gte: current.start, lte: current.end } };
 
-    // Total plays
     const totalPlays = await prisma.listeningEvent.count({ where: currentWhere });
 
-    // Unique artists & tracks
     const uniqueArtistsResult = await prisma.listeningEvent.groupBy({
       by: ["rawArtistName"],
       where: currentWhere,
@@ -41,7 +28,6 @@ export class ProfileBuilder {
     });
     const uniqueTracks = uniqueTracksResult.length;
 
-    // Top artists with share
     const topArtistsGrouped = await prisma.listeningEvent.groupBy({
       by: ["rawArtistName"],
       where: currentWhere,
@@ -50,7 +36,6 @@ export class ProfileBuilder {
       take: 10,
     });
 
-    // Previous period for share change calculation
     let previousArtistPlays = new Map<string, number>();
     let previousTotal = 0;
     if (previous && period !== "all") {
@@ -80,7 +65,6 @@ export class ProfileBuilder {
       };
     });
 
-    // Rising artists: positive share change with minimum-play threshold
     const risingArtists = topArtists
       .filter((a) => a.shareChange !== null && a.shareChange > 0 && a.plays >= 3)
       .sort((a, b) => (b.shareChange || 0) - (a.shareChange || 0))
@@ -91,7 +75,6 @@ export class ProfileBuilder {
         shareChange: a.shareChange || 0,
       }));
 
-    // Top genres from enriched artists
     const artistNames = topArtistsGrouped.map((a: any) => a.rawArtistName);
     const enrichedArtists = await prisma.artist.findMany({
       where: { name: { in: artistNames }, tags: { not: null } },
@@ -118,7 +101,6 @@ export class ProfileBuilder {
         share: Number((count / totalGenreWeight).toFixed(3)),
       }));
 
-    // New artists in period (first listen in current period)
     let newArtists = 0;
     let newArtistPlays = 0;
     if (period !== "all") {
@@ -134,7 +116,6 @@ export class ProfileBuilder {
       }
     }
 
-    // Concentration metrics
     const top5Plays = topArtists.slice(0, 5).reduce((acc, a) => acc + a.plays, 0);
     const topTracksGrouped = await prisma.listeningEvent.groupBy({
       by: ["rawTrackName"],

@@ -6,14 +6,10 @@ import { normalizeText } from "../domain/normalization";
 export class ListeningSyncService {
   constructor(private provider: ListeningHistoryProvider) {}
 
-  /**
-   * Performs incremental sync using a safety overlap window.
-   * Moves cursor back by overlapWindowSeconds to catch delayed/reordered scrobbles.
-   */
   async runIncrementalSync(
     userId: string,
     providerName = "lastfm",
-    overlapWindowSeconds = 7200 // 2 hours safety overlap
+    overlapWindowSeconds = 7200
   ) {
     const connection = await prisma.providerConnection.findUnique({
       where: { userId_provider: { userId, provider: providerName } },
@@ -71,7 +67,6 @@ export class ListeningSyncService {
           totalInserted += batchStats.inserted;
           totalDuplicates += batchStats.duplicates;
 
-          // Track latest playedAt date
           for (const item of result.items) {
             const itemDate = new Date(item.playedAtUtcSeconds * 1000);
             if (!latestPlayedAt || itemDate > latestPlayedAt) {
@@ -79,7 +74,6 @@ export class ListeningSyncService {
             }
           }
         }
-
 
         await prisma.syncRun.update({
           where: { id: syncRun.id },
@@ -89,7 +83,6 @@ export class ListeningSyncService {
           },
         });
 
-        // Polite pause between pages to respect Last.fm guidance
         if (page < totalPages) {
           await new Promise((resolve) => setTimeout(resolve, 300));
         }
@@ -97,7 +90,6 @@ export class ListeningSyncService {
         page++;
       } while (page <= totalPages);
 
-      // Update provider connection status and lastSyncedAt
       await prisma.providerConnection.update({
         where: { id: connection.id },
         data: {
@@ -142,10 +134,6 @@ export class ListeningSyncService {
     }
   }
 
-  /**
-   * Processes a batch of ListenItems in bulk for maximum speed and database efficiency.
-   * Resolves Artists, Tracks, and Albums in bulk, then uses `createMany({ skipDuplicates: true })`.
-   */
   private async saveBatch(
     userId: string,
     providerName: string,
@@ -153,7 +141,6 @@ export class ListeningSyncService {
   ): Promise<{ inserted: number; duplicates: number }> {
     if (items.length === 0) return { inserted: 0, duplicates: 0 };
 
-    // 1. Bulk resolve Artists
     const uniqueNormalizedArtists = Array.from(
       new Set(items.map((i: ListenItem) => normalizeText(i.rawArtistName)))
     );
@@ -162,10 +149,9 @@ export class ListeningSyncService {
       where: { normalizedName: { in: uniqueNormalizedArtists } },
     });
 
-    const artistMap = new Map<string, string>(); // normName -> artistId
+    const artistMap = new Map<string, string>();
     existingArtists.forEach((a: { id: string; normalizedName: string }) => artistMap.set(a.normalizedName, a.id));
 
-    // Find missing artists
     const missingArtists = items.filter((i: ListenItem) => !artistMap.has(normalizeText(i.rawArtistName)));
     if (missingArtists.length > 0) {
       const missingMap = new Map<string, ListenItem>();
@@ -186,7 +172,6 @@ export class ListeningSyncService {
       }
     }
 
-    // 2. Bulk resolve Tracks
     const trackKeySet = new Set<string>();
     items.forEach((i: ListenItem) => {
       const artistId = artistMap.get(normalizeText(i.rawArtistName));
@@ -204,7 +189,7 @@ export class ListeningSyncService {
       },
     });
 
-    const trackMap = new Map<string, string>(); // artistId|normTrack -> trackId
+    const trackMap = new Map<string, string>();
     existingTracks.forEach((t: { id: string; artistId: string; normalizedName: string }) => trackMap.set(`${t.artistId}|${t.normalizedName}`, t.id));
 
     const missingTracksMap = new Map<string, { artistId: string; rawTrackName: string; normTrack: string }>();
@@ -231,8 +216,7 @@ export class ListeningSyncService {
       trackMap.set(key, created.id);
     }
 
-    // 3. Bulk resolve Albums (optional)
-    const albumMap = new Map<string, string>(); // artistId|normAlbum -> albumId
+    const albumMap = new Map<string, string>();
     const albumItems = items.filter((i: ListenItem) => i.rawAlbumName && normalizeText(i.rawAlbumName));
 
     if (albumItems.length > 0) {
@@ -280,7 +264,6 @@ export class ListeningSyncService {
       }
     }
 
-    // 4. Construct ListeningEvent bulk records
     const eventRecords = items.map((item: ListenItem) => {
       const normArtist = normalizeText(item.rawArtistName);
       const normTrack = normalizeText(item.rawTrackName);
@@ -311,7 +294,6 @@ export class ListeningSyncService {
       };
     });
 
-    // 5. Bulk insert with skipDuplicates
     const result = await prisma.listeningEvent.createMany({
       data: eventRecords,
       skipDuplicates: true,

@@ -41,7 +41,6 @@ export async function POST(request: Request) {
 
     const { username } = parsed.data;
 
-    // Find or create default user for MVP single-user setup
     let user = await prisma.user.findFirst();
 
     if (!user) {
@@ -54,7 +53,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // Upsert ProviderConnection
     await prisma.providerConnection.upsert({
       where: {
         userId_provider: {
@@ -73,7 +71,6 @@ export async function POST(request: Request) {
       },
     });
 
-    // Run sync service
     const provider = new LastFmHistoryProvider();
     const syncService = new ListeningSyncService(provider);
     const result = await syncService.runIncrementalSync(user.id, "lastfm");

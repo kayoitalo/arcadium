@@ -5,7 +5,6 @@ import {
   ListenPage,
 } from "../domain/listening-provider.interface";
 
-// Zod schema for Last.fm user.getRecentTracks response
 const lastfmTrackSchema = z.object({
   artist: z.object({
     "#text": z.string(),
@@ -91,10 +90,9 @@ export class LastFmHistoryProvider implements ListeningHistoryProvider {
         });
 
         if (response.ok) {
-          break; // Success!
+          break;
         }
 
-        // Retry on 5xx or 429 rate limit
         if (response.status >= 500 || response.status === 429) {
           const backoffMs = Math.pow(2, attempt) * 1000 + Math.random() * 500;
           console.warn(
@@ -133,7 +131,6 @@ export class LastFmHistoryProvider implements ListeningHistoryProvider {
       ? recentTracks.track
       : [recentTracks.track];
 
-    // Filter out `@attr.nowplaying = "true"` items and items without a completed date
     const items = rawTrackList
       .filter((t) => !t["@attr"]?.nowplaying && t.date?.uts)
       .map((t) => ({

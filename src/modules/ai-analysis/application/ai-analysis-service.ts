@@ -1,13 +1,4 @@
-/**
- * AI Analysis Service
- *
- * Blueprint §11: Orchestrates the AI analysis pipeline.
- * - Builds profile using ProfileBuilder
- * - Generates hash to prevent duplicate calls and save costs
- * - Calls AI provider (Gemini)
- * - Persists run for audit/caching
- * - Returns deterministic fallback on failure
- */
+
 
 import crypto from "crypto";
 import { prisma } from "@/lib/db/prisma";
@@ -24,21 +15,16 @@ export class AIAnalysisService {
     private adapter = new GeminiAdapter()
   ) {}
 
-  /**
-   * Generates or retrieves a cached AI narrative for the user's dashboard.
-   */
   async getProfileNarrative(userId: string, period: PeriodKey): Promise<ProfileNarrative> {
     let pendingRunId: string | null = null;
     let profile: Awaited<ReturnType<ProfileBuilder["buildProfile"]>> | null = null;
     try {
-      // 1. Build the deterministic profile
+
       profile = await this.profileBuilder.buildProfile(userId, period);
 
-      // 2. Hash the input to reuse identical analyses
       const inputString = JSON.stringify(profile);
       const inputHash = crypto.createHash("sha256").update(inputString).digest("hex");
 
-      // 3. Check for existing successful run with this exact input
       const cachedRun = await prisma.aIAnalysisRun.findFirst({
         where: {
           userId,
@@ -55,13 +41,10 @@ export class AIAnalysisService {
         if (cachedNarrative.success) return cachedNarrative.data;
       }
 
-      // If no AI key is provided, we must use the deterministic fallback immediately
-      // without trying and failing (and polluting the DB with FAILED runs).
       if (!process.env.GEMINI_API_KEY) {
         return this.getFallbackNarrative(profile);
       }
 
-      // 4. Create a pending run audit
       const run = await prisma.aIAnalysisRun.create({
         data: {
           userId,
@@ -75,10 +58,8 @@ export class AIAnalysisService {
       });
       pendingRunId = run.id;
 
-      // 5. Call the AI
       const narrative = await this.adapter.analyzeProfile(profile);
 
-      // 6. Update run with success
       await prisma.aIAnalysisRun.update({
         where: { id: run.id },
         data: {
@@ -100,10 +81,6 @@ export class AIAnalysisService {
     }
   }
 
-  /**
-   * Deterministic fallback when AI is unavailable or fails.
-   * Blueprint §11.4: Fallback to deterministic templated explanations.
-   */
   private getFallbackNarrative(profile: any | null): ProfileNarrative {
     if (!profile) return {
       eyebrow: "ANÁLISE DO PERÍODO",

@@ -13,7 +13,7 @@ export function TasteEvolutionCard({ rising, declining, narrativeInsight }: Tast
   return (
     <div className="p-6 rounded-2xl bg-surface/40 border border-border/60 space-y-6 flex flex-col justify-between">
       <div>
-        {/* Header */}
+
         <div className="flex items-center justify-between border-b border-border/50 pb-3 mb-5">
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-text-muted uppercase">
@@ -23,7 +23,6 @@ export function TasteEvolutionCard({ rising, declining, narrativeInsight }: Tast
           </div>
         </div>
 
-        {/* Rising Genres */}
         <div className="space-y-2 mb-6">
           <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-muted block">
             GÊNEROS EM ASCENSÃO
@@ -42,7 +41,6 @@ export function TasteEvolutionCard({ rising, declining, narrativeInsight }: Tast
           </div>
         </div>
 
-        {/* Declining Genres */}
         <div className="space-y-2">
           <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-muted block">
             GÊNEROS EM QUEDA
@@ -62,7 +60,6 @@ export function TasteEvolutionCard({ rising, declining, narrativeInsight }: Tast
         </div>
       </div>
 
-      {/* AI Narrative Commentary */}
       {narrativeInsight && (
         <div className="p-3.5 rounded-xl bg-surface-soft border border-border/60 text-xs text-text-secondary italic font-serif leading-relaxed mt-4">
           {narrativeInsight}

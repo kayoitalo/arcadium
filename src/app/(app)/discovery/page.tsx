@@ -70,18 +70,16 @@ export default function DiscoveryPage() {
 
   const handleFeedback = async (id: string, action: FeedbackAction) => {
     if (!sessionId) return;
-    
-    // Convert lower-case action to upper-case API enum
+
     const typeMap: Record<string, string> = {
       liked: "LIKED",
       disliked: "DISLIKED",
       known: "ALREADY_KNOW",
       saved: "SAVE_FOR_LATER"
     };
-    
+
     const apiType = typeMap[action];
-    
-    // Optimistic UI update
+
     setItems((prev) =>
       prev.map((item) => {
         if (item.id === id) {
@@ -90,8 +88,7 @@ export default function DiscoveryPage() {
         return item;
       })
     );
-    
-    // Call API
+
     try {
       const response = await fetch(`/api/recommendations/${sessionId}/feedback`, {
         method: "POST",
@@ -110,7 +107,6 @@ export default function DiscoveryPage() {
     setShowExportModal(true);
     setExportResult(null);
 
-    // Filter tracks to export: liked or saved items, or all items if none specifically reacted
     const selection = items.filter((i) => i.feedback === "liked" || i.feedback === "saved");
     const tracksToExport = (selection.length > 0 ? selection : items).map((i) => ({
       trackName: i.trackName,
@@ -135,7 +131,7 @@ export default function DiscoveryPage() {
 
   return (
     <MotionPage className="space-y-10 pb-16">
-      {/* Header */}
+
       <header className="space-y-6">
         <div className="flex items-center justify-between border-b border-border/40 pb-4">
           <div className="flex items-center gap-2">
@@ -145,7 +141,6 @@ export default function DiscoveryPage() {
             </span>
           </div>
 
-          {/* Mode Selector */}
           <div className="flex p-1 rounded-xl bg-surface border border-border/60 text-xs font-mono">
             <button
               onClick={() => setMode("SAFE")}
@@ -174,7 +169,6 @@ export default function DiscoveryPage() {
           </div>
         </div>
 
-        {/* Narrative Headline */}
         <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
           <div className="space-y-3 max-w-3xl">
             <h1 className="font-serif text-4xl sm:text-5xl font-normal leading-tight text-text-primary">
@@ -185,7 +179,6 @@ export default function DiscoveryPage() {
             </p>
           </div>
 
-          {/* Context Selector */}
           <div className="flex items-center gap-2 p-1.5 rounded-xl bg-surface border border-border/60 text-xs font-mono text-text-secondary">
             <Sliders className="w-3.5 h-3.5 text-accent-gold" />
             <select
@@ -202,7 +195,6 @@ export default function DiscoveryPage() {
         </div>
       </header>
 
-      {/* Recommendation Grid */}
       {loading ? (
         <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {[1, 2, 3, 4].map((i) => (
@@ -238,7 +230,7 @@ export default function DiscoveryPage() {
               }`}
             >
               <div className="space-y-4">
-                {/* Header info */}
+
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-border/60 shadow-magazine flex-shrink-0">
@@ -262,16 +254,14 @@ export default function DiscoveryPage() {
                   </span>
                 </div>
 
-                {/* Evidence narrative */}
                 <div className="p-3.5 rounded-xl bg-surface-soft border border-border/60 text-xs text-text-secondary leading-relaxed font-sans">
                   {candidate.reason || "Explicação não registrada para este item."}
                 </div>
               </div>
 
-              {/* Feedback Actions Bar */}
               <div className="flex items-center justify-between pt-3 border-t border-border/40 text-xs font-mono">
                 <div className="flex items-center gap-2">
-                  {/* Liked */}
+
                   <button
                     onClick={() => handleFeedback(candidate.id, "liked")}
                     className={`px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 ${
@@ -284,7 +274,6 @@ export default function DiscoveryPage() {
                     <span>Curtir</span>
                   </button>
 
-                  {/* Disliked */}
                   <button
                     onClick={() => handleFeedback(candidate.id, "disliked")}
                     className={`px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 ${
@@ -297,7 +286,6 @@ export default function DiscoveryPage() {
                     <span>Não Curtir</span>
                   </button>
 
-                  {/* Already Know */}
                   <button
                     onClick={() => handleFeedback(candidate.id, "known")}
                     className={`px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 ${
@@ -311,7 +299,6 @@ export default function DiscoveryPage() {
                   </button>
                 </div>
 
-                {/* Save for later */}
                 <button
                   onClick={() => handleFeedback(candidate.id, "saved")}
                   className={`p-2 rounded-lg border transition-all ${
@@ -329,7 +316,6 @@ export default function DiscoveryPage() {
       </section>
       )}
 
-      {/* Session Export & Persistence Bar */}
       {sessionId && <footer className="p-6 rounded-2xl bg-surface/50 border border-border/60 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="space-y-1">
           <span className="font-serif text-lg font-bold text-text-primary block">Sessão {sessionId ? sessionId.slice(0, 8) : "não iniciada"}</span>
@@ -349,7 +335,6 @@ export default function DiscoveryPage() {
         </div>
       </footer>}
 
-      {/* Spotify Export Modal */}
       <AnimatePresence>{showExportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md">
           <motion.div initial={{ opacity: 0, scale: 0.96, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }} className="w-full max-w-lg p-6 rounded-2xl bg-surface border border-border space-y-5 shadow-magazine">
@@ -398,7 +383,6 @@ export default function DiscoveryPage() {
                   </div>
                 </div>
 
-                {/* Resolved list */}
                 <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 text-xs font-mono">
                   {exportResult.items.map((item: any, idx: number) => (
                     <div

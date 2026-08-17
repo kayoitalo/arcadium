@@ -15,7 +15,6 @@ export async function GET(request: Request) {
     }
     const period = requestedPeriod as PeriodKey;
 
-    // MVP Auth: Find first user
     const user = await prisma.user.findFirst();
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });

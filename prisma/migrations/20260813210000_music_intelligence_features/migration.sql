@@ -1,4 +1,4 @@
--- Extend canonical music metadata
+
 ALTER TABLE "Artist"
 ADD COLUMN "country" TEXT,
 ADD COLUMN "type" TEXT,
@@ -14,7 +14,6 @@ ADD COLUMN "enrichedAt" TIMESTAMP(3);
 
 CREATE INDEX "Artist_metadataStatus_idx" ON "Artist"("metadataStatus");
 
--- Recommendation engine
 CREATE TABLE "RecommendationSession" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -57,7 +56,6 @@ CREATE TABLE "RecommendationFeedback" (
     CONSTRAINT "RecommendationFeedback_pkey" PRIMARY KEY ("id")
 );
 
--- AI analysis audit
 CREATE TABLE "AIAnalysisRun" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -75,7 +73,6 @@ CREATE TABLE "AIAnalysisRun" (
     CONSTRAINT "AIAnalysisRun_pkey" PRIMARY KEY ("id")
 );
 
--- Playlist exports
 CREATE TABLE "PlaylistExport" (
     "id" TEXT NOT NULL,
     "sessionId" TEXT NOT NULL,

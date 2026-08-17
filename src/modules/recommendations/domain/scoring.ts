@@ -1,12 +1,4 @@
-/**
- * Recommendation Scoring Engine
- *
- * Blueprint §10.4: Deterministic score calculation with weighted, explainable components.
- * Blueprint §10.5: Mode-specific weight configurations.
- *
- * This is a pure function module — no database access, no side effects.
- * All inputs must be pre-computed and passed in.
- */
+
 
 import {
   type RawCandidate,
@@ -21,35 +13,27 @@ export interface UserProfile {
   topArtistNames: string[];
   topGenres: string[];
   knownArtistNames: Set<string>;
-  knownTrackKeys: Set<string>; // "normalizedArtist|normalizedTrack"
-  feedbackMap: Map<string, FeedbackType>; // artistName → most recent feedback
+  knownTrackKeys: Set<string>;
+  feedbackMap: Map<string, FeedbackType>;
   totalPlays: number;
   uniqueArtists: number;
 }
 
-/**
- * Compute explainable score components for a candidate against a user profile.
- */
 export function computeComponents(
   candidate: RawCandidate,
   profile: UserProfile
 ): ScoreComponents {
-  // Artist Similarity: how related is the candidate to the user's top artists
+
   const artistSimilarity = computeArtistSimilarity(candidate, profile);
 
-  // Genre Similarity: overlap between candidate genre tags and user's top genres
   const genreSimilarity = computeGenreSimilarity(candidate, profile);
 
-  // Profile Relevance: does this match the user's current listening patterns
   const profileRelevance = computeProfileRelevance(candidate, profile);
 
-  // Novelty Fit: how new/unfamiliar is this to the user
   const noveltyFit = computeNoveltyFit(candidate, profile);
 
-  // Feedback Fit: has the user reacted positively to related content before
   const feedbackFit = computeFeedbackFit(candidate, profile);
 
-  // Metadata Confidence: do we have enough data about this candidate
   const metadataConfidence = computeMetadataConfidence(candidate);
 
   return {
@@ -62,9 +46,6 @@ export function computeComponents(
   };
 }
 
-/**
- * Calculate final weighted score (0–100) from components.
- */
 export function calculateScore(
   components: ScoreComponents,
   mode: RecommendationMode
@@ -81,9 +62,6 @@ export function calculateScore(
   return Math.round(Math.min(100, Math.max(0, raw * 100)));
 }
 
-/**
- * Score and rank a batch of candidates.
- */
 export function scoreAndRank(
   candidates: RawCandidate[],
   profile: UserProfile,
@@ -104,23 +82,20 @@ export function scoreAndRank(
     };
   });
 
-  // Sort by score descending, stable
   scored.sort((a, b) => b.score - a.score);
 
   return scored;
 }
 
-// ─── Component Calculators ───────────────────────────────────────────
-
 function computeArtistSimilarity(candidate: RawCandidate, profile: UserProfile): number {
-  // If the candidate was generated from a similar-artist source, it gets high similarity
+
   if (candidate.source === "similar_artist" && candidate.sourceArtistName) {
     const seedIdx = profile.topArtistNames.indexOf(candidate.sourceArtistName);
     if (seedIdx >= 0) {
-      // Higher similarity for seeds that are higher-ranked in the user's top artists
+
       return Math.max(0.3, 1.0 - seedIdx * 0.08);
     }
-    return 0.5; // Similar to a known but non-top artist
+    return 0.5;
   }
 
   if (candidate.source === "artist_graph") {
@@ -131,11 +106,11 @@ function computeArtistSimilarity(candidate: RawCandidate, profile: UserProfile):
     return 0.7;
   }
 
-  return 0.4; // Genre adjacency default
+  return 0.4;
 }
 
 function computeGenreSimilarity(candidate: RawCandidate, profile: UserProfile): number {
-  if (!candidate.genre) return 0.3; // Unknown genre → neutral
+  if (!candidate.genre) return 0.3;
 
   const candidateGenres = candidate.genre
     .toLowerCase()
@@ -159,7 +134,7 @@ function computeGenreSimilarity(candidate: RawCandidate, profile: UserProfile): 
 }
 
 function computeProfileRelevance(candidate: RawCandidate, profile: UserProfile): number {
-  // Higher when the candidate connects to the user's heavy rotation
+
   if (candidate.sourceArtistName) {
     const idx = profile.topArtistNames.indexOf(candidate.sourceArtistName);
     if (idx >= 0 && idx < 5) return 0.9;
@@ -174,13 +149,13 @@ function computeNoveltyFit(candidate: RawCandidate, profile: UserProfile): numbe
   const trackKey = `${candidate.artistName.toLowerCase()}|${candidate.trackName.toLowerCase()}`;
   const trackKnown = profile.knownTrackKeys.has(trackKey);
 
-  if (trackKnown) return 0.0; // Already listened
-  if (artistKnown) return 0.3; // Known artist, new track
-  return 0.9; // Completely new artist
+  if (trackKnown) return 0.0;
+  if (artistKnown) return 0.3;
+  return 0.9;
 }
 
 function computeFeedbackFit(candidate: RawCandidate, profile: UserProfile): number {
-  // Check if the user has given feedback on this artist or similar artists
+
   const artistFeedback = profile.feedbackMap.get(candidate.artistName.toLowerCase());
 
   if (artistFeedback === "LIKED") return 0.9;
@@ -189,14 +164,13 @@ function computeFeedbackFit(candidate: RawCandidate, profile: UserProfile): numb
   if (artistFeedback === "DISLIKED") return 0.0;
   if (artistFeedback === "ALREADY_KNOW") return 0.4;
 
-  // Check source artist feedback
   if (candidate.sourceArtistName) {
     const sourceFeedback = profile.feedbackMap.get(candidate.sourceArtistName.toLowerCase());
     if (sourceFeedback === "LIKED") return 0.7;
     if (sourceFeedback === "DISLIKED") return 0.2;
   }
 
-  return 0.5; // No feedback data → neutral
+  return 0.5;
 }
 
 function computeMetadataConfidence(candidate: RawCandidate): number {
@@ -209,8 +183,6 @@ function computeMetadataConfidence(candidate: RawCandidate): number {
 
   return Math.min(1.0, confidence);
 }
-
-// ─── Reason Builder ──────────────────────────────────────────────────
 
 function buildReason(
   candidate: RawCandidate,

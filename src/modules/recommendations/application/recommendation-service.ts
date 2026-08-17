@@ -1,15 +1,4 @@
-/**
- * Recommendation Service
- *
- * Blueprint §10: Orchestrates the two-stage recommendation pipeline:
- * 1. Build user profile from stored statistics
- * 2. Generate candidates from similar artists/tracks and genre adjacency
- * 3. Apply exclusions (already listened, recently recommended, disliked)
- * 4. Score and rank deterministically
- * 5. Persist session with score components
- *
- * Blueprint §12: Feedback persistence and influence on future sessions.
- */
+
 
 import { prisma } from "@/lib/db/prisma";
 import { scoreAndRank, type UserProfile } from "../domain/scoring";
@@ -52,25 +41,18 @@ export interface SessionResult {
 }
 
 export class RecommendationService {
-  /**
-   * Generate a new recommendation session for a user.
-   */
+
   async generateSession(input: GenerateSessionInput): Promise<SessionResult> {
     const { userId, mode, context, period = "30d", size = DEFAULT_SESSION_SIZE } = input;
 
-    // 1. Build user profile
     const profile = await this.buildUserProfile(userId, period);
 
-    // 2. Generate candidates
     const rawCandidates = await this.generateCandidates(userId, profile, mode);
 
-    // 3. Apply exclusions
     const filtered = await this.applyExclusions(userId, rawCandidates, profile);
 
-    // 4. Score, rank and take top N
     const scored = scoreAndRank(filtered, profile, mode).slice(0, size);
 
-    // 5. Persist session
     const session = await prisma.recommendationSession.create({
       data: {
         userId,
@@ -120,17 +102,13 @@ export class RecommendationService {
     };
   }
 
-  /**
-   * Submit feedback for a recommendation item.
-   * Blueprint §12.1: Feedback has distinct meanings and influences.
-   */
   async submitFeedback(
     userId: string,
     itemId: string,
     feedbackType: FeedbackType,
     note?: string
   ): Promise<{ success: boolean }> {
-    // Verify the item belongs to a session owned by this user
+
     const item = await prisma.recommendationItem.findUnique({
       where: { id: itemId },
       include: { session: true },
@@ -140,7 +118,6 @@ export class RecommendationService {
       throw new Error("Recommendation item not found or unauthorized");
     }
 
-    // Map feedback type to item status
     const statusMap: Record<FeedbackType, string> = {
       LIKED: "LIKED",
       DISLIKED: "DISLIKED",
@@ -149,13 +126,11 @@ export class RecommendationService {
       SAVE_FOR_LATER: "SAVED",
     };
 
-    // Update item status
     await prisma.recommendationItem.update({
       where: { id: itemId },
       data: { status: statusMap[feedbackType] },
     });
 
-    // Persist feedback record
     await prisma.recommendationFeedback.create({
       data: {
         itemId,
@@ -168,9 +143,6 @@ export class RecommendationService {
     return { success: true };
   }
 
-  /**
-   * Get an existing session with its items.
-   */
   async getSession(sessionId: string, userId: string): Promise<SessionResult | null> {
     const session = await prisma.recommendationSession.findFirst({
       where: { id: sessionId, userId },
@@ -200,9 +172,6 @@ export class RecommendationService {
     };
   }
 
-  /**
-   * Get the user's latest active session.
-   */
   async getLatestSession(userId: string): Promise<SessionResult | null> {
     const session = await prisma.recommendationSession.findFirst({
       where: { userId, status: "ACTIVE" },
@@ -233,13 +202,8 @@ export class RecommendationService {
     };
   }
 
-  // ─── Private Methods ───────────────────────────────────────────────
-
-  /**
-   * Build the user's listening profile from stored data.
-   */
   private async buildUserProfile(userId: string, period: string): Promise<UserProfile> {
-    // Get top artists for the period
+
     const durationDays = period === "7d" ? 7 : period === "1y" ? 365 : 30;
     const since = new Date(Date.now() - durationDays * 24 * 60 * 60 * 1000);
 
@@ -253,14 +217,12 @@ export class RecommendationService {
 
     const topArtistNames = topArtistsGrouped.map((a: any) => a.rawArtistName);
 
-    // Get all known artists
     const allArtists = await prisma.listeningEvent.groupBy({
       by: ["rawArtistName"],
       where: { userId },
     });
     const knownArtistNames = new Set(allArtists.map((a: any) => a.rawArtistName.toLowerCase()));
 
-    // Get all known tracks
     const allTracks = await prisma.listeningEvent.groupBy({
       by: ["rawArtistName", "rawTrackName"],
       where: { userId },
@@ -269,7 +231,6 @@ export class RecommendationService {
       allTracks.map((t: any) => `${t.rawArtistName.toLowerCase()}|${t.rawTrackName.toLowerCase()}`)
     );
 
-    // Get top genres from enriched artist tags
     const enrichedArtists = await prisma.artist.findMany({
       where: { name: { in: topArtistNames }, tags: { not: null } },
       select: { tags: true },
@@ -288,7 +249,6 @@ export class RecommendationService {
       .slice(0, 10)
       .map(([genre]) => genre);
 
-    // Get feedback from previous sessions
     const feedbackRecords = await prisma.recommendationFeedback.findMany({
       where: { userId },
       include: { item: { select: { artistName: true } } },
@@ -318,10 +278,6 @@ export class RecommendationService {
     };
   }
 
-  /**
-   * Generate raw candidates from the user's profile.
-   * Sources: similar artists (tag-based), genre adjacency, deep cuts from top artists.
-   */
   private async generateCandidates(
     userId: string,
     profile: UserProfile,
@@ -329,7 +285,6 @@ export class RecommendationService {
   ): Promise<RawCandidate[]> {
     const candidates: RawCandidate[] = [];
 
-    // Strategy 1: Find artists with similar tags/genres (genre adjacency)
     if (profile.topGenres.length > 0) {
       const genrePatterns = profile.topGenres.slice(0, 5);
       for (const genre of genrePatterns) {
@@ -362,13 +317,12 @@ export class RecommendationService {
       }
     }
 
-    // Strategy 2: Deep cuts from top artists (tracks the user hasn't listened to)
     for (const artistName of profile.topArtistNames.slice(0, 5)) {
       const artist = await prisma.artist.findFirst({
         where: { name: artistName },
         include: {
           tracks: {
-            orderBy: { listeningEvents: { _count: "asc" } }, // Least-listened first
+            orderBy: { listeningEvents: { _count: "asc" } },
             take: 3,
           },
         },
@@ -393,8 +347,6 @@ export class RecommendationService {
       }
     }
 
-    // Strategy 3: Artists connected to multiple top artists (artist graph)
-    // Find artists that share tags with multiple top artists
     if (profile.topGenres.length >= 2) {
       const multiGenreArtists = await prisma.artist.findMany({
         where: {
@@ -426,7 +378,6 @@ export class RecommendationService {
       }
     }
 
-    // Deduplicate candidates by artist+track
     const seen = new Set<string>();
     return candidates.filter((c) => {
       const key = `${c.artistName.toLowerCase()}|${c.trackName.toLowerCase()}`;
@@ -436,15 +387,12 @@ export class RecommendationService {
     });
   }
 
-  /**
-   * Apply exclusions per Blueprint §10.3.
-   */
   private async applyExclusions(
     userId: string,
     candidates: RawCandidate[],
     profile: UserProfile
   ): Promise<RawCandidate[]> {
-    // Get recently recommended items (within cooldown)
+
     const cooldownDate = new Date(
       Date.now() - RECENT_RECOMMENDATION_COOLDOWN_DAYS * 24 * 60 * 60 * 1000
     );
@@ -458,7 +406,6 @@ export class RecommendationService {
       recentItems.map((i: any) => `${i.artistName.toLowerCase()}|${i.trackName.toLowerCase()}`)
     );
 
-    // Get disliked artist names
     const dislikedFeedback = await prisma.recommendationFeedback.findMany({
       where: { userId, type: "DISLIKED" },
       include: { item: { select: { artistName: true } } },
@@ -470,13 +417,10 @@ export class RecommendationService {
     return candidates.filter((c) => {
       const trackKey = `${c.artistName.toLowerCase()}|${c.trackName.toLowerCase()}`;
 
-      // Exclude already listened tracks
       if (profile.knownTrackKeys.has(trackKey)) return false;
 
-      // Exclude recently recommended
       if (recentKeys.has(trackKey)) return false;
 
-      // Exclude disliked artists (with strong suppression)
       if (dislikedArtists.has(c.artistName.toLowerCase())) return false;
 
       return true;

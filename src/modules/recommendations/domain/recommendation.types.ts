@@ -1,20 +1,10 @@
-/**
- * Recommendation Engine — Domain Types
- *
- * Blueprint §10: Two-stage recommendation design
- * Stage A: deterministic system (profile → candidates → scoring → ranked list)
- * Stage B: optional AI (explanations and narrative grouping)
- */
+
 
 export type RecommendationMode = "SAFE" | "BALANCED" | "EXPERIMENTAL";
 export type RecommendationContext = "GENERAL" | "WORKING" | "STUDYING" | "EXERCISING" | "RELAXING";
 
 export type FeedbackType = "LIKED" | "DISLIKED" | "ALREADY_KNOW" | "NOT_INTERESTED" | "SAVE_FOR_LATER";
 
-/**
- * Blueprint §10.4 — Explainable score components
- * Each component is a 0–1 normalized signal.
- */
 export interface ScoreComponents {
   artistSimilarity: number;
   genreSimilarity: number;
@@ -24,10 +14,6 @@ export interface ScoreComponents {
   metadataConfidence: number;
 }
 
-/**
- * Blueprint §10.5 — Mode-specific weights
- * Weights are versioned starting hypothesis, not truth.
- */
 export const MODE_WEIGHTS: Record<RecommendationMode, ScoreComponents> = {
   SAFE: {
     artistSimilarity: 0.35,
@@ -55,10 +41,6 @@ export const MODE_WEIGHTS: Record<RecommendationMode, ScoreComponents> = {
   },
 };
 
-/**
- * Blueprint §12.3 — Feedback affinity adjustment rules
- * Bounded increments/decrements so one reaction cannot dominate the profile.
- */
 export const FEEDBACK_RULES: Record<FeedbackType, {
   trackEffect: number;
   artistEffect: number;
@@ -72,28 +54,22 @@ export const FEEDBACK_RULES: Record<FeedbackType, {
   SAVE_FOR_LATER: { trackEffect: 0, artistEffect: 0.01, genreEffect: 0, cooldownDays: null },
 };
 
-/**
- * A candidate before scoring — generated from listening profile and similar artists/tracks.
- */
 export interface RawCandidate {
   artistName: string;
   trackName: string;
   albumName?: string;
   genre?: string;
   source: "similar_artist" | "genre_adjacency" | "artist_graph" | "top_artist_deep_cut";
-  sourceArtistName?: string; // The seed artist that generated this candidate
+  sourceArtistName?: string;
   artistId?: string;
   trackId?: string;
 }
 
-/**
- * A scored candidate ready for persistence.
- */
 export interface ScoredCandidate extends RawCandidate {
-  score: number; // 0–100 composite
+  score: number;
   noveltyScore: number;
   components: ScoreComponents;
-  reason: string; // Human-readable deterministic explanation
+  reason: string;
 }
 
 export const ALGORITHM_VERSION = "v1";

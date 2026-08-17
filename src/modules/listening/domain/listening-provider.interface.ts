@@ -17,8 +17,8 @@ export interface FetchListensInput {
   username: string;
   page?: number;
   limit?: number;
-  from?: number; // Unix timestamp UTC
-  to?: number;   // Unix timestamp UTC
+  from?: number;
+  to?: number;
 }
 
 export interface ListeningHistoryProvider {

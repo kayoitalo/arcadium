@@ -25,9 +25,9 @@ model User {
 model ProviderConnection {
   id               String    @id @default(uuid())
   userId           String
-  provider         String    // e.g. "lastfm"
+  provider         String
   username         String
-  status           String    @default("ACTIVE") // ACTIVE, ERROR, SYNCING
+  status           String    @default("ACTIVE")
   encryptedTokens  String?
   lastSyncedAt     DateTime?
   historicalCursor String?
@@ -43,8 +43,8 @@ model ProviderConnection {
 model SyncRun {
   id               String    @id @default(uuid())
   connectionId     String
-  type             String    // HISTORICAL, INCREMENTAL
-  status           String    // RUNNING, COMPLETED, FAILED
+  type             String
+  status           String
   cursor           String?
   fetchedCount     Int       @default(0)
   insertedCount    Int       @default(0)
@@ -64,11 +64,11 @@ model Artist {
   name           String
   normalizedName String
   mbid           String?
-  country        String?   // e.g. "US", "GB", "SE"
-  type           String?   // e.g. "Group", "Person", "Orchestra"
+  country        String?
+  type           String?
   disambiguation String?
-  tags           String?   // Comma-separated or JSON list of top tags/genres
-  metadataStatus String    @default("UNRESOLVED") // UNRESOLVED, RESOLVED, FAILED
+  tags           String?
+  metadataStatus String    @default("UNRESOLVED")
   enrichedAt     DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -104,7 +104,7 @@ model Album {
   name           String
   normalizedName String
   releaseYear    Int?
-  primaryType    String?   // e.g. "Album", "EP", "Single"
+  primaryType    String?
   mbid           String?
   releaseGroupMbid String?
   releaseGroupFetchedAt DateTime?
@@ -129,9 +129,9 @@ model Album {
 model ListeningEvent {
   id               String   @id @default(uuid())
   userId           String
-  playedAt         DateTime // Stored in UTC
-  provider         String   // "lastfm"
-  providerEventKey String   // sha256(userId + "|lastfm|" + timestamp + "|" + normalizedArtist + "|" + normalizedTrack)
+  playedAt         DateTime
+  provider         String
+  providerEventKey String
   rawArtistName    String
   rawTrackName     String
   rawAlbumName     String?
@@ -151,16 +151,14 @@ model ListeningEvent {
   @@index([userId, trackId, playedAt])
 }
 
-// ─── Recommendation Engine ───────────────────────────────────────────
-
 model RecommendationSession {
   id               String   @id @default(uuid())
   userId           String
-  mode             String   // SAFE, BALANCED, EXPERIMENTAL
-  context          String?  // GENERAL, WORKING, STUDYING, EXERCISING, RELAXING
-  profilePeriod    String   @default("30d") // Period used for profile building
+  mode             String
+  context          String?
+  profilePeriod    String   @default("30d")
   algorithmVersion String   @default("v1")
-  status           String   @default("ACTIVE") // ACTIVE, COMPLETED, EXPIRED
+  status           String   @default("ACTIVE")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -178,14 +176,14 @@ model RecommendationItem {
   trackName       String
   albumName       String?
   genre           String?
-  score           Float   // Final composite score (0-100)
-  noveltyScore    Float?  // Novelty sub-score
-  scoreComponents Json?   // { artistSimilarity, genreSimilarity, profileRelevance, noveltyFit, feedbackFit, metadataConfidence }
-  rank            Int     // Position in ranked list
-  status          String  @default("PENDING") // PENDING, LIKED, DISLIKED, KNOWN, NOT_INTERESTED, SAVED
-  reason          String? // Human-readable explanation
-  artistId        String? // Link to canonical Artist if resolved
-  trackId         String? // Link to canonical Track if resolved
+  score           Float
+  noveltyScore    Float?
+  scoreComponents Json?
+  rank            Int
+  status          String  @default("PENDING")
+  reason          String?
+  artistId        String?
+  trackId         String?
   createdAt       DateTime @default(now())
 
   session  RecommendationSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -198,7 +196,7 @@ model RecommendationFeedback {
   id        String   @id @default(uuid())
   itemId    String
   userId    String
-  type      String   // LIKED, DISLIKED, ALREADY_KNOW, NOT_INTERESTED, SAVE_FOR_LATER
+  type      String
   note      String?
   createdAt DateTime @default(now())
 
@@ -209,20 +207,18 @@ model RecommendationFeedback {
   @@index([itemId])
 }
 
-// ─── AI Analysis ─────────────────────────────────────────────────────
-
 model AIAnalysisRun {
   id              String   @id @default(uuid())
   userId          String
-  kind            String   // PROFILE_NARRATIVE, RECOMMENDATION_EXPLANATION
+  kind            String
   provider        String   @default("gemini")
-  model           String?  // e.g. "gemini-3.5-flash"
+  model           String?
   promptVersion   String   @default("v1")
-  inputHash       String?  // SHA-256 of structured input for dedup/caching
-  validatedOutput Json?    // The Zod-validated structured output
-  rawOutput       String?  // Raw model response for debugging
-  status          String   @default("PENDING") // PENDING, COMPLETED, FAILED
-  tokenCount      Int?     // Input + output tokens
+  inputHash       String?
+  validatedOutput Json?
+  rawOutput       String?
+  status          String   @default("PENDING")
+  tokenCount      Int?
   errorMessage    String?
   createdAt       DateTime @default(now())
 
@@ -232,16 +228,14 @@ model AIAnalysisRun {
   @@index([inputHash])
 }
 
-// ─── Playlist Export ─────────────────────────────────────────────────
-
 model PlaylistExport {
   id                 String   @id @default(uuid())
   sessionId          String
   userId             String
-  providerPlaylistId String?  // Spotify playlist ID
+  providerPlaylistId String?
   playlistUrl        String?
-  mode               String   // SPOTIFY_API, FALLBACK_PLAYLIST
-  selectedItemIds    Json?    // Array of RecommendationItem IDs that were exported
+  mode               String
+  selectedItemIds    Json?
   totalItems         Int      @default(0)
   resolvedCount      Int      @default(0)
   createdAt          DateTime @default(now())

@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       }
       if (body.action === "covers") action = "covers";
     } catch {
-      // Empty or invalid body, use default batchSize 5
+
     }
 
     if (action === "covers") {

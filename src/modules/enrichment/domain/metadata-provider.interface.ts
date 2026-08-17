@@ -5,7 +5,7 @@ export interface EnrichedArtistResult {
   type: string | null;
   disambiguation: string | null;
   tags: string[];
-  score: number; // 0 to 1 confidence
+  score: number;
 }
 
 export interface EnrichedAlbumResult {

@@ -64,15 +64,13 @@ O JSON deve seguir exatamente a seguinte estrutura:
     try {
       const result = await model.generateContent(prompt);
       const text = result.response.text();
-      
-      // Defensive cleanup for providers that ignore responseMimeType.
+
       const jsonString = text.replace(/```json/g, "").replace(/```/g, "").trim();
-      
+
       const parsed = JSON.parse(jsonString);
-      
-      // Validate against our Zod schema
+
       const validated = profileNarrativeSchema.parse(parsed);
-      
+
       return validated;
     } catch (error) {
       console.error("[GeminiAdapter] Failed to analyze profile:", error);

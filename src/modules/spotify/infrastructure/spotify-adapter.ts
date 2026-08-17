@@ -1,10 +1,7 @@
 import { PlaylistProvider, PlaylistSearchResult, PlaylistResult } from "../domain/playlist-provider.interface";
 
 export class SpotifyAdapter implements PlaylistProvider {
-  /**
-   * Search Spotify catalog for a track matching trackName and artistName.
-   * If accessToken is not provided, returns a direct web search URL fallback.
-   */
+
   async searchTrackUri(
     trackName: string,
     artistName: string,
@@ -52,9 +49,6 @@ export class SpotifyAdapter implements PlaylistProvider {
     }
   }
 
-  /**
-   * Create a new private playlist on user's Spotify account.
-   */
   async createPlaylist(
     accessToken: string,
     spotifyUserId: string,
@@ -92,9 +86,6 @@ export class SpotifyAdapter implements PlaylistProvider {
     }
   }
 
-  /**
-   * Add array of track URIs to specified Spotify playlist in chunks of 100.
-   */
   async addTracksToPlaylist(
     accessToken: string,
     playlistId: string,

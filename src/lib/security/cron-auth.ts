@@ -6,7 +6,6 @@ export interface CronAuthResult {
 export function verifyCronAuth(request: Request): CronAuthResult {
   const cronSecret = process.env.CRON_SECRET;
 
-  // If no secret configured or in local development, allow interactive requests
   if (!cronSecret || process.env.NODE_ENV === "development") {
     return { authorized: true };
   }

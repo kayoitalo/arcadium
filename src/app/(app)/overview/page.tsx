@@ -85,9 +85,9 @@ export default function OverviewPage() {
 
   return (
     <MotionPage className="space-y-10 pb-12">
-      {/* Editorial Masthead / Header */}
+
       <header className="space-y-6">
-        {/* Top Controls Row */}
+
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
           <div className="flex items-center gap-3">
             <span className="text-[10px] font-mono font-bold tracking-[0.25em] text-text-muted uppercase">
@@ -96,7 +96,7 @@ export default function OverviewPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Period Selector Pills */}
+
             <div className="flex max-w-full overflow-x-auto rounded-xl border border-border/60 bg-surface p-1">
               {periods.map((p) => (
                 <button
@@ -117,7 +117,6 @@ export default function OverviewPage() {
           </div>
         </div>
 
-        {/* Narrative Headline & Story Callout */}
         <div className="grid items-stretch gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(20rem,.65fr)]">
           <AnimatePresence mode="wait"><motion.div key={period} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.3 }} className="flex min-h-64 flex-col justify-center space-y-3 py-3">
             {!loadingAi && aiStory?.eyebrow && <span className="eyebrow">{aiStory.eyebrow}</span>}
@@ -149,7 +148,6 @@ export default function OverviewPage() {
         <MetricCard icon={Clock} label="TEMPO DE ESCUTA" value={loading ? "…" : formatHours(data?.summary.listeningMinutes ?? 0)} change={null} detail={data?.summary.durationSource === "TRACK_METADATA" ? "Calculado com a duração armazenada de todas as faixas." : "Combina durações conhecidas com estimativa de 3,5 minutos para faixas sem duração."} />
       </MotionSection>
 
-      {/* Hero Section: 2.5D Collage + Listening Activity Chart */}
       <MotionSection className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         <div className="lg:col-span-7 flex">
           <DynamicAlbumHero albums={data?.topAlbums || []} />
@@ -169,7 +167,6 @@ export default function OverviewPage() {
         ].map(([label, value, detail]) => <article key={String(label)} className="rounded-2xl border border-border/60 bg-surface/30 p-5" title={String(detail)}><span className="eyebrow">{label}</span><strong className="mt-2 block font-serif text-3xl text-text-primary">{value}%</strong><div className="mt-3 h-1.5 rounded-full bg-background"><div className="h-full rounded-full bg-accent-gold" style={{ width: `${value}%` }} /></div></article>)}
       </MotionSection>}
 
-      {/* Main 4-Column Editorial Grid */}
       <MotionSection className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <EditorialRankings topArtists={data?.topArtists || []} />
         <RecentDiscoveries discoveries={data?.discoveries || []} />
@@ -181,7 +178,6 @@ export default function OverviewPage() {
         {data?.recommended && <AlbumRecommendation recommendation={data.recommended} />}
       </MotionSection>
 
-      {/* Sync Status Observability Footer */}
       <footer className="p-4 rounded-xl bg-surface/30 border border-border/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-muted font-mono">
         <div className="flex items-center gap-2">
           <Activity className={`w-4 h-4 ${data?.syncStatus.lastSyncedAt ? "text-status-success" : "text-text-muted"}`} />

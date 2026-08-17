@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { defineConfig, env } from "prisma/config";
 
-// Load .env manually if process.env.DATABASE_URL is absent
 if (!process.env.DATABASE_URL) {
   const envPath = path.join(__dirname, ".env");
   if (fs.existsSync(envPath)) {

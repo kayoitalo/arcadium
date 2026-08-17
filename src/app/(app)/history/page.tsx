@@ -133,7 +133,7 @@ export default function HistoryPage() {
 
   return (
     <MotionPage className="space-y-8 pb-12">
-      {/* Editorial Header */}
+
       <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 rounded-2xl bg-surface/40 border border-border/60">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -147,7 +147,6 @@ export default function HistoryPage() {
           </p>
         </div>
 
-        {/* Search Input */}
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 text-text-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
@@ -163,7 +162,6 @@ export default function HistoryPage() {
         </div>
       </header>
 
-      {/* Container */}
       <MotionDiv className="rounded-2xl bg-surface/40 border border-border/60 overflow-hidden shadow-card">
         {loading ? (
           <div className="py-20 text-center text-text-muted text-xs font-mono animate-pulse">
@@ -177,7 +175,7 @@ export default function HistoryPage() {
           </div>
         ) : (
           <>
-            {/* Desktop / Tablet Table View */}
+
             <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-left text-xs font-sans">
                 <thead className="bg-surface-elevated/70 text-[10px] font-mono font-semibold text-text-muted uppercase tracking-wider border-b border-border/60">
@@ -207,7 +205,6 @@ export default function HistoryPage() {
               </table>
             </div>
 
-            {/* Mobile Vertical List View */}
             <div className="sm:hidden divide-y divide-border/30">
               {events.map((event) => (
                 <div key={event.id} className="p-4 space-y-2 hover:bg-surface-elevated/40 transition-colors">
@@ -245,7 +242,6 @@ export default function HistoryPage() {
           </>
         )}
 
-        {/* Pagination */}
         <div className="p-4 border-t border-border/60 flex items-center justify-between text-xs text-text-secondary font-mono">
           <span>
             Página {page} de {totalPages || 1}

@@ -12,7 +12,7 @@ export async function GET(request: Request) {
 
     const service = new RecommendationService();
     const session = await service.getLatestSession(user.id);
-    
+
     return NextResponse.json(session || { items: [] });
   } catch (error: any) {
     console.error("GET Recommendations API error:", error);
@@ -31,15 +31,12 @@ export async function POST(request: Request) {
     const period = body.period || "30d";
 
     const service = new RecommendationService();
-    
-    // First try to find an existing active session with the exact same mode and context
-    // This prevents generating new sessions on simple page reloads
+
     const latest = await service.getLatestSession(user.id);
     if (latest && latest.mode === mode && latest.context === context) {
       return NextResponse.json(latest);
     }
 
-    // Otherwise generate a new session
     const session = await service.generateSession({
       userId: user.id,
       mode,

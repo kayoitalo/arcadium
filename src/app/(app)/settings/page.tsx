@@ -97,7 +97,7 @@ export default function SettingsPage() {
 
   return (
     <MotionPage className="space-y-8 max-w-4xl pb-12">
-      {/* Editorial Header */}
+
       <header className="p-6 rounded-2xl bg-surface/40 border border-border/60 space-y-1">
         <div className="flex items-center gap-2">
           <Settings className="w-5 h-5 text-accent-gold" />
@@ -110,7 +110,6 @@ export default function SettingsPage() {
         </p>
       </header>
 
-      {/* Integration Card: Last.fm */}
       <MotionDiv className="p-6 rounded-2xl bg-surface/40 border border-border/60 space-y-5">
         <div className="flex items-center justify-between pb-3 border-b border-border/60">
           <div className="flex items-center gap-3">
@@ -179,7 +178,6 @@ export default function SettingsPage() {
         )}
       </MotionDiv>
 
-      {/* Integration Card: MusicBrainz Metadata Enrichment */}
       <MotionDiv className="p-6 rounded-2xl bg-surface/40 border border-border/60 space-y-5">
         <div className="flex items-center justify-between pb-3 border-b border-border/60">
           <div className="flex items-center gap-3">
@@ -261,7 +259,6 @@ export default function SettingsPage() {
         </div>
       </MotionDiv>
 
-      {/* Integration Card: Spotify Playlist Export */}
       <div className="p-6 rounded-2xl bg-surface/40 border border-border/60 space-y-5">
         <div className="flex items-center justify-between pb-3 border-b border-border/60">
           <div className="flex items-center gap-3">
@@ -301,7 +298,6 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Integration Card: Privacy & Data Management */}
       <div className="p-6 rounded-2xl bg-surface/40 border border-border/60 space-y-5">
         <div className="flex items-center justify-between pb-3 border-b border-border/60">
           <div className="flex items-center gap-3">
@@ -364,7 +360,6 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* System Status Panel */}
       <div className="p-6 rounded-2xl bg-surface/40 border border-border/60 space-y-4">
         <div className="flex items-center gap-2">
           <Database className="w-5 h-5 text-accent-gold" />

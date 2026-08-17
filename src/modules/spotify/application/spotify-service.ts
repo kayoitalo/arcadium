@@ -25,9 +25,6 @@ export interface ExportResponse {
 export class SpotifyService {
   constructor(private adapter = new SpotifyAdapter()) {}
 
-  /**
-   * Export a selection of tracks to a Spotify private playlist or fallback file playlist.
-   */
   async exportTracks(
     tracks: TrackExportItem[],
     accessToken?: string,
@@ -50,7 +47,6 @@ export class SpotifyService {
       };
     }
 
-    // Resolve tracks against Spotify Search API (or fallback web search URLs)
     const resolvedItems = await Promise.all(
       tracks.map(async (t) => {
         const result = await this.adapter.searchTrackUri(t.trackName, t.artistName, accessToken);
@@ -67,7 +63,6 @@ export class SpotifyService {
     const resolvedCount = validUris.length;
     const unresolvedCount = tracks.length - resolvedCount;
 
-    // Direct Spotify Web API Export path
     if (accessToken && spotifyUserId && validUris.length > 0) {
       const playlist = await this.adapter.createPlaylist(accessToken, spotifyUserId, playlistTitle, description);
       if (playlist) {
@@ -84,7 +79,6 @@ export class SpotifyService {
       }
     }
 
-    // Fallback Export path: generate downloadable .m3u and .csv playlists + web search URLs
     let m3uLines = ["#EXTM3U", `#PLAYLIST:${playlistTitle}`];
     let csvLines = ["Artist,Track,Spotify Search Link"];
 

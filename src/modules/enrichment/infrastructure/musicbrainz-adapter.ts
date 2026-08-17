@@ -3,16 +3,13 @@ import { MetadataProvider, EnrichedArtistResult, EnrichedAlbumResult } from "../
 
 export class MusicBrainzAdapter implements MetadataProvider {
   private lastRequestTime = 0;
-  private readonly minDelayMs = 1100; // Strictly respect 1 req/sec rate limit
+  private readonly minDelayMs = 1100;
   private readonly userAgent: string;
 
   constructor(userAgent = "SpotStats/0.1.0 ( contact@example.com )") {
     this.userAgent = userAgent;
   }
 
-  /**
-   * Enforces 1 request/second throttling before executing HTTP requests.
-   */
   private async throttle(): Promise<void> {
     const now = Date.now();
     const elapsed = now - this.lastRequestTime;
@@ -22,9 +19,6 @@ export class MusicBrainzAdapter implements MetadataProvider {
     this.lastRequestTime = Date.now();
   }
 
-  /**
-   * Search for an artist by name on MusicBrainz API.
-   */
   async searchArtist(artistName: string): Promise<EnrichedArtistResult | null> {
     if (!artistName || !artistName.trim()) return null;
     await this.throttle();
@@ -49,7 +43,6 @@ export class MusicBrainzAdapter implements MetadataProvider {
       const artists = data.artists || [];
       if (artists.length === 0) return null;
 
-      // Find best matching artist by normalized name comparison
       let bestMatch: any = null;
       let highestConfidence = 0;
 
@@ -62,7 +55,7 @@ export class MusicBrainzAdapter implements MetadataProvider {
         } else if (itemNorm.includes(normalizedTarget) || normalizedTarget.includes(itemNorm)) {
           confidence = 0.8;
         } else {
-          const mbScore = (item.score || 0) / 100; // MusicBrainz 0-100 search score
+          const mbScore = (item.score || 0) / 100;
           confidence = mbScore * 0.7;
         }
 
@@ -72,7 +65,6 @@ export class MusicBrainzAdapter implements MetadataProvider {
         }
       }
 
-      // Minimum confidence threshold of 0.6 to avoid false positives
       if (!bestMatch || highestConfidence < 0.6) {
         return null;
       }
@@ -100,9 +92,6 @@ export class MusicBrainzAdapter implements MetadataProvider {
     }
   }
 
-  /**
-   * Search for an album/release by name and optional artist MBID.
-   */
   async searchAlbum(albumName: string, artistMbid?: string): Promise<EnrichedAlbumResult | null> {
     if (!albumName || !albumName.trim()) return null;
     await this.throttle();

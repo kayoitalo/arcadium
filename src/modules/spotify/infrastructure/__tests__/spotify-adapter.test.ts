@@ -85,7 +85,7 @@ describe("SpotifyAdapter", () => {
     const result = await adapter.addTracksToPlaylist("valid-access-token", "playlist-12345", trackUris);
 
     expect(result.addedCount).toBe(150);
-    // Should make 2 fetch calls for 150 items (100 in chunk 1, 50 in chunk 2)
+
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
   });
 });

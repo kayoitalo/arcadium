@@ -20,7 +20,7 @@ describe("Recommendation Scoring Engine", () => {
     it("penalizes novelty if track is already known", () => {
       const candidate: RawCandidate = {
         artistName: "Deftones",
-        trackName: "Change", // already known
+        trackName: "Change",
         source: "similar_artist",
       };
 
@@ -59,7 +59,7 @@ describe("Recommendation Scoring Engine", () => {
       };
 
       const components = computeComponents(candidate, mockProfile);
-      // progressive metal and alternative metal both match top genres
+
       expect(components.genreSimilarity).toBeGreaterThan(0.8);
     });
   });
@@ -82,7 +82,7 @@ describe("Recommendation Scoring Engine", () => {
       expect(scoreSafe).toBeLessThanOrEqual(100);
       expect(scoreExperimental).toBeGreaterThanOrEqual(0);
       expect(scoreExperimental).toBeLessThanOrEqual(100);
-      // Safe mode weights similarity heavier, experimental weights novelty heavier
+
       expect(scoreSafe).not.toEqual(scoreExperimental);
     });
   });
@@ -99,7 +99,7 @@ describe("Recommendation Scoring Engine", () => {
         },
         {
           artistName: "Deftones",
-          trackName: "Change", // known
+          trackName: "Change",
           source: "top_artist_deep_cut",
           sourceArtistName: "Deftones",
         },
@@ -108,7 +108,7 @@ describe("Recommendation Scoring Engine", () => {
       const ranked = scoreAndRank(candidates, mockProfile, "BALANCED");
 
       expect(ranked).toHaveLength(2);
-      expect(ranked[0].score).toBeGreaterThanOrEqual(ranked[1].score); // Sorted desc
+      expect(ranked[0].score).toBeGreaterThanOrEqual(ranked[1].score);
       expect(ranked[0].reason).toContain("Match determinístico");
       expect(ranked[0].noveltyScore).toBeDefined();
     });
