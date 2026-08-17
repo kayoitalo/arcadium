@@ -135,6 +135,7 @@ export class MusicBrainzAdapter implements MetadataProvider {
 
       return {
         mbid: first.id,
+        releaseGroupMbid: first["release-group"]?.id || null,
         title: first.title,
         releaseYear,
         primaryType,

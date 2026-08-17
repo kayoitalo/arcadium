@@ -74,6 +74,7 @@ describe("MusicBrainzAdapter", () => {
           title: "OK Computer",
           date: "1997-05-21",
           "release-group": {
+            id: "release-group-mbid-456",
             "primary-type": "Album",
           },
         },
@@ -89,6 +90,7 @@ describe("MusicBrainzAdapter", () => {
 
     expect(result).not.toBeNull();
     expect(result?.mbid).toBe("album-mbid-123");
+    expect(result?.releaseGroupMbid).toBe("release-group-mbid-456");
     expect(result?.releaseYear).toBe(1997);
     expect(result?.primaryType).toBe("Album");
   });

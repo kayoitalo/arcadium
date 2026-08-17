@@ -30,22 +30,28 @@ describe("ProfileBuilder", () => {
 
     // Mock groupBy for unique artists/tracks and top artists
     (vi.mocked(prisma.listeningEvent.groupBy) as any).mockImplementation((args: any) => {
+      if (args._min?.playedAt) {
+        return Promise.resolve([
+          { rawArtistName: "Artist A", _min: { playedAt: new Date() }, _count: { id: 60 } },
+          { rawArtistName: "Artist B", _min: { playedAt: new Date() }, _count: { id: 40 } },
+        ]);
+      }
       if (args.by.includes("rawTrackName")) {
         return Promise.resolve([
-          { rawArtistName: "Deftones", rawTrackName: "Change", _count: { id: 20 } },
-          { rawArtistName: "Gojira", rawTrackName: "Stranded", _count: { id: 10 } },
+          { rawArtistName: "Artist A", rawTrackName: "Track A", _count: { id: 20 } },
+          { rawArtistName: "Artist B", rawTrackName: "Track B", _count: { id: 10 } },
         ]);
       }
       return Promise.resolve([
-        { rawArtistName: "Deftones", _count: { id: 60 } },
-        { rawArtistName: "Gojira", _count: { id: 40 } },
+        { rawArtistName: "Artist A", _count: { id: 60 } },
+        { rawArtistName: "Artist B", _count: { id: 40 } },
       ]);
     });
 
     // Mock artist query for tags
     vi.mocked(prisma.artist.findMany).mockResolvedValue([
-      { name: "Deftones", tags: "alternative metal, nu metal" } as any,
-      { name: "Gojira", tags: "progressive metal, death metal" } as any,
+      { name: "Artist A", tags: "genre one, genre two" } as any,
+      { name: "Artist B", tags: "genre three, genre four" } as any,
     ]);
 
     // Mock findFirst for first listen check
@@ -63,14 +69,14 @@ describe("ProfileBuilder", () => {
     expect(profile.period).toBe("30d");
     expect(profile.totalPlays).toBe(100);
     expect(profile.topArtists).toHaveLength(2);
-    expect(profile.topArtists[0].name).toBe("Deftones");
+    expect(profile.topArtists[0].name).toBe("Artist A");
     expect(profile.topArtists[0].share).toBe(0.6); // 60 / 100
 
     // Verify genres
     expect(profile.topGenres).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ name: "alternative metal" }),
-        expect.objectContaining({ name: "progressive metal" }),
+        expect.objectContaining({ name: "genre one" }),
+        expect.objectContaining({ name: "genre three" }),
       ])
     );
   });

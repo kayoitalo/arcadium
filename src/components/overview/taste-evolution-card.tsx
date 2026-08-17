@@ -17,7 +17,7 @@ export function TasteEvolutionCard({ rising, declining, narrativeInsight }: Tast
         <div className="flex items-center justify-between border-b border-border/50 pb-3 mb-5">
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-text-muted uppercase">
-              TASTE SHIFT
+              EVOLUÇÃO DO GOSTO
             </span>
             <Info className="w-3.5 h-3.5 text-text-muted" />
           </div>
@@ -26,9 +26,10 @@ export function TasteEvolutionCard({ rising, declining, narrativeInsight }: Tast
         {/* Rising Genres */}
         <div className="space-y-2 mb-6">
           <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-muted block">
-            RISING GENRES
+            GÊNEROS EM ASCENSÃO
           </span>
           <div className="space-y-1.5">
+            {rising.length === 0 && <p className="text-xs text-text-muted">Sem dados comparáveis.</p>}
             {rising.slice(0, 5).map((item) => (
               <div key={item.genre} className="flex items-center justify-between text-xs font-mono">
                 <span className="text-text-primary font-medium">{item.genre}</span>
@@ -44,9 +45,10 @@ export function TasteEvolutionCard({ rising, declining, narrativeInsight }: Tast
         {/* Declining Genres */}
         <div className="space-y-2">
           <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-text-muted block">
-            DECLINING GENRES
+            GÊNEROS EM QUEDA
           </span>
           <div className="space-y-1.5">
+            {declining.length === 0 && <p className="text-xs text-text-muted">Sem dados comparáveis.</p>}
             {declining.slice(0, 5).map((item) => (
               <div key={item.genre} className="flex items-center justify-between text-xs font-mono">
                 <span className="text-text-secondary">{item.genre}</span>
@@ -63,7 +65,7 @@ export function TasteEvolutionCard({ rising, declining, narrativeInsight }: Tast
       {/* AI Narrative Commentary */}
       {narrativeInsight && (
         <div className="p-3.5 rounded-xl bg-surface-soft border border-border/60 text-xs text-text-secondary italic font-serif leading-relaxed mt-4">
-          "{narrativeInsight}"
+          {narrativeInsight}
         </div>
       )}
     </div>

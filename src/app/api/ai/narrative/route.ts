@@ -8,7 +8,12 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const period = (searchParams.get("period") || "30d") as PeriodKey;
+    const requestedPeriod = searchParams.get("period") || "30d";
+    const supportedPeriods: PeriodKey[] = ["7d", "30d", "1y", "all"];
+    if (!supportedPeriods.includes(requestedPeriod as PeriodKey)) {
+      return NextResponse.json({ error: "Período inválido" }, { status: 400 });
+    }
+    const period = requestedPeriod as PeriodKey;
 
     // MVP Auth: Find first user
     const user = await prisma.user.findFirst();

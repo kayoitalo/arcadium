@@ -10,6 +10,7 @@ export interface EnrichedArtistResult {
 
 export interface EnrichedAlbumResult {
   mbid: string;
+  releaseGroupMbid: string | null;
   title: string;
   releaseYear: number | null;
   primaryType: string | null;

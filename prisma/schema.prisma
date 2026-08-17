@@ -106,6 +106,13 @@ model Album {
   releaseYear    Int?
   primaryType    String?   // e.g. "Album", "EP", "Single"
   mbid           String?
+  releaseGroupMbid String?
+  releaseGroupFetchedAt DateTime?
+  coverUrl       String?
+  coverSource    String?
+  coverEntityType String?
+  coverMbid      String?
+  coverFetchedAt DateTime?
   enrichedAt     DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -114,6 +121,9 @@ model Album {
   listeningEvents ListeningEvent[]
 
   @@index([artistId, normalizedName])
+  @@index([coverFetchedAt])
+  @@index([releaseGroupMbid])
+  @@index([releaseGroupFetchedAt])
 }
 
 model ListeningEvent {
@@ -206,7 +216,7 @@ model AIAnalysisRun {
   userId          String
   kind            String   // PROFILE_NARRATIVE, RECOMMENDATION_EXPLANATION
   provider        String   @default("gemini")
-  model           String?  // e.g. "gemini-2.0-flash"
+  model           String?  // e.g. "gemini-3.5-flash"
   promptVersion   String   @default("v1")
   inputHash       String?  // SHA-256 of structured input for dedup/caching
   validatedOutput Json?    // The Zod-validated structured output

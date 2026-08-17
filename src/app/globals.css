@@ -43,8 +43,9 @@
   --color-rank-bronze: #9f603e;
 
   /* --- Typography --- */
-  --font-sans: var(--font-inter), "Geist", "Inter", sans-serif;
-  --font-serif: var(--font-instrument-serif), "Instrument Serif", "Georgia", serif;
+  --font-sans: var(--font-manrope), "Manrope", sans-serif;
+  --font-serif: var(--font-display), "Syne", sans-serif;
+  --font-mono: var(--font-space-mono), "Space Mono", monospace;
 
   /* --- Shadows --- */
   --shadow-glow: 0 0 30px -5px rgba(180, 122, 70, 0.2);
@@ -83,6 +84,20 @@ body {
     radial-gradient(at 85% 20%, rgba(197, 154, 96, 0.05) 0px, transparent 40%),
     radial-gradient(at 50% 90%, rgba(96, 45, 45, 0.04) 0px, transparent 50%);
   background-attachment: fixed;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  letter-spacing: -0.012em;
+}
+
+h1, h2, h3, h4 {
+  text-wrap: balance;
+}
+
+.font-serif {
+  letter-spacing: -0.045em;
+}
+
+.font-mono {
+  letter-spacing: 0.015em;
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -114,6 +129,29 @@ body {
   background: #15120f;
   border: 1px solid #332c25;
   box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
+}
+
+.eyebrow {
+  color: var(--text-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-gold);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════

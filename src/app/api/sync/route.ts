@@ -8,8 +8,19 @@ import { verifyCronAuth } from "@/lib/security/cron-auth";
 
 const syncRequestSchema = z.object({
   username: z.string().min(1, "Last.fm username is required"),
-  userId: z.string().optional(),
 });
+
+export async function GET() {
+  const user = await prisma.user.findFirst();
+  if (!user) return NextResponse.json({ connection: null, latestRun: null });
+  const connection = await prisma.providerConnection.findUnique({
+    where: { userId_provider: { userId: user.id, provider: "lastfm" } },
+    select: { username: true, status: true, lastSyncedAt: true, syncRuns: { orderBy: { startedAt: "desc" }, take: 1 } },
+  });
+  if (!connection) return NextResponse.json({ connection: null, latestRun: null });
+  const { syncRuns, ...details } = connection;
+  return NextResponse.json({ connection: details, latestRun: syncRuns[0] ?? null });
+}
 
 export async function POST(request: Request) {
   const auth = verifyCronAuth(request);
@@ -28,12 +39,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const { username, userId: inputUserId } = parsed.data;
+    const { username } = parsed.data;
 
     // Find or create default user for MVP single-user setup
-    let user = inputUserId
-      ? await prisma.user.findUnique({ where: { id: inputUserId } })
-      : await prisma.user.findFirst();
+    let user = await prisma.user.findFirst();
 
     if (!user) {
       user = await prisma.user.create({
@@ -55,7 +64,6 @@ export async function POST(request: Request) {
       },
       update: {
         username,
-        status: "ACTIVE",
       },
       create: {
         userId: user.id,

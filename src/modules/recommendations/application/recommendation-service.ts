@@ -347,15 +347,16 @@ export class RecommendationService {
 
         for (const artist of similarArtists) {
           const track = artist.tracks[0];
+          if (!track) continue;
           candidates.push({
             artistName: artist.name,
-            trackName: track?.name || "Popular Track",
+            trackName: track.name,
             albumName: undefined,
             genre: artist.tags?.split(",").slice(0, 3).join(" / ") || genre,
             source: "genre_adjacency",
             sourceArtistName: undefined,
             artistId: artist.id,
-            trackId: track?.id,
+            trackId: track.id,
           });
         }
       }
@@ -412,14 +413,15 @@ export class RecommendationService {
 
       for (const artist of multiGenreArtists) {
         const track = artist.tracks[0];
+        if (!track) continue;
         candidates.push({
           artistName: artist.name,
-          trackName: track?.name || "Popular Track",
+          trackName: track.name,
           albumName: undefined,
           genre: artist.tags?.split(",").slice(0, 3).join(" / ") || undefined,
           source: "artist_graph",
           artistId: artist.id,
-          trackId: track?.id,
+          trackId: track.id,
         });
       }
     }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activityByUtcDay, createEmptyOverview, getPeriodRanges, percentChange } from "./overview-service";
+import { activityByUtcDay, calculateTasteShift, createEmptyOverview, getPeriodRanges, percentChange } from "./overview-service";
 
 describe("overview statistics", () => {
   it("builds equivalent current and previous seven-day ranges", () => {
@@ -39,5 +39,14 @@ describe("overview statistics", () => {
     expect(result.listeningActivity).toEqual([]);
     expect(result.recommended).toBeNull();
     expect(result.aiStory.insight).toContain("Nenhuma conclusão");
+  });
+
+  it("calculates genre shifts only from weighted artist tags", () => {
+    const result = calculateTasteShift(
+      [{ name: "A", plays: 30, tags: ["rock"] }, { name: "B", plays: 20, tags: ["jazz"] }],
+      [{ name: "A", plays: 10, tags: ["rock"] }, { name: "B", plays: 40, tags: ["jazz"] }],
+    );
+    expect(result.rising).toEqual([{ genre: "rock", changePercent: 200, currentShare: 60, previousShare: 20 }]);
+    expect(result.declining).toEqual([{ genre: "jazz", changePercent: -50, currentShare: 40, previousShare: 80 }]);
   });
 });

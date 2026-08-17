@@ -23,13 +23,23 @@ export class ListeningSyncService {
       throw new Error(`Provider connection '${providerName}' not found for user ${userId}`);
     }
 
-    const syncRun = await prisma.syncRun.create({
-      data: {
-        connectionId: connection.id,
-        type: "INCREMENTAL",
-        status: "RUNNING",
-      },
+    const lock = await prisma.providerConnection.updateMany({
+      where: { id: connection.id, status: { not: "SYNCING" } },
+      data: { status: "SYNCING" },
     });
+    if (lock.count === 0) {
+      throw new Error("A synchronization is already running for this Last.fm connection.");
+    }
+
+    let syncRun;
+    try {
+      syncRun = await prisma.syncRun.create({
+        data: { connectionId: connection.id, type: "INCREMENTAL", status: "RUNNING" },
+      });
+    } catch (error) {
+      await prisma.providerConnection.update({ where: { id: connection.id }, data: { status: "ERROR" } });
+      throw error;
+    }
 
     try {
       let fromTimestamp: number | undefined;
@@ -69,6 +79,15 @@ export class ListeningSyncService {
             }
           }
         }
+
+
+        await prisma.syncRun.update({
+          where: { id: syncRun.id },
+          data: {
+            cursor: String(page), fetchedCount: totalFetched,
+            insertedCount: totalInserted, duplicateCount: totalDuplicates,
+          },
+        });
 
         // Polite pause between pages to respect Last.fm guidance
         if (page < totalPages) {
@@ -114,6 +133,10 @@ export class ListeningSyncService {
           errorMessage: error?.message || "Unknown error during sync",
           finishedAt: new Date(),
         },
+      });
+      await prisma.providerConnection.update({
+        where: { id: connection.id },
+        data: { status: "ERROR" },
       });
       throw error;
     }

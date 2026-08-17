@@ -1,7 +1,7 @@
 "use client";
 
 import { RecommendationItem } from "@/modules/statistics/application/overview-service";
-import { Play, Bookmark, MoreHorizontal } from "lucide-react";
+import { ResilientCover } from "@/components/ui/resilient-cover";
 
 interface AlbumRecommendationProps {
   recommendation: RecommendationItem;
@@ -13,20 +13,16 @@ export function AlbumRecommendation({ recommendation }: AlbumRecommendationProps
       {/* Header */}
       <div>
         <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-text-muted uppercase block">
-          RECOMMENDED FOR YOU
+          RECOMENDADO PARA VOCÊ
         </span>
         <span className="text-[10px] font-mono text-text-secondary uppercase tracking-wider block">
-          BASED ON YOUR TASTE EVOLUTION
+          ÚLTIMA SESSÃO ARMAZENADA
         </span>
       </div>
 
       {/* Featured Album Card */}
       <div className="relative rounded-xl overflow-hidden border border-border/70 group shadow-magazine aspect-square max-h-[260px] mx-auto w-full">
-        <img
-          src={recommendation.coverUrl}
-          alt={recommendation.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-        />
+        <ResilientCover src={recommendation.coverUrl} alt={recommendation.title} label={recommendation.title} className="h-full w-full" imageClassName="transition-transform duration-500 group-hover:scale-105" />
 
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent p-5 flex flex-col justify-end">
@@ -40,31 +36,9 @@ export function AlbumRecommendation({ recommendation }: AlbumRecommendationProps
             {recommendation.reason}
           </p>
 
-          {/* Action Row */}
-          <div className="flex items-center justify-between mt-4">
-            <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-text-primary text-background font-mono text-xs font-bold hover:bg-accent-gold transition-colors shadow-glow">
-              <Play className="w-3.5 h-3.5 fill-background" />
-              <span>PLAY ALBUM</span>
-            </button>
-            <div className="flex items-center gap-2 text-text-secondary">
-              <button className="p-1.5 hover:text-text-primary transition-colors">
-                <Bookmark className="w-4 h-4" />
-              </button>
-              <button className="p-1.5 hover:text-text-primary transition-colors">
-                <MoreHorizontal className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* Carousel Navigation Dots */}
-      <div className="flex items-center justify-center gap-1.5 pt-2">
-        <span className="w-2 h-2 rounded-full bg-accent-gold" />
-        <span className="w-1.5 h-1.5 rounded-full bg-border" />
-        <span className="w-1.5 h-1.5 rounded-full bg-border" />
-        <span className="w-1.5 h-1.5 rounded-full bg-border" />
-      </div>
     </div>
   );
 }

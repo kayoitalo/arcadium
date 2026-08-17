@@ -8,6 +8,7 @@ import {
   flexRender,
   createColumnHelper,
 } from "@tanstack/react-table";
+import { MotionDiv, MotionPage } from "@/components/ui/motion";
 
 interface HistoryEvent {
   id: string;
@@ -25,10 +26,12 @@ export default function HistoryPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchHistory() {
       setLoading(true);
+      setError(null);
       try {
         const query = new URLSearchParams({
           page: page.toString(),
@@ -36,14 +39,14 @@ export default function HistoryPage() {
           search,
         });
         const res = await fetch(`/api/history?${query.toString()}`);
-        if (res.ok) {
-          const json = await res.json();
-          setEvents(json.events || []);
-          setTotalPages(json.totalPages || 1);
-          setTotalItems(json.totalItems || 0);
-        }
+        if (!res.ok) throw new Error("Não foi possível carregar o histórico.");
+        const json = await res.json();
+        setEvents(json.events || []);
+        setTotalPages(json.totalPages || 1);
+        setTotalItems(json.totalItems || 0);
       } catch (err) {
         console.error("Failed to load history", err);
+        setError(err instanceof Error ? err.message : "Não foi possível carregar o histórico.");
       } finally {
         setLoading(false);
       }
@@ -63,7 +66,7 @@ export default function HistoryPage() {
     () => [
       {
         id: "trackAndArtist",
-        header: "Track & Artist",
+        header: "Faixa e artista",
         accessorFn: (row: any) => row,
         cell: (info: any) => {
           const event = info.getValue();
@@ -89,7 +92,7 @@ export default function HistoryPage() {
       },
       {
         accessorKey: "rawAlbumName",
-        header: "Album",
+        header: "Álbum",
         cell: (info: any) => {
           const val = info.getValue();
           return val ? (
@@ -103,7 +106,7 @@ export default function HistoryPage() {
       },
       {
         accessorKey: "playedAt",
-        header: () => <div className="text-right">Played At</div>,
+        header: () => <div className="text-right">Ouvida em</div>,
         cell: (info: any) => (
           <div className="flex items-center justify-end gap-1.5 text-xs text-text-muted font-mono">
             <Clock className="w-3.5 h-3.5 text-text-muted" />
@@ -129,18 +132,18 @@ export default function HistoryPage() {
   });
 
   return (
-    <div className="space-y-8 pb-12">
+    <MotionPage className="space-y-8 pb-12">
       {/* Editorial Header */}
       <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 rounded-2xl bg-surface/40 border border-border/60">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <History className="w-5 h-5 text-accent-gold" />
             <h1 className="font-serif text-3xl font-bold tracking-tight text-text-primary">
-              Listening History
+              Histórico de audições
             </h1>
           </div>
           <p className="text-text-secondary text-xs font-sans">
-            Chronological scrobble feed stored in PostgreSQL ({totalItems.toLocaleString()} total entries).
+            Eventos armazenados em ordem cronológica ({totalItems.toLocaleString("pt-BR")} registros).
           </p>
         </div>
 
@@ -154,21 +157,23 @@ export default function HistoryPage() {
               setSearch(e.target.value);
               setPage(1);
             }}
-            placeholder="Search artist, track or album..."
+            placeholder="Buscar artista, faixa ou álbum..."
             className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface border border-border/80 text-xs focus:outline-none focus:border-accent-gold text-text-primary placeholder:text-text-muted transition-colors font-sans"
           />
         </div>
       </header>
 
       {/* Container */}
-      <div className="rounded-2xl bg-surface/40 border border-border/60 overflow-hidden shadow-card">
+      <MotionDiv className="rounded-2xl bg-surface/40 border border-border/60 overflow-hidden shadow-card">
         {loading ? (
           <div className="py-20 text-center text-text-muted text-xs font-mono animate-pulse">
-            Loading scrobble history...
+            Carregando histórico…
           </div>
+        ) : error ? (
+          <div className="py-20 text-center text-status-error text-xs font-mono">{error}</div>
         ) : events.length === 0 ? (
           <div className="py-20 text-center text-text-muted text-xs font-mono">
-            No scrobbles match your search query.
+            {search ? "Nenhuma audição corresponde à busca." : "Nenhuma audição foi armazenada."}
           </div>
         ) : (
           <>
@@ -225,7 +230,7 @@ export default function HistoryPage() {
 
                   <div className="flex items-center justify-between text-[10px] font-mono text-text-muted pt-1">
                     <span className="truncate max-w-[180px]">
-                      {event.rawAlbumName ? `Album: ${event.rawAlbumName}` : "Single / Unknown"}
+                      {event.rawAlbumName ? `Álbum: ${event.rawAlbumName}` : "Álbum não informado"}
                     </span>
                     <span>
                       {new Date(event.playedAt).toLocaleTimeString("pt-BR", {
@@ -243,7 +248,7 @@ export default function HistoryPage() {
         {/* Pagination */}
         <div className="p-4 border-t border-border/60 flex items-center justify-between text-xs text-text-secondary font-mono">
           <span>
-            Page {page} of {totalPages || 1}
+            Página {page} de {totalPages || 1}
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -262,7 +267,7 @@ export default function HistoryPage() {
             </button>
           </div>
         </div>
-      </div>
-    </div>
+      </MotionDiv>
+    </MotionPage>
   );
 }

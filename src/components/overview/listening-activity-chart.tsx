@@ -1,77 +1,25 @@
 "use client";
 
-import { useState } from "react";
-import { ActivityPoint } from "@/modules/statistics/application/overview-service";
-import { ChevronDown } from "lucide-react";
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from "recharts";
+import type { ActivityPoint } from "@/modules/statistics/application/overview-service";
+import { Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-interface ListeningActivityChartProps {
-  activity: ActivityPoint[];
+function formatDay(value: string) {
+  const [, month, day] = value.split("-");
+  return `${day}/${month}`;
 }
 
-export function ListeningActivityChart({ activity }: ListeningActivityChartProps) {
-  const [viewMode, setViewMode] = useState<"day" | "hour">("day");
+function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: ActivityPoint }> }) {
+  if (!active || !payload?.length) return null;
+  const point = payload[0].payload;
+  return <div className="rounded-xl border border-border/80 bg-surface-elevated p-3 text-xs shadow-glow"><p className="font-mono text-accent-gold">{new Date(`${point.label}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "long" })}</p><p className="mt-1 font-semibold text-text-primary">{point.plays} audições <span className="font-normal text-text-muted">· cerca de {point.hours}h</span></p></div>;
+}
 
-  // Recharts custom tooltip
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-surface-elevated border border-border/80 p-3 rounded-lg shadow-glow text-xs font-mono">
-          <p className="text-accent-gold font-semibold mb-1">{data.label}</p>
-          <p className="text-text-primary font-bold">
-            {data.hours}h <span className="text-text-muted font-normal">({data.plays} plays)</span>
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  return (
-    <div className="w-full h-[320px] sm:h-[380px] md:h-[420px] flex flex-col justify-between p-6 rounded-2xl bg-surface/40 border border-border/60 select-none">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-text-muted uppercase block">
-            LISTENING ACTIVITY
-          </span>
-          <h3 className="font-serif text-lg font-bold text-text-primary">
-            Hourly Volume
-          </h3>
-        </div>
-
-        {/* Dropdown Selector */}
-        <div className="relative inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-surface border border-border/80 text-xs text-text-secondary hover:text-text-primary transition-colors cursor-pointer">
-          <span className="font-mono text-[11px]">By {viewMode}</span>
-          <ChevronDown className="w-3.5 h-3.5 text-text-muted" />
-        </div>
-      </div>
-
-      {/* Bar Graph Graphic */}
-      <div className="flex-1 w-full min-h-0 relative">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={activity} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
-            <XAxis 
-              dataKey="label" 
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: "#776d62", fontSize: 10, fontFamily: "monospace" }}
-              dy={10}
-            />
-            <Tooltip 
-              content={<CustomTooltip />}
-              cursor={{ fill: 'rgba(180, 122, 70, 0.05)' }}
-            />
-            <Bar 
-              dataKey="hours" 
-              fill="#b47a46" 
-              radius={[2, 2, 0, 0]}
-              activeBar={{ fill: '#c59a60', stroke: '#c59a60', strokeWidth: 1 }}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
+export function ListeningActivityChart({ activity }: { activity: ActivityPoint[] }) {
+  const peak = activity.reduce<ActivityPoint | null>((best, item) => !best || item.plays > best.plays ? item : best, null);
+  const average = activity.length ? Number((activity.reduce((sum, item) => sum + item.plays, 0) / activity.length).toFixed(1)) : 0;
+  return <div className="flex h-[300px] w-full flex-col rounded-3xl border border-border/60 bg-surface/35 p-5 sm:h-[340px]">
+    <div className="mb-4 flex items-start justify-between gap-4"><div><span className="eyebrow">ATIVIDADE DE ESCUTA</span><h3 className="mt-1 font-serif text-xl text-text-primary">Ritmo diário</h3></div>{peak && <div className="text-right"><span className="block text-[10px] font-mono text-text-muted">PICO</span><strong className="text-sm text-accent-gold">{peak.plays} audições</strong><span className="block text-[10px] text-text-muted">{formatDay(peak.label)}</span></div>}</div>
+    <div className="min-h-0 flex-1">{activity.length === 0 ? <div className="flex h-full items-center justify-center text-xs text-text-muted">Sem audições no período selecionado.</div> : <ResponsiveContainer width="100%" height="100%"><BarChart data={activity} margin={{ top: 8, right: 4, left: -24, bottom: 0 }}><CartesianGrid vertical={false} stroke="#25201c" strokeDasharray="3 5" /><XAxis dataKey="label" tickFormatter={formatDay} axisLine={false} tickLine={false} minTickGap={28} tick={{ fill: "#776d62", fontSize: 9, fontFamily: "monospace" }} dy={8} /><YAxis axisLine={false} tickLine={false} allowDecimals={false} tick={{ fill: "#776d62", fontSize: 9, fontFamily: "monospace" }} /><Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(180,122,70,.05)" }} /><ReferenceLine y={average} stroke="#c59a60" strokeOpacity={0.4} strokeDasharray="4 5" /><Bar dataKey="plays" fill="#b47a46" radius={[3, 3, 0, 0]} animationDuration={700} activeBar={{ fill: "#c59a60" }} /></BarChart></ResponsiveContainer>}</div>
+    {activity.length > 0 && <div className="mt-3 flex items-center gap-2 text-[10px] font-mono text-text-muted"><span className="h-px w-5 border-t border-dashed border-accent-gold/50" />Média de {average} audições nos dias ativos</div>}
+  </div>;
 }

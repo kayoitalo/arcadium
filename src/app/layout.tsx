@@ -1,16 +1,21 @@
 import type { Metadata } from "next";
-import { Instrument_Serif, Inter } from "next/font/google";
+import { Manrope, Space_Mono, Syne } from "next/font/google";
 import "./globals.css";
 
-const instrumentSerif = Instrument_Serif({
+const display = Syne({
   subsets: ["latin"],
-  weight: "400",
-  variable: "--font-instrument-serif",
+  variable: "--font-display",
 });
 
-const inter = Inter({
+const sans = Manrope({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-manrope",
+});
+
+const mono = Space_Mono({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-space-mono",
 });
 
 export const metadata: Metadata = {
@@ -24,11 +29,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.variable} ${instrumentSerif.variable} font-sans bg-background text-text-primary antialiased min-h-screen selection:bg-accent/30 selection:text-text-primary`}>
+    <html lang="pt-BR" className="dark">
+      <body className={`${sans.variable} ${display.variable} ${mono.variable} font-sans bg-background text-text-primary antialiased min-h-screen selection:bg-accent/30 selection:text-text-primary`}>
         {children}
       </body>
     </html>
   );
 }
-

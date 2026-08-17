@@ -1,7 +1,6 @@
 "use client";
 
 import { TopArtistItem } from "@/modules/statistics/application/overview-service";
-import { ArrowUpRight } from "lucide-react";
 
 interface EditorialRankingsProps {
   topArtists: TopArtistItem[];
@@ -19,16 +18,13 @@ export function EditorialRankings({ topArtists }: EditorialRankingsProps) {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border/50 pb-3">
         <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-text-muted uppercase">
-          TOP ARTISTS
+          ARTISTAS MAIS OUVIDOS
         </span>
-        <button className="text-xs font-mono text-accent-gold hover:text-accent flex items-center gap-1 transition-colors">
-          <span>VIEW FULL CHART</span>
-          <ArrowUpRight className="w-3.5 h-3.5" />
-        </button>
       </div>
 
       {/* List */}
       <div className="space-y-4">
+        {topArtists.length === 0 && <p className="text-xs text-text-muted">Sem artistas no período selecionado.</p>}
         {topArtists.slice(0, 5).map((artist, idx) => {
           const rankNum = (idx + 1).toString().padStart(2, "0");
 
@@ -64,7 +60,7 @@ export function EditorialRankings({ topArtists }: EditorialRankingsProps) {
                     )}
                   </div>
                   <div className="flex items-center gap-2 text-[11px] text-text-muted font-mono truncate">
-                    <span>{(artist.share * 100).toFixed(1)}% catalog share</span>
+                    <span>{(artist.share * 100).toFixed(1)}% das audições</span>
                     {artist.tags && artist.tags.length > 0 && (
                       <>
                         <span>•</span>
@@ -80,7 +76,7 @@ export function EditorialRankings({ topArtists }: EditorialRankingsProps) {
               {/* Scrobbles Count */}
               <div className="text-right flex-shrink-0">
                 <span className="text-xs font-bold text-text-primary block font-mono">
-                  {artist.plays.toLocaleString()} PLAYS
+                  {artist.plays.toLocaleString("pt-BR")} AUDIÇÕES
                 </span>
               </div>
             </div>

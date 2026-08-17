@@ -1,7 +1,7 @@
 "use client";
 
 import { DiscoveryItem } from "@/modules/statistics/application/overview-service";
-import { ArrowUpRight } from "lucide-react";
+import { ResilientCover } from "@/components/ui/resilient-cover";
 
 interface RecentDiscoveriesProps {
   discoveries: DiscoveryItem[];
@@ -13,16 +13,13 @@ export function RecentDiscoveries({ discoveries }: RecentDiscoveriesProps) {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border/50 pb-3">
         <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-text-muted uppercase">
-          RECENT DISCOVERIES
+          DESCOBERTAS RECENTES
         </span>
-        <button className="text-xs font-mono text-accent-gold hover:text-accent flex items-center gap-1 transition-colors">
-          <span>SEE ALL</span>
-          <ArrowUpRight className="w-3.5 h-3.5" />
-        </button>
       </div>
 
       {/* List */}
       <div className="space-y-4">
+        {discoveries.length === 0 && <p className="text-xs text-text-muted">Nenhuma descoberta identificada neste período.</p>}
         {discoveries.slice(0, 4).map((item) => (
           <div
             key={item.id}
@@ -30,11 +27,7 @@ export function RecentDiscoveries({ discoveries }: RecentDiscoveriesProps) {
           >
             {/* Cover image */}
             <div className="w-11 h-11 rounded-lg overflow-hidden border border-border/60 flex-shrink-0 bg-surface-soft shadow-card">
-              <img
-                src={item.coverUrl}
-                alt={item.artistName}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-              />
+              <ResilientCover src={item.coverUrl} alt={item.artistName} label={item.albumName || item.artistName} className="h-full w-full" imageClassName="transition-transform group-hover:scale-105" />
             </div>
 
             {/* Meta */}
@@ -42,11 +35,9 @@ export function RecentDiscoveries({ discoveries }: RecentDiscoveriesProps) {
               <span className="text-sm font-semibold text-text-primary block truncate group-hover:text-accent-gold transition-colors">
                 {item.artistName}
               </span>
-              <span className="text-xs text-text-secondary block truncate">
-                {item.albumName}
-              </span>
+              {item.albumName && <span className="text-xs text-text-secondary block truncate">{item.albumName}</span>}
               <span className="text-[10px] text-text-muted font-mono block">
-                discovered {item.discoveredAt}
+                primeira audição em {new Date(item.discoveredAt).toLocaleDateString("pt-BR")}
               </span>
             </div>
           </div>

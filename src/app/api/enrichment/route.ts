@@ -16,13 +16,21 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     let batchSize = 5;
+    let action: "all" | "covers" = "all";
     try {
       const body = await request.json();
       if (body.batchSize && typeof body.batchSize === "number") {
         batchSize = Math.min(20, Math.max(1, body.batchSize));
       }
+      if (body.action === "covers") action = "covers";
     } catch {
       // Empty or invalid body, use default batchSize 5
+    }
+
+    if (action === "covers") {
+      const covers = await enrichmentService.enrichMissingAlbumCovers(batchSize);
+      const coverage = await enrichmentService.getCoverageStats();
+      return NextResponse.json({ success: true, data: { covers, coverage } });
     }
 
     const summary = await enrichmentService.enrichUnresolvedArtists(batchSize);

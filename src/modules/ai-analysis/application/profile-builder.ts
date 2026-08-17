@@ -95,14 +95,17 @@ export class ProfileBuilder {
     const artistNames = topArtistsGrouped.map((a: any) => a.rawArtistName);
     const enrichedArtists = await prisma.artist.findMany({
       where: { name: { in: artistNames }, tags: { not: null } },
-      select: { tags: true },
+      select: { name: true, tags: true },
     });
 
     const genrePlays = new Map<string, number>();
     for (const artist of enrichedArtists) {
+      const plays = topArtistsGrouped.find((item: any) => item.rawArtistName === artist.name)?._count.id ?? 0;
+      const tags = artist.tags?.split(",").map((tag) => tag.trim()).filter(Boolean) ?? [];
+      const weight = tags.length ? plays / tags.length : 0;
       if (artist.tags) {
-        for (const tag of artist.tags.split(",").map((t: string) => t.trim()).filter(Boolean)) {
-          genrePlays.set(tag, (genrePlays.get(tag) || 0) + 1);
+        for (const tag of tags) {
+          genrePlays.set(tag, (genrePlays.get(tag) || 0) + weight);
         }
       }
     }
@@ -119,17 +122,14 @@ export class ProfileBuilder {
     let newArtists = 0;
     let newArtistPlays = 0;
     if (period !== "all") {
-      for (const artistGroup of uniqueArtistsResult) {
-        const artistName = (artistGroup as any).rawArtistName;
-        const firstListen = await prisma.listeningEvent.findFirst({
-          where: { userId, rawArtistName: artistName },
-          orderBy: { playedAt: "asc" },
-          select: { playedAt: true },
-        });
-        if (firstListen && firstListen.playedAt >= current.start) {
+      const firstListens = await prisma.listeningEvent.groupBy({
+        by: ["rawArtistName"], where: { userId }, _min: { playedAt: true }, _count: { id: true },
+      });
+      for (const firstListen of firstListens) {
+        if (firstListen._min.playedAt && firstListen._min.playedAt >= current.start && firstListen._min.playedAt <= current.end) {
           newArtists++;
-          const artistPlays = topArtistsGrouped.find((a: any) => a.rawArtistName === artistName);
-          newArtistPlays += (artistPlays as any)?._count?.id || 1;
+          const currentArtist = topArtistsGrouped.find((item: any) => item.rawArtistName === firstListen.rawArtistName);
+          newArtistPlays += currentArtist?._count.id ?? 0;
         }
       }
     }

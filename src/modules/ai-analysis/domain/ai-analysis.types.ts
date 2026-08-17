@@ -47,9 +47,16 @@ export interface MusicProfileInput {
  * Blueprint §11.4: Zod validation on AI output.
  */
 export const profileNarrativeSchema = z.object({
+  eyebrow: z.string().max(50).default("ANÁLISE DO PERÍODO"),
   headline: z.string().max(120),
   narrative: z.string().max(600),
   insight: z.string().max(300),
+  playfulClosing: z.string().max(180).nullable().default(null),
+  tone: z.enum(["EDITORIAL", "RELAXED", "PLAYFUL", "NOSTALGIC", "ANALYTICAL"]).default("RELAXED"),
+  referencedEvidence: z.array(z.enum([
+    "totalPlays", "uniqueArtists", "uniqueTracks", "topArtists", "topGenres",
+    "risingArtists", "discovery", "concentration",
+  ])).max(12).default([]),
   tasteKeywords: z.array(z.string()).max(5).optional(),
 });
 

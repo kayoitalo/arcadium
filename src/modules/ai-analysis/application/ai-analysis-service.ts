@@ -14,7 +14,9 @@ import { prisma } from "@/lib/db/prisma";
 import { type PeriodKey } from "@/modules/statistics/application/overview-service";
 import { ProfileBuilder } from "./profile-builder";
 import { GeminiAdapter } from "../infrastructure/gemini-adapter";
-import type { ProfileNarrative } from "../domain/ai-analysis.types";
+import { profileNarrativeSchema, type ProfileNarrative } from "../domain/ai-analysis.types";
+
+const NARRATIVE_PROMPT_VERSION = "v2-editorial";
 
 export class AIAnalysisService {
   constructor(
@@ -26,9 +28,11 @@ export class AIAnalysisService {
    * Generates or retrieves a cached AI narrative for the user's dashboard.
    */
   async getProfileNarrative(userId: string, period: PeriodKey): Promise<ProfileNarrative> {
+    let pendingRunId: string | null = null;
+    let profile: Awaited<ReturnType<ProfileBuilder["buildProfile"]>> | null = null;
     try {
       // 1. Build the deterministic profile
-      const profile = await this.profileBuilder.buildProfile(userId, period);
+      profile = await this.profileBuilder.buildProfile(userId, period);
 
       // 2. Hash the input to reuse identical analyses
       const inputString = JSON.stringify(profile);
@@ -40,13 +44,15 @@ export class AIAnalysisService {
           userId,
           kind: "PROFILE_NARRATIVE",
           inputHash,
+          promptVersion: NARRATIVE_PROMPT_VERSION,
           status: "COMPLETED",
         },
         orderBy: { createdAt: "desc" },
       });
 
       if (cachedRun && cachedRun.validatedOutput) {
-        return cachedRun.validatedOutput as ProfileNarrative;
+        const cachedNarrative = profileNarrativeSchema.safeParse(cachedRun.validatedOutput);
+        if (cachedNarrative.success) return cachedNarrative.data;
       }
 
       // If no AI key is provided, we must use the deterministic fallback immediately
@@ -61,12 +67,13 @@ export class AIAnalysisService {
           userId,
           kind: "PROFILE_NARRATIVE",
           provider: "gemini",
-          model: process.env.AI_MODEL || "gemini-2.0-flash",
-          promptVersion: "v1",
+          model: process.env.AI_MODEL || "gemini-3.5-flash",
+          promptVersion: NARRATIVE_PROMPT_VERSION,
           inputHash,
           status: "PENDING",
         },
       });
+      pendingRunId = run.id;
 
       // 5. Call the AI
       const narrative = await this.adapter.analyzeProfile(profile);
@@ -83,11 +90,13 @@ export class AIAnalysisService {
       return narrative;
     } catch (error: any) {
       console.error("[AIAnalysisService] Narrative generation failed:", error);
-
-      // We could mark the run as FAILED here if we passed the run ID down,
-      // but the simplest robust pattern is to just return the fallback.
-      
-      return this.getFallbackNarrative(null);
+      if (pendingRunId) {
+        await prisma.aIAnalysisRun.update({
+          where: { id: pendingRunId },
+          data: { status: "FAILED", errorMessage: error instanceof Error ? error.message.slice(0, 500) : "Unknown AI provider error" },
+        }).catch((auditError) => console.error("[AIAnalysisService] Failed to update AI audit run:", auditError));
+      }
+      return this.getFallbackNarrative(profile);
     }
   }
 
@@ -96,23 +105,36 @@ export class AIAnalysisService {
    * Blueprint §11.4: Fallback to deterministic templated explanations.
    */
   private getFallbackNarrative(profile: any | null): ProfileNarrative {
-    if (!profile) {
-      return {
-        headline: "Seu perfil musical",
-        narrative: "Continue ouvindo para descobrir novos padrões na sua biblioteca musical.",
-        insight: "Análise inteligente temporariamente indisponível.",
-        tasteKeywords: ["Exploração"],
-      };
-    }
+    if (!profile) return {
+      eyebrow: "ANÁLISE DO PERÍODO",
+      headline: "Narrativa indisponível",
+      narrative: "Não foi possível gerar a narrativa deste período.",
+      insight: "As estatísticas determinísticas permanecem disponíveis no painel.",
+      tasteKeywords: [],
+      playfulClosing: null, tone: "ANALYTICAL", referencedEvidence: [],
+    };
 
-    const mainArtist = profile.topArtists[0]?.name || "Seus artistas favoritos";
+    const mainArtist = profile.topArtists[0]?.name;
     const plays = profile.totalPlays;
-    
+    if (!plays || !mainArtist) return {
+      eyebrow: "ANÁLISE DO PERÍODO",
+      headline: "Sem audições no período",
+      narrative: "Não há eventos suficientes para gerar uma narrativa.",
+      insight: "Selecione outro período ou sincronize o histórico do Last.fm.",
+      tasteKeywords: [],
+      playfulClosing: null, tone: "ANALYTICAL", referencedEvidence: ["totalPlays"],
+    };
+
+    const topGenre = profile.topGenres[0]?.name;
     return {
-      headline: `Ouvindo com frequência: ${mainArtist}`,
-      narrative: `Neste período, você registrou ${plays} faixas. Seu perfil mostra forte tendência para ${profile.topGenres[0]?.name || "gêneros variados"}.`,
-      insight: `${mainArtist} dominou suas escutas recentemente.`,
-      tasteKeywords: profile.topGenres.slice(0, 3).map((g: any) => g.name),
+      eyebrow: "DESTAQUE DO PERÍODO",
+      headline: `${mainArtist} foi o artista mais ouvido`,
+      narrative: `O período contém ${plays} audições${topGenre ? `, com ${topGenre} entre as tags mais frequentes` : ""}.`,
+      insight: "Texto determinístico gerado somente a partir dos dados armazenados.",
+      tasteKeywords: profile.topGenres.slice(0, 3).map((genre: { name: string }) => genre.name),
+      playfulClosing: null,
+      tone: "ANALYTICAL",
+      referencedEvidence: topGenre ? ["totalPlays", "topArtists", "topGenres"] : ["totalPlays", "topArtists"],
     };
   }
 }
