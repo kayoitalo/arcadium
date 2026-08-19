@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Activity, Clock, Disc, Mic, Music, Sparkles } from "lucide-react";
 import { PeriodKey, OverviewData } from "@/modules/statistics/application/overview-service";
+import type { ProfileNarrative } from "@/modules/ai-analysis/domain/ai-analysis.types";
 import { DynamicAlbumHero } from "@/components/overview/dynamic-album-hero";
 import { ListeningActivityChart } from "@/components/overview/listening-activity-chart";
 import { PeriodSpotlight } from "@/components/overview/period-spotlight";
@@ -12,15 +15,6 @@ import { AlbumRecommendation } from "@/components/overview/album-recommendation"
 import { DataQualityPanel } from "@/components/ui/data-quality-panel";
 import { MetricCard } from "@/components/ui/metric-card";
 import { MotionPage, MotionSection } from "@/components/ui/motion";
-import type { ProfileNarrative } from "@/modules/ai-analysis/domain/ai-analysis.types";
-import { AnimatePresence, motion } from "framer-motion";
-import {
-  Music,
-  Mic,
-  Clock,
-  Disc,
-  Activity,
-} from "lucide-react";
 
 export default function OverviewPage() {
   const [period, setPeriod] = useState<PeriodKey>("30d");
@@ -31,168 +25,73 @@ export default function OverviewPage() {
   const [loadingAi, setLoadingAi] = useState(true);
 
   useEffect(() => {
-    async function fetchOverview() {
-      setLoading(true);
-      setError(null);
+    async function load() {
+      setLoading(true); setError(null); setLoadingAi(true);
       try {
-        const res = await fetch(`/api/overview?period=${period}`);
-        if (!res.ok) throw new Error("Não foi possível carregar as estatísticas.");
-        const json = await res.json();
-        setData(json);
+        const [overview, narrative] = await Promise.all([
+          fetch(`/api/overview?period=${period}`),
+          fetch(`/api/ai/narrative?period=${period}`),
+        ]);
+        if (!overview.ok) throw new Error("Não foi possível carregar as estatísticas.");
+        setData(await overview.json());
+        if (narrative.ok) setAiStory(await narrative.json());
       } catch (err) {
-        console.error("Failed to load overview data", err);
+        console.error("Failed to load overview", err);
         setError(err instanceof Error ? err.message : "Não foi possível carregar as estatísticas.");
-      } finally {
-        setLoading(false);
-      }
+      } finally { setLoading(false); setLoadingAi(false); }
     }
-
-    async function fetchAiNarrative() {
-      setLoadingAi(true);
-      try {
-        const res = await fetch(`/api/ai/narrative?period=${period}`);
-        if (res.ok) {
-          const json = await res.json();
-          setAiStory(json);
-        }
-      } catch (err) {
-        console.error("Failed to load AI narrative", err);
-      } finally {
-        setLoadingAi(false);
-      }
-    }
-
-    fetchOverview();
-    fetchAiNarrative();
+    load();
   }, [period]);
 
-  const formatHours = (mins: number) => {
-    const hours = Math.floor(mins / 60);
-    const remainingMins = mins % 60;
-    return `${hours}h ${remainingMins}m`;
-  };
-
+  const formatHours = (mins: number) => `${Math.floor(mins / 60)}h ${mins % 60}m`;
   const periods: { key: PeriodKey; label: string }[] = [
-    { key: "7d", label: "7 dias" },
-    { key: "30d", label: "30 dias" },
-    { key: "1y", label: "1 ano" },
-    { key: "all", label: "Todo o período" },
+    { key: "7d", label: "7 dias" }, { key: "30d", label: "30 dias" },
+    { key: "1y", label: "1 ano" }, { key: "all", label: "Todo o período" },
   ];
+  const headline = aiStory?.headline || data?.aiStory.headline || "Seu histórico musical começa aqui.";
+  const narrative = aiStory?.narrative || data?.aiStory.narrative || "Sincronize suas audições para gerar sua análise.";
 
-  if (!loading && error) {
-    return <div className="p-8 rounded-2xl bg-status-error/10 border border-status-error/30 text-status-error">{error}</div>;
-  }
+  if (!loading && error) return <div className="rounded-2xl border border-status-error/30 bg-status-error/10 p-8 text-status-error">{error}</div>;
 
-  return (
-    <MotionPage className="space-y-10 pb-12">
-
-      <header className="space-y-6">
-
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-mono font-bold tracking-[0.25em] text-text-muted uppercase">
-              PERÍODO ANALISADO: {periods.find((item) => item.key === period)?.label.toUpperCase()}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-
-            <div className="flex max-w-full overflow-x-auto rounded-xl border border-border/60 bg-surface p-1">
-              {periods.map((p) => (
-                <button
-                  key={p.key}
-                  onClick={() => setPeriod(p.key)}
-                  aria-pressed={period === p.key}
-                  className={`whitespace-nowrap px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
-                    period === p.key
-                      ? "bg-accent/20 text-accent-gold font-bold border border-accent/40 shadow-glow"
-                      : "text-text-secondary hover:text-text-primary"
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-
-          </div>
+  return <MotionPage className="pb-12">
+    <header className="border-b border-border/60 pb-8">
+      <div className="flex flex-col gap-4 border-b border-border/40 pb-5 sm:flex-row sm:items-center sm:justify-between">
+        <div><span className="eyebrow">SEU MÊS EM MÚSICA</span><p className="mt-1 text-sm text-text-secondary">Analisando os últimos {periods.find((item) => item.key === period)?.label.toLowerCase()}</p></div>
+        <div className="flex max-w-full overflow-x-auto rounded-xl border border-border/60 bg-surface p-1">
+          {periods.map((item) => <button key={item.key} onClick={() => setPeriod(item.key)} aria-pressed={period === item.key} className={`whitespace-nowrap rounded-lg px-3.5 py-2 text-xs font-mono transition-colors ${period === item.key ? "bg-accent/20 font-bold text-accent-gold" : "text-text-secondary hover:text-text-primary"}`}>{item.label}</button>)}
         </div>
+      </div>
+      <div className="grid gap-8 pt-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(20rem,.7fr)]">
+        <AnimatePresence mode="wait"><motion.div key={period} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="flex min-h-64 flex-col justify-center gap-4">
+          <span className="eyebrow">{loadingAi ? "LENDO SUA ESCUTA" : aiStory?.eyebrow || "LEITURA DO PERÍODO"}</span>
+          <h1 className="max-w-4xl font-serif text-4xl font-medium leading-[.98] tracking-[-.055em] text-text-primary sm:text-5xl xl:text-6xl">{loadingAi ? "Montando seu retrato musical..." : headline}</h1>
+          <p className="max-w-2xl text-base leading-relaxed text-text-secondary">{narrative}</p>
+          {aiStory?.playfulClosing && <p className="max-w-2xl border-l-2 border-accent-gold/60 pl-4 font-serif text-sm italic text-accent-gold">{aiStory.playfulClosing}</p>}
+          {!!aiStory?.tasteKeywords?.length && <div className="flex flex-wrap gap-2">{aiStory.tasteKeywords.map((keyword) => <span key={keyword} className="rounded-full border border-border/70 px-2.5 py-1 text-[10px] font-mono text-text-secondary">{keyword}</span>)}</div>}
+        </motion.div></AnimatePresence>
+        <PeriodSpotlight album={data?.topAlbums[0]} artist={data?.topArtists[0]} loading={loading} />
+      </div>
+    </header>
 
-        <div className="grid items-stretch gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(20rem,.65fr)]">
-          <AnimatePresence mode="wait"><motion.div key={period} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.3 }} className="flex min-h-64 flex-col justify-center space-y-3 py-3">
-            {!loadingAi && aiStory?.eyebrow && <span className="eyebrow">{aiStory.eyebrow}</span>}
-            <h1 className="max-w-4xl font-serif text-4xl font-medium leading-[0.98] tracking-[-0.055em] text-text-primary sm:text-5xl xl:text-6xl">
-              {loadingAi ? (
-                <span className="h-12 w-64 bg-surface/40 animate-pulse rounded-lg inline-block"></span>
-              ) : (
-                aiStory?.headline || data?.aiStory.headline || "Seu histórico musical começa aqui."
-              )}
-            </h1>
-            <p className="max-w-3xl text-sm leading-relaxed text-text-secondary sm:text-base">
-              {loadingAi ? (
-                <span className="h-4 w-96 bg-surface/40 animate-pulse rounded inline-block"></span>
-              ) : (
-                aiStory?.narrative || data?.aiStory.narrative || "Sincronize suas audições para gerar sua análise."
-              )}
-            </p>
-            {!loadingAi && aiStory?.playfulClosing && <p className="border-l-2 border-accent-gold/60 pl-3 font-serif text-sm italic text-accent-gold">{aiStory.playfulClosing}</p>}
-            {!loadingAi && Boolean(aiStory?.tasteKeywords?.length) && <div className="flex flex-wrap gap-2 pt-1">{aiStory?.tasteKeywords?.map((keyword) => <span key={keyword} className="rounded-full border border-border/70 bg-surface/50 px-2.5 py-1 text-[10px] font-mono text-text-secondary">{keyword}</span>)}</div>}
-          </motion.div></AnimatePresence>
-          <PeriodSpotlight album={data?.topAlbums[0]} artist={data?.topArtists[0]} loading={loading} />
-        </div>
-      </header>
+    <MotionSection className="grid gap-3 border-b border-border/60 py-7 sm:grid-cols-3">
+      <MetricCard icon={Music} label="AUDIÇÕES" value={loading ? "…" : (data?.summary.totalPlays ?? 0).toLocaleString("pt-BR")} change={data?.summary.playsChangePercent} detail="Eventos registrados no período selecionado." />
+      <MetricCard icon={Clock} label="TEMPO DE ESCUTA" value={loading ? "…" : formatHours(data?.summary.listeningMinutes ?? 0)} change={null} detail="Tempo total estimado a partir das durações conhecidas." />
+      <MetricCard icon={Mic} label="NOVOS ARTISTAS" value={loading ? "…" : (data?.discoveries.length ?? 0).toLocaleString("pt-BR")} change={null} detail="Artistas que apareceram pela primeira vez no período." />
+    </MotionSection>
 
-      <MotionSection className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard icon={Music} label="AUDIÇÕES" value={loading ? "…" : (data?.summary.totalPlays ?? 0).toLocaleString("pt-BR")} change={data?.summary.playsChangePercent} detail="Eventos registrados no período selecionado." />
-        <MetricCard icon={Mic} label="ARTISTAS" value={loading ? "…" : (data?.summary.uniqueArtists ?? 0).toLocaleString("pt-BR")} change={data?.summary.artistsChangePercent} detail="Artistas distintos, agrupados pelo nome registrado pelo provedor." />
-        <MetricCard icon={Disc} label="FAIXAS" value={loading ? "…" : (data?.summary.uniqueTracks ?? 0).toLocaleString("pt-BR")} change={data?.summary.tracksChangePercent} detail="Combinações distintas de artista e faixa." />
-        <MetricCard icon={Clock} label="TEMPO DE ESCUTA" value={loading ? "…" : formatHours(data?.summary.listeningMinutes ?? 0)} change={null} detail={data?.summary.durationSource === "TRACK_METADATA" ? "Calculado com a duração armazenada de todas as faixas." : "Combina durações conhecidas com estimativa de 3,5 minutos para faixas sem duração."} />
-      </MotionSection>
+    {data && <MotionSection className="py-8"><div className="mb-5 flex items-end justify-between gap-4"><div><span className="eyebrow">O QUE SUA ESCUTA REVELA</span><h2 className="mt-1 font-serif text-2xl text-text-primary">Uma leitura além dos números</h2></div><Sparkles className="h-5 w-5 text-accent-gold" /></div><div className="grid gap-4 md:grid-cols-3">{[
+      ["Você não ficou preso aos mesmos artistas.", `Seus cinco artistas principais representam ${data.concentration.top5ArtistShare}% das audições.`],
+      ["Seu catálogo está se expandindo.", `${data.discoveries.length} descobertas apareceram pela primeira vez neste período.`],
+      ["A escuta teve um ritmo próprio.", `${data.listeningActivity.length ? "O gráfico abaixo mostra quando sua música ganhou volume." : "Ainda não há atividade suficiente para identificar um padrão."}`],
+    ].map(([title, text]) => <article key={title} className="border-l border-accent/60 bg-surface/25 p-5"><h3 className="font-serif text-lg leading-tight text-text-primary">{title}</h3><p className="mt-3 text-sm leading-relaxed text-text-secondary">{text}</p></article>)}</div></MotionSection>}
 
-      <MotionSection className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        <div className="lg:col-span-7 flex">
-          <DynamicAlbumHero albums={data?.topAlbums || []} />
-        </div>
-        <div className="lg:col-span-5 flex">
-          <ListeningActivityChart activity={data?.listeningActivity || []} />
-        </div>
-      </MotionSection>
+    <MotionSection className="grid gap-6 lg:grid-cols-12"><div className="lg:col-span-5"><ListeningActivityChart activity={data?.listeningActivity || []} /></div><div className="lg:col-span-7"><DynamicAlbumHero albums={data?.topAlbums || []} /></div></MotionSection>
 
-      {data && <MotionSection><DataQualityPanel quality={data.dataQuality} /></MotionSection>}
+    {data && <MotionSection className="grid gap-6 border-y border-border/60 py-8 lg:grid-cols-12"><div className="lg:col-span-7"><EditorialRankings topArtists={data.topArtists || []} /></div><div className="lg:col-span-5"><RecentDiscoveries discoveries={data.discoveries || []} /></div></MotionSection>}
 
-      {data && <MotionSection className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {[
-          ["Concentração nos 5 artistas", data.concentration.top5ArtistShare, "Parcela das audições concentrada nos cinco artistas mais ouvidos."],
-          ["Concentração nas 10 faixas", data.concentration.top10TrackShare, "Parcela das audições concentrada nas dez faixas mais ouvidas."],
-          ["Diversidade de artistas", data.concentration.artistDiversityRatio, "Relação entre artistas distintos e total de audições."],
-        ].map(([label, value, detail]) => <article key={String(label)} className="rounded-2xl border border-border/60 bg-surface/30 p-5" title={String(detail)}><span className="eyebrow">{label}</span><strong className="mt-2 block font-serif text-3xl text-text-primary">{value}%</strong><div className="mt-3 h-1.5 rounded-full bg-background"><div className="h-full rounded-full bg-accent-gold" style={{ width: `${value}%` }} /></div></article>)}
-      </MotionSection>}
+    {data && <MotionSection className="grid gap-6 py-8 lg:grid-cols-12"><div className="lg:col-span-4"><TasteEvolutionCard rising={data.tasteShift.rising || []} declining={data.tasteShift.declining || []} narrativeInsight={aiStory?.insight || data.aiStory.insight} /></div>{data.recommended && <div className="lg:col-span-4"><AlbumRecommendation recommendation={data.recommended} /></div>}<div className="lg:col-span-4"><div className="h-full border border-border/60 bg-surface/25 p-5"><span className="eyebrow">SEU UNIVERSO MUSICAL</span><div className="mt-5 grid grid-cols-2 gap-4">{[["Faixas", data.summary.uniqueTracks], ["Artistas", data.summary.uniqueArtists], ["Top 5", `${data.concentration.top5ArtistShare}%`], ["Diversidade", `${data.concentration.artistDiversityRatio}%`]].map(([label, value]) => <div key={String(label)}><span className="block text-xs text-text-muted">{label}</span><strong className="mt-1 block font-serif text-2xl text-text-primary">{value}</strong></div>)}</div></div></div></MotionSection>}
 
-      <MotionSection className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        <EditorialRankings topArtists={data?.topArtists || []} />
-        <RecentDiscoveries discoveries={data?.discoveries || []} />
-        <TasteEvolutionCard
-          rising={data?.tasteShift.rising || []}
-          declining={data?.tasteShift.declining || []}
-          narrativeInsight={aiStory?.insight || data?.aiStory.insight}
-        />
-        {data?.recommended && <AlbumRecommendation recommendation={data.recommended} />}
-      </MotionSection>
-
-      <footer className="p-4 rounded-xl bg-surface/30 border border-border/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-muted font-mono">
-        <div className="flex items-center gap-2">
-          <Activity className={`w-4 h-4 ${data?.syncStatus.lastSyncedAt ? "text-status-success" : "text-text-muted"}`} />
-          <span>Total de eventos no banco: </span>
-          <strong className="text-text-primary">{data?.syncStatus.totalStoredEvents.toLocaleString() || 0}</strong>
-        </div>
-        <div>
-          <span>Última sincronização: </span>
-          <strong className="text-text-primary">
-            {data?.syncStatus.lastSyncedAt
-              ? new Date(data.syncStatus.lastSyncedAt).toLocaleString("pt-BR")
-              : "Nunca sincronizado"}
-          </strong>
-        </div>
-      </footer>
-    </MotionPage>
-  );
+    {data && <details className="border-t border-border/60 pt-5"><summary className="cursor-pointer list-none text-xs font-mono text-text-muted hover:text-text-primary">Ver detalhes da qualidade dos dados</summary><div className="pt-5"><DataQualityPanel quality={data.dataQuality} /></div></details>}
+    <footer className="mt-8 flex flex-col items-center justify-between gap-3 border-t border-border/40 pt-4 text-xs font-mono text-text-muted sm:flex-row"><span className="flex items-center gap-2"><Activity className="h-4 w-4 text-status-success" />{data?.syncStatus.totalStoredEvents.toLocaleString() || 0} eventos armazenados</span><span>Sincronizado: {data?.syncStatus.lastSyncedAt ? new Date(data.syncStatus.lastSyncedAt).toLocaleString("pt-BR") : "nunca"}</span></footer>
+  </MotionPage>;
 }

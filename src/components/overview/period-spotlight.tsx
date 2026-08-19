@@ -11,7 +11,7 @@ export function PeriodSpotlight({ album, artist, loading }: { album?: AlbumItem;
   return <motion.aside layout className="relative min-h-64 overflow-hidden rounded-3xl border border-border/70 bg-surface/45 p-5 shadow-card">
     <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_10%,rgba(197,154,96,0.14),transparent_42%)]" />
     <div className="relative flex h-full flex-col justify-between gap-5">
-      <div className="flex items-center justify-between"><span className="eyebrow">DESTAQUE DO PERÍODO</span><Headphones className="h-4 w-4 text-accent-gold" /></div>
+      <div className="flex items-center justify-between"><div><span className="eyebrow">A FAIXA QUE DEFINIU O PERÍODO</span><p className="mt-1 text-xs text-text-secondary">Seu álbum mais ouvido</p></div><Headphones className="h-4 w-4 text-accent-gold" /></div>
       <div className="grid grid-cols-[7rem_1fr] items-end gap-4 sm:grid-cols-[9rem_1fr]">
         <ResilientCover src={album?.coverUrl} alt={album?.title || artist?.name || "Destaque"} label={album?.title || artist?.name} priority className="aspect-square rounded-2xl border border-border/80 shadow-magazine" />
         <div className="min-w-0 pb-1">

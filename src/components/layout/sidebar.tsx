@@ -6,18 +6,15 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Compass, History, LayoutDashboard, Menu, Settings, TrendingUp, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
-const navItems = [
-  { href: "/overview", label: "VISÃO GERAL", icon: LayoutDashboard },
-  { href: "/taste-evolution", label: "EVOLUÇÃO DO GOSTO", icon: TrendingUp },
-  { href: "/discovery", label: "DESCOBERTAS", icon: Compass },
-  { href: "/history", label: "HISTÓRICO", icon: History },
-  { href: "/settings", label: "CONFIGURAÇÕES", icon: Settings },
+const groups = [
+  { label: "ANALISAR", items: [{ href: "/overview", label: "Visão geral", icon: LayoutDashboard }, { href: "/taste-evolution", label: "Evolução do gosto", icon: TrendingUp }, { href: "/history", label: "Histórico", icon: History }] },
+  { label: "EXPLORAR", items: [{ href: "/discovery", label: "Descobertas", icon: Compass }] },
+  { label: "SISTEMA", items: [{ href: "/settings", label: "Configurações", icon: Settings }] },
 ];
 
 function Navigation({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  return <><div className="flex items-center gap-3 px-2 pt-2"><div className="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/40 bg-accent/15 shadow-glow"><span className="font-serif text-xl font-black tracking-tighter text-accent-gold">SP</span></div><div><h1 className="font-serif text-lg font-bold leading-none tracking-wider text-text-primary">SPOT</h1><p className="mt-0.5 font-mono text-[10px] tracking-[0.2em] text-text-muted">STATS</p></div></div>
-    <nav className="mt-8 space-y-1" aria-label="Navegação principal">{navItems.map((entry) => { const Icon = entry.icon; const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`); return <Link key={entry.href} href={entry.href} onClick={onNavigate} className={`group flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold tracking-wider transition-all ${active ? "border border-accent/40 bg-accent/15 text-text-primary shadow-glow" : "text-text-secondary hover:bg-surface-elevated/70 hover:text-text-primary"}`}><span className="flex items-center gap-3"><Icon className={`h-4 w-4 ${active ? "text-accent-gold" : "text-text-muted group-hover:text-text-secondary"}`} />{entry.label}</span>{active && <motion.span layoutId="active-navigation" className="h-1.5 w-1.5 rounded-full bg-accent-gold shadow-[0_0_8px_#c59a60]" />}</Link>; })}</nav></>;
+  return <><div className="flex items-center gap-3 px-2 pt-2"><div className="flex size-10 items-center justify-center rounded-xl border border-accent/40 bg-accent/15 shadow-glow"><span className="font-serif text-xl font-black tracking-tighter text-accent-gold">SP</span></div><div><h1 className="font-serif text-lg font-bold leading-none tracking-wider text-text-primary">SPOT</h1><p className="mt-0.5 font-mono text-[10px] tracking-[0.2em] text-text-muted">STATS</p></div></div><nav className="mt-10 flex flex-col gap-7" aria-label="Navegação principal">{groups.map((group) => <div key={group.label} className="flex flex-col gap-1.5"><span className="px-3.5 text-[9px] font-mono font-bold tracking-[0.2em] text-text-muted">{group.label}</span>{group.items.map((entry) => { const Icon = entry.icon; const active = pathname === entry.href || pathname.startsWith(`${entry.href}/`); return <Link key={entry.href} href={entry.href} onClick={onNavigate} className={`group flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition-colors ${active ? "bg-accent/15 font-semibold text-text-primary" : "text-text-secondary hover:bg-surface-elevated/70 hover:text-text-primary"}`}><Icon className={`h-4 w-4 ${active ? "text-accent-gold" : "text-text-muted group-hover:text-text-secondary"}`} />{entry.label}{active && <motion.span layoutId="active-navigation" className="ml-auto size-1.5 rounded-full bg-accent-gold" />}</Link>; })}</div>)}</nav></>;
 }
 
 export function Sidebar() {
