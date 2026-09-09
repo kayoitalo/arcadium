@@ -2,7 +2,7 @@ name: Scheduled History Sync
 
 on:
   schedule:
-    # Run hourly at minute 0
+    # Toda hora, no minuto 0
     - cron: '0 * * * *'
   workflow_dispatch:
 
@@ -17,21 +17,37 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           LASTFM_USERNAME: ${{ secrets.LASTFM_USERNAME }}
         run: |
-          TARGET_URL="${APP_URL:-https://spotstats.vercel.app}/api/sync"
-          USERNAME="${LASTFM_USERNAME:-kayoitalo}"
-          
-          echo "Triggering background sync at ${TARGET_URL}..."
-          
+          set -euo pipefail
+
+          # Sem palpite de domínio. Um fallback chumbado faz o job rodar de
+          # hora em hora contra uma URL morta e o erro parece ser do app,
+          # quando na verdade falta configuração.
+          missing=""
+          [ -n "${APP_URL:-}" ] || missing="${missing} APP_URL"
+          [ -n "${CRON_SECRET:-}" ] || missing="${missing} CRON_SECRET"
+          [ -n "${LASTFM_USERNAME:-}" ] || missing="${missing} LASTFM_USERNAME"
+
+          if [ -n "${missing}" ]; then
+            echo "Secrets ausentes:${missing}"
+            echo "Cadastre em Settings > Secrets and variables > Actions."
+            echo "APP_URL deve ser a origem da aplicação, ex.: https://grooveyard.vercel.app"
+            exit 1
+          fi
+
+          TARGET_URL="${APP_URL%/}/api/sync"
+          echo "Disparando sincronização em ${TARGET_URL}"
+
           HTTP_STATUS=$(curl -s -o response.json -w "%{http_code}" \
+            --max-time 120 \
             -X POST "${TARGET_URL}" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${CRON_SECRET}" \
-            -d "{\"username\": \"${USERNAME}\"}")
-          
-          echo "HTTP Response Code: ${HTTP_STATUS}"
-          cat response.json
-          
+            -d "{\"username\": \"${LASTFM_USERNAME}\"}")
+
+          echo "HTTP ${HTTP_STATUS}"
+          cat response.json || true
+
           if [ "${HTTP_STATUS}" -ge 400 ]; then
-            echo "Sync execution failed with status ${HTTP_STATUS}"
+            echo "A sincronização falhou com status ${HTTP_STATUS}"
             exit 1
           fi

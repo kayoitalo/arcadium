@@ -47,8 +47,8 @@ describe("ProfileBuilder", () => {
     });
 
     vi.mocked(prisma.artist.findMany).mockResolvedValue([
-      { name: "Artist A", tags: "genre one, genre two" } as any,
-      { name: "Artist B", tags: "genre three, genre four" } as any,
+      { name: "Artist A", tags: "punk rock, pop punk, Japan" } as any,
+      { name: "Artist B", tags: "hip hop, trap latino, Seen Live" } as any,
     ]);
 
     vi.mocked(prisma.listeningEvent.findFirst).mockResolvedValue({
@@ -68,8 +68,8 @@ describe("ProfileBuilder", () => {
 
     expect(profile.topGenres).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ name: "genre one" }),
-        expect.objectContaining({ name: "genre three" }),
+        expect.objectContaining({ name: "punk rock" }),
+        expect.objectContaining({ name: "hip hop" }),
       ])
     );
   });

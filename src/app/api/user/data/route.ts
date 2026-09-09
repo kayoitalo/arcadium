@@ -45,7 +45,7 @@ export async function GET() {
     return new NextResponse(JSON.stringify(exportPayload, null, 2), {
       headers: {
         "Content-Type": "application/json",
-        "Content-Disposition": `attachment; filename="spotstats_export_${new Date().toISOString().slice(0, 10)}.json"`,
+        "Content-Disposition": `attachment; filename="grooveyard_export_${new Date().toISOString().slice(0, 10)}.json"`,
       },
     });
   } catch (error: any) {

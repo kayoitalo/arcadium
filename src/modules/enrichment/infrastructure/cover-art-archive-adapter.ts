@@ -3,7 +3,7 @@ import { CoverArtProvider, CoverArtResult } from "../domain/cover-art-provider.i
 const MBID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export class CoverArtArchiveAdapter implements CoverArtProvider {
-  constructor(private userAgent = process.env.MUSICBRAINZ_USER_AGENT || "MusicIntelligence/0.1 (contact@example.com)") {}
+  constructor(private userAgent = process.env.MUSICBRAINZ_USER_AGENT || "Grooveyard/0.1 (contato@example.com)") {}
 
   async findFrontCover(releaseMbid: string): Promise<CoverArtResult | null> {
     return this.findCover("release", releaseMbid);

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { filterGenreTags } from "@/modules/enrichment/domain/genre-tags";
 
 export type PeriodKey = "7d" | "30d" | "1y" | "all";
 export interface PeriodRange { start: Date; end: Date }
@@ -150,7 +151,7 @@ export class OverviewService {
       return {
         id: metadata?.id ?? null, name: item.rawArtistName, plays: item._count.id,
         share: Number((item._count.id / currentPlays).toFixed(3)), country: metadata?.country ?? null,
-        tags: metadata?.tags?.split(",").map((tag) => tag.trim()).filter(Boolean) ?? [],
+        tags: filterGenreTags(metadata?.tags?.split(",") ?? []),
       };
     });
     const topTracks: TopTrackItem[] = trackGroups.slice(0, 10).map((item) => ({
@@ -182,7 +183,7 @@ export class OverviewService {
     const genreMetadata = genreArtistNames.length ? await prisma.artist.findMany({
       where: { name: { in: genreArtistNames }, tags: { not: null } }, select: { name: true, tags: true },
     }) : [];
-    const tagsByArtist = new Map(genreMetadata.map((artist) => [artist.name, artist.tags?.split(",").map((tag) => tag.trim()).filter(Boolean) ?? []]));
+    const tagsByArtist = new Map(genreMetadata.map((artist) => [artist.name, filterGenreTags(artist.tags?.split(",") ?? [])]));
     const tasteShift = previous ? calculateTasteShift(
       artistGroups.map((item) => ({ name: item.rawArtistName, plays: item._count.id, tags: tagsByArtist.get(item.rawArtistName) ?? [] })),
       previousArtistGroups.map((item) => ({ name: item.rawArtistName, plays: item._count.id, tags: tagsByArtist.get(item.rawArtistName) ?? [] })),

@@ -1,27 +1,72 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Activity, AlertCircle, TrendingDown, TrendingUp } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ScreenLine } from "@/components/ui/screen-line";
+import { motion } from "framer-motion";
 import type { OverviewData, PeriodKey, TasteShiftItem } from "@/modules/statistics/application/overview-service";
-import { DataQualityPanel } from "@/components/ui/data-quality-panel";
-import { MotionDiv, MotionPage, MotionSection } from "@/components/ui/motion";
+import { EASE_OUT_EXPO, InViewFade, Reveal } from "@/components/ui/motion";
 
-function ShiftList({ title, items, direction }: { title: string; items: TasteShiftItem[]; direction: "up" | "down" }) {
-  const Icon = direction === "up" ? TrendingUp : TrendingDown;
+const PERIODS = [
+  { key: "30d" as const, label: "30 dias" },
+  { key: "1y" as const, label: "1 ano" },
+];
+
+const decimal = (value: number) => value.toString().replace(".", ",");
+
+/**
+ * Uma linha por gênero: bolinha vazada onde ele estava, bolinha cheia
+ * onde chegou. O que interessa é a distância entre as duas — por isso o
+ * movimento absoluto vem primeiro e o percentual fica de legenda.
+ */
+function ShiftRow({ item, scale, direction, index }: { item: TasteShiftItem; scale: number; direction: "up" | "down"; index: number }) {
+  const from = Math.min(100, (item.previousShare / scale) * 100);
+  const to = Math.min(100, (item.currentShare / scale) * 100);
+  const left = Math.min(from, to);
+  const width = Math.abs(to - from);
+  const rising = direction === "up";
+
   return (
-    <section className="p-6 rounded-2xl bg-surface/40 border border-border/60 space-y-4">
-      <div className="flex items-center gap-2 border-b border-border/50 pb-3">
-        <Icon className={`w-4 h-4 ${direction === "up" ? "text-status-success" : "text-status-error"}`} />
-        <h2 className="text-xs font-mono font-bold tracking-wider text-text-primary uppercase">{title}</h2>
-      </div>
-      {items.length ? <div className="space-y-3">{items.map((item) => (
-        <div key={item.genre} className="rounded-xl border border-border/40 bg-surface-elevated/40 p-3">
-          <div className="flex items-center justify-between"><span className="text-sm capitalize text-text-primary">{item.genre}</span><strong className={direction === "up" ? "text-status-success" : "text-status-error"}>{item.changePercent > 0 ? "+" : ""}{item.changePercent}%</strong></div>
-          <div className="mt-3 grid grid-cols-[4rem_1fr_2.5rem] items-center gap-2 text-[10px] font-mono text-text-muted"><span>Anterior</span><div className="h-1.5 rounded-full bg-background"><div className="h-full rounded-full bg-text-muted" style={{ width: `${Math.min(100, item.previousShare)}%` }} /></div><span className="text-right">{item.previousShare}%</span></div>
-          <div className="mt-1.5 grid grid-cols-[4rem_1fr_2.5rem] items-center gap-2 text-[10px] font-mono text-text-secondary"><span>Atual</span><div className="h-1.5 rounded-full bg-background"><div className={`h-full rounded-full ${direction === "up" ? "bg-status-success" : "bg-status-error"}`} style={{ width: `${Math.min(100, item.currentShare)}%` }} /></div><span className="text-right">{item.currentShare}%</span></div>
-        </div>
-      ))}</div> : <p className="text-xs text-text-muted leading-relaxed">Nenhuma variação de gênero pôde ser calculada para este período.</p>}
-    </section>
+    <motion.li
+      className="group grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-5 border-b border-border/70 py-4"
+      initial={{ opacity: 0, y: 14 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.5, ease: EASE_OUT_EXPO, delay: index * 0.05 }}
+    >
+      <span className="truncate text-sm capitalize text-text-primary">{item.genre}</span>
+
+      <span className="relative block h-4">
+        <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border" />
+        <motion.span
+          className={`absolute top-1/2 h-[2px] -translate-y-1/2 ${rising ? "bg-accent" : "bg-status-error/70"}`}
+          style={{ left: `${left}%` }}
+          initial={{ width: 0 }}
+          whileInView={{ width: `${width}%` }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.9, ease: EASE_OUT_EXPO, delay: 0.15 + index * 0.05 }}
+        />
+        <span
+          className="absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-text-muted bg-background"
+          style={{ left: `${from}%` }}
+          title={`antes: ${decimal(item.previousShare)}%`}
+        />
+        <motion.span
+          className={`absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ${rising ? "bg-accent" : "bg-status-error"}`}
+          style={{ left: `${to}%` }}
+          initial={{ scale: 0 }}
+          whileInView={{ scale: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, ease: EASE_OUT_EXPO, delay: 0.6 + index * 0.05 }}
+          title={`agora: ${decimal(item.currentShare)}%`}
+        />
+      </span>
+
+      <span className="whitespace-nowrap font-mono text-[11px] tabular-nums text-text-muted">
+        {decimal(item.previousShare)}%
+        <span className="mx-1.5 text-text-muted/60">→</span>
+        <b className={rising ? "text-accent" : "text-status-error"}>{decimal(item.currentShare)}%</b>
+      </span>
+    </motion.li>
   );
 }
 
@@ -36,41 +81,123 @@ export default function TasteEvolutionPage() {
     setLoading(true);
     setError(null);
     fetch(`/api/overview?period=${period}`, { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("Não foi possível carregar a evolução de gosto.");
+      .then((response) => {
+        if (!response.ok) throw new Error("Não foi possível comparar os períodos.");
         return response.json();
       })
       .then(setData)
-      .catch((requestError) => { if (requestError.name !== "AbortError") setError(requestError.message); })
+      .catch((cause: Error) => {
+        if (cause.name !== "AbortError") setError(cause.message);
+      })
       .finally(() => setLoading(false));
     return () => controller.abort();
   }, [period]);
 
-  const hasShift = Boolean(data?.tasteShift.rising.length || data?.tasteShift.declining.length);
+  const rising = data?.tasteShift.rising ?? [];
+  const declining = data?.tasteShift.declining ?? [];
+  const hasShift = rising.length > 0 || declining.length > 0;
+
+  // uma escala só para os dois lados, senão as distâncias mentem
+  const scale = useMemo(() => {
+    const shares = [...rising, ...declining].flatMap((item) => [item.previousShare, item.currentShare]);
+    return Math.max(1, ...shares);
+  }, [rising, declining]);
+
+  const biggest = rising[0];
+
   return (
-    <MotionPage className="space-y-8 pb-16">
-      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-5 border-b border-border/40 pb-5">
+    <div className="space-y-16 pb-10">
+      <header className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
         <div>
-          <span className="text-[10px] font-mono tracking-[0.2em] text-text-muted uppercase">Comparação com o período anterior</span>
-          <h1 className="font-serif text-4xl text-text-primary mt-2">Evolução do gosto</h1>
+          <span className="eyebrow">Contra o período anterior</span>
+          <h1 className="display-xl mt-4 max-w-[12ch] text-[clamp(2.2rem,5vw,4rem)]">
+            <Reveal>O que mudou</Reveal>
+          </h1>
+          <ScreenLine screen="evolution" fallback="O que entrou e o que saiu de moda no seu fone." />
         </div>
-        <div className="flex p-1 rounded-xl bg-surface border border-border/60">
-          {([{ key: "30d", label: "30 dias" }, { key: "1y", label: "1 ano" }] as const).map((option) => (
-            <button key={option.key} onClick={() => setPeriod(option.key)} className={`px-4 py-2 rounded-lg text-xs font-mono ${period === option.key ? "bg-accent/20 text-accent-gold border border-accent/40" : "text-text-secondary"}`}>{option.label}</button>
+
+        <div className="flex gap-1 self-start rounded-full border border-border p-1 sm:self-end">
+          {PERIODS.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => setPeriod(option.key)}
+              aria-pressed={period === option.key}
+              className={`relative isolate rounded-full px-3.5 py-1.5 font-mono text-[10px] transition-colors ${
+                period === option.key ? "text-background" : "text-text-muted hover:text-text-primary"
+              }`}
+            >
+              {period === option.key && (
+                <motion.span
+                  layoutId="taste-period"
+                  className="absolute inset-0 z-0 rounded-full bg-text-primary"
+                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                />
+              )}
+              <span className="relative z-10">{option.label}</span>
+            </button>
           ))}
         </div>
       </header>
-      {loading && <div className="p-8 rounded-2xl bg-surface/40 border border-border/60 text-sm text-text-muted">Calculando a partir do histórico armazenado…</div>}
-      {error && <div className="p-5 rounded-2xl bg-status-error/10 border border-status-error/30 text-status-error flex gap-3"><AlertCircle className="w-5 h-5" />{error}</div>}
-      {!loading && !error && data && <>
-        <MotionSection className="p-6 rounded-2xl bg-surface/40 border border-border/60 flex gap-4 items-start">
-          <Activity className="w-5 h-5 text-accent-gold mt-0.5" />
-          <div><h2 className="text-sm font-semibold text-text-primary">Base da análise</h2><p className="text-xs text-text-secondary mt-1">{data.summary.totalPlays} audições, {data.summary.uniqueArtists} artistas e {data.summary.uniqueTracks} faixas no período selecionado.</p></div>
-        </MotionSection>
-        <MotionDiv><DataQualityPanel quality={data.dataQuality} /></MotionDiv>
-        {!hasShift && <MotionSection className="p-8 rounded-2xl bg-surface/40 border border-border/60 text-center"><h2 className="font-serif text-2xl text-text-primary">Dados de gênero insuficientes</h2><p className="text-sm text-text-secondary mt-2 max-w-xl mx-auto">A comparação será exibida quando houver artistas enriquecidos com tags nos períodos atual e anterior. Continue o enriquecimento em Configurações.</p></MotionSection>}
-        <MotionDiv className="grid grid-cols-1 lg:grid-cols-2 gap-6"><ShiftList title="Gêneros em ascensão" items={data.tasteShift.rising} direction="up" /><ShiftList title="Gêneros em queda" items={data.tasteShift.declining} direction="down" /></MotionDiv>
-      </>}
-    </MotionPage>
+
+      {loading && <p className="text-sm text-text-muted">Comparando os dois períodos…</p>}
+
+      {error && (
+        <div className="rounded-xl border border-status-error/30 bg-status-error/10 p-6 text-sm text-status-error">{error}</div>
+      )}
+
+      {!loading && !error && !hasShift && (
+        <section className="py-16">
+          <h2 className="display-lg max-w-[18ch] text-[clamp(1.6rem,3vw,2.4rem)]">Ainda não dá para comparar.</h2>
+          <p className="mt-4 max-w-[46ch] text-sm leading-relaxed text-text-secondary">
+            Para medir o movimento é preciso conhecer o gênero dos artistas nos dois períodos — e isso vai
+            sendo preenchido aos poucos, em segundo plano.
+          </p>
+        </section>
+      )}
+
+      {!loading && !error && hasShift && (
+        <>
+          {biggest && (
+            <p className="max-w-[52ch] border-l-2 border-accent/60 pl-4 text-[15px] leading-relaxed text-text-secondary">
+              <b className="capitalize text-text-primary">{biggest.genre}</b> foi o maior salto: saiu de{" "}
+              {decimal(biggest.previousShare)}% para {decimal(biggest.currentShare)}% da sua escuta.
+            </p>
+          )}
+
+          {rising.length > 0 && (
+            <InViewFade>
+              <section>
+                <div className="flex items-baseline justify-between gap-6 border-b border-border pb-4">
+                  <h2 className="display-lg text-[clamp(1.3rem,2.4vw,1.8rem)]">Ganhou espaço</h2>
+                  <span className="eyebrow">antes → agora</span>
+                </div>
+                <ul className="m-0 list-none p-0">
+                  {rising.map((item, index) => (
+                    <ShiftRow key={item.genre} item={item} scale={scale} direction="up" index={index} />
+                  ))}
+                </ul>
+              </section>
+            </InViewFade>
+          )}
+
+          {declining.length > 0 && (
+            <InViewFade>
+              <section>
+                <div className="flex items-baseline justify-between gap-6 border-b border-border pb-4">
+                  <h2 className="display-lg text-[clamp(1.3rem,2.4vw,1.8rem)]">Perdeu espaço</h2>
+                  <span className="eyebrow">antes → agora</span>
+                </div>
+                <ul className="m-0 list-none p-0">
+                  {declining.map((item, index) => (
+                    <ShiftRow key={item.genre} item={item} scale={scale} direction="down" index={index} />
+                  ))}
+                </ul>
+              </section>
+            </InViewFade>
+          )}
+        </>
+      )}
+    </div>
   );
 }

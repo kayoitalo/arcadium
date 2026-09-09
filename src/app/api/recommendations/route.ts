@@ -30,19 +30,28 @@ export async function POST(request: Request) {
     const context = (body.context as RecommendationContext) || "GENERAL";
     const period = body.period || "30d";
 
+    // Os controles chegam como 0..100; o que vier fora disso é ignorado em
+    // favor do preset do modo, para uma query malformada não desregular o motor.
+    const dials =
+      typeof body.proximity === "number" && typeof body.fame === "number"
+        ? {
+            proximity: Math.min(100, Math.max(0, Math.round(body.proximity))),
+            fame: Math.min(100, Math.max(0, Math.round(body.fame))),
+          }
+        : undefined;
+
     const service = new RecommendationService();
 
-    const latest = await service.getLatestSession(user.id);
-    if (latest && latest.mode === mode && latest.context === context) {
-      return NextResponse.json(latest);
-    }
-
+    // O reuso vive no serviço, que considera janela de tempo e os controles.
+    // A checagem que existia aqui devolvia qualquer sessão ativa do mesmo modo,
+    // ignorando se a pessoa tinha acabado de mexer nos eixos.
     const session = await service.generateSession({
       userId: user.id,
       mode,
       context,
       period,
       size: 8,
+      dials,
     });
 
     return NextResponse.json(session);

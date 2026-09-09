@@ -1,439 +1,389 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  Compass,
-  ThumbsUp,
-  ThumbsDown,
-  CheckCircle,
-  Bookmark,
-  Play,
-  Sparkles,
-  Share2,
-  ListPlus,
-  Sliders,
-} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { MotionPage } from "@/components/ui/motion";
-import { ResilientCover } from "@/components/ui/resilient-cover";
+import { ListPlus, RotateCcw, X } from "lucide-react";
+import { useChroma } from "@/components/chroma/chroma-provider";
+import { DiscoveryStage, type StageAction, type StageCandidate } from "@/components/discovery/discovery-stage";
+import { ScreenLine } from "@/components/ui/screen-line";
+import { EASE_OUT_EXPO, Reveal } from "@/components/ui/motion";
 
-interface Candidate {
-  id: string;
+interface ExportedTrack {
   artistName: string;
   trackName: string;
-  albumName: string | null;
-  coverUrl?: string;
-  genre: string | null;
-  score: number;
-  reason: string | null;
-  feedback?: "liked" | "disliked" | "known" | "saved";
+  webUrl: string;
 }
-type FeedbackAction = Exclude<Candidate["feedback"], undefined>;
+
+interface ExportResult {
+  playlistTitle?: string;
+  playlistUrl?: string;
+  mode?: string;
+  resolvedCount?: number;
+  totalItems?: number;
+  items?: ExportedTrack[];
+  m3uPayload?: string;
+  error?: string;
+}
+
+const FEEDBACK_API: Record<StageAction, string> = {
+  liked: "LIKED",
+  saved: "SAVE_FOR_LATER",
+  known: "ALREADY_KNOW",
+  skipped: "NOT_INTERESTED",
+};
+
+/** Atalhos para os cantos do mapa que valem a pena visitar. */
+const PRESETS = [
+  { label: "Quase em casa", proximity: 88, fame: 70 },
+  { label: "Um passo ao lado", proximity: 55, fame: 50 },
+  { label: "Fora da bolha", proximity: 18, fame: 30 },
+  { label: "Como nunca ouvi isso", proximity: 62, fame: 92 },
+];
 
 export default function DiscoveryPage() {
-  const [mode, setMode] = useState<"SAFE" | "BALANCED" | "EXPERIMENTAL">("BALANCED");
-  const [context, setContext] = useState<string>("GENERAL");
-  const [items, setItems] = useState<Candidate[]>([]);
+  const [proximity, setProximity] = useState(55);
+  const [fame, setFame] = useState(50);
+  const [queue, setQueue] = useState<StageCandidate[]>([]);
+  const [index, setIndex] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
+  const [error, setError] = useState<string | null>(null);
+  const [decided, setDecided] = useState<Record<string, StageAction>>({});
   const [exporting, setExporting] = useState(false);
-  const [exportResult, setExportResult] = useState<any | null>(null);
-  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportResult, setExportResult] = useState<ExportResult | null>(null);
+  const [showExport, setShowExport] = useState(false);
+  const { adoptCover } = useChroma();
+  const requestRef = useRef(0);
+
+  const load = useCallback(async (nextProximity: number, nextFame: number) => {
+    const token = ++requestRef.current;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/recommendations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "BALANCED",
+          context: "GENERAL",
+          proximity: nextProximity,
+          fame: nextFame,
+        }),
+      });
+      if (!response.ok) throw new Error("Não foi possível montar as sugestões.");
+      const payload = await response.json();
+      // uma resposta antiga não pode sobrescrever a busca atual
+      if (token !== requestRef.current) return;
+
+      setQueue(payload.items ?? []);
+      setSessionId(payload.sessionId ?? null);
+      setIndex(0);
+      setDecided({});
+    } catch (cause) {
+      if (token === requestRef.current) {
+        setError(cause instanceof Error ? cause.message : "Algo deu errado.");
+      }
+    } finally {
+      if (token === requestRef.current) setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetchSession();
-  }, [mode, context]);
+    void load(55, 50);
+  }, [load]);
 
-  const fetchSession = async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const res = await fetch(`/api/recommendations`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode, context }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setItems((data.items || []).map((item: Candidate & { status?: string }) => ({ ...item, feedback: item.status === "LIKED" ? "liked" : item.status === "DISLIKED" ? "disliked" : item.status === "KNOWN" ? "known" : item.status === "SAVED" ? "saved" : undefined })));
-        setSessionId(data.sessionId || null);
-      } else throw new Error("Não foi possível gerar recomendações.");
-    } catch (err) {
-      console.error("Failed to fetch recommendations", err);
-      setLoadError(err instanceof Error ? err.message : "Não foi possível gerar recomendações.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const current = queue[index];
 
-  const handleFeedback = async (id: string, action: FeedbackAction) => {
-    if (!sessionId) return;
+  // a tela assume a cor da capa em foco
+  useEffect(() => {
+    adoptCover(current?.coverUrl);
+  }, [current?.coverUrl, adoptCover]);
 
-    const typeMap: Record<string, string> = {
-      liked: "LIKED",
-      disliked: "DISLIKED",
-      known: "ALREADY_KNOW",
-      saved: "SAVE_FOR_LATER"
-    };
+  const handleAction = useCallback(
+    (candidate: StageCandidate, action: StageAction) => {
+      setDecided((previous) => ({ ...previous, [candidate.id]: action }));
+      setIndex((value) => value + 1);
 
-    const apiType = typeMap[action];
+      if (sessionId) {
+        void fetch(`/api/recommendations/${sessionId}/feedback`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ itemId: candidate.id, type: FEEDBACK_API[action] }),
+        }).catch(() => undefined);
+      }
+    },
+    [sessionId],
+  );
 
-    setItems((prev) =>
-      prev.map((item) => {
-        if (item.id === id) {
-          return { ...item, feedback: item.feedback === action ? undefined : action };
-        }
-        return item;
-      })
-    );
+  const kept = useMemo(
+    () => queue.filter((item) => decided[item.id] === "liked" || decided[item.id] === "saved"),
+    [queue, decided],
+  );
 
-    try {
-      const response = await fetch(`/api/recommendations/${sessionId}/feedback`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId: id, type: apiType }),
-      });
-      if (!response.ok) throw new Error("Não foi possível registrar o feedback.");
-    } catch (err) {
-      console.error("Feedback failed:", err);
-      setItems((previous) => previous.map((item) => item.id === id ? { ...item, feedback: undefined } : item));
-    }
-  };
-
-  const handleExportSpotify = async () => {
+  const handleExport = async () => {
     setExporting(true);
-    setShowExportModal(true);
+    setShowExport(true);
     setExportResult(null);
 
-    const selection = items.filter((i) => i.feedback === "liked" || i.feedback === "saved");
-    const tracksToExport = (selection.length > 0 ? selection : items).map((i) => ({
-      trackName: i.trackName,
-      artistName: i.artistName,
-    }));
-
     try {
-      const res = await fetch("/api/spotify/export", {
+      const response = await fetch("/api/spotify/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tracks: tracksToExport }),
+        body: JSON.stringify({
+          tracks: kept.map((item) => ({ trackName: item.trackName, artistName: item.artistName })),
+        }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Export failed");
-      setExportResult(data.data);
-    } catch (err: any) {
-      setExportResult({ error: err?.message || "Export failed" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? "A exportação falhou.");
+      setExportResult(payload.data);
+    } catch (cause) {
+      setExportResult({ error: cause instanceof Error ? cause.message : "A exportação falhou." });
     } finally {
       setExporting(false);
     }
   };
 
+  const finished = !loading && !error && queue.length > 0 && index >= queue.length;
+
   return (
-    <MotionPage className="space-y-10 pb-16">
+    <div className="relative space-y-10 pb-10">
+      <div className="chroma-aura pointer-events-none absolute -inset-x-40 -top-32 -z-10 h-[620px]" />
 
-      <header className="space-y-6">
-        <div className="flex items-center justify-between border-b border-border/40 pb-4">
-          <div className="flex items-center gap-2">
-            <Compass className="w-5 h-5 text-accent-gold" />
-            <span className="text-[10px] font-mono font-bold tracking-[0.25em] text-text-muted uppercase">
-              MOTOR DE DESCOBERTAS
-            </span>
-          </div>
-
-          <div className="flex p-1 rounded-xl bg-surface border border-border/60 text-xs font-mono">
-            <button
-              onClick={() => setMode("SAFE")}
-              className={`px-3.5 py-1.5 rounded-lg transition-all ${
-                mode === "SAFE" ? "bg-accent/20 text-accent-gold font-bold border border-accent/40 shadow-glow" : "text-text-secondary"
-              }`}
-            >
-              Familiar
-            </button>
-            <button
-              onClick={() => setMode("BALANCED")}
-              className={`px-3.5 py-1.5 rounded-lg transition-all ${
-                mode === "BALANCED" ? "bg-accent/20 text-accent-gold font-bold border border-accent/40 shadow-glow" : "text-text-secondary"
-              }`}
-            >
-              Equilibrado
-            </button>
-            <button
-              onClick={() => setMode("EXPERIMENTAL")}
-              className={`px-3.5 py-1.5 rounded-lg transition-all ${
-                mode === "EXPERIMENTAL" ? "bg-accent/20 text-accent-gold font-bold border border-accent/40 shadow-glow" : "text-text-secondary"
-              }`}
-            >
-              Experimental
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
-          <div className="space-y-3 max-w-3xl">
-            <h1 className="font-serif text-4xl sm:text-5xl font-normal leading-tight text-text-primary">
-              Recomendações calculadas a partir do histórico armazenado
-            </h1>
-            <p className="text-text-secondary text-sm sm:text-base leading-relaxed font-sans">
-              Cada item registra os componentes da pontuação e pode receber feedback para influenciar sessões futuras.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 p-1.5 rounded-xl bg-surface border border-border/60 text-xs font-mono text-text-secondary">
-            <Sliders className="w-3.5 h-3.5 text-accent-gold" />
-            <select
-              value={context}
-              onChange={(e) => setContext(e.target.value)}
-              className="bg-transparent focus:outline-none text-text-primary cursor-pointer pr-2"
-            >
-              <option value="GENERAL" className="bg-surface text-text-primary">Contexto: geral</option>
-              <option value="WORKING" className="bg-surface text-text-primary">Contexto: trabalho</option>
-              <option value="RELAXING" className="bg-surface text-text-primary">Contexto: relaxar</option>
-              <option value="NIGHT" className="bg-surface text-text-primary">Contexto: noite</option>
-            </select>
-          </div>
+      <header className="text-center">
+        <span className="eyebrow">A partir de tudo o que você já ouviu</span>
+        <h1 className="display-xl mt-4 text-[clamp(2rem,4.6vw,3.4rem)]">
+          <Reveal>Para ouvir depois</Reveal>
+        </h1>
+        <div className="mx-auto max-w-[52ch]">
+          <ScreenLine
+            screen="discovery"
+            fallback="Ouça trinta segundos e decida. O que você marcar muda as próximas."
+          />
         </div>
       </header>
 
-      {loading ? (
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="p-6 rounded-2xl bg-surface/20 border border-border/40 animate-pulse h-64"></div>
-          ))}
-        </section>
-      ) : loadError ? <section className="rounded-2xl border border-status-error/30 bg-status-error/10 p-8 text-center text-sm text-status-error">{loadError}</section> : (
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {items.length === 0 && (
-          <div className="md:col-span-2 p-8 rounded-2xl bg-surface/40 border border-border/60 text-center">
-            <h2 className="font-serif text-2xl text-text-primary">Nenhum candidato disponível</h2>
-            <p className="text-sm text-text-secondary mt-2">O banco ainda não contém faixas inéditas com metadados suficientes para este modo e contexto.</p>
-          </div>
-        )}
-        {items.map((candidate) => {
-          const isLiked = candidate.feedback === "liked";
-          const isDisliked = candidate.feedback === "disliked";
-          const isKnown = candidate.feedback === "known";
-          const isSaved = candidate.feedback === "saved";
+      {/* os dois controles: a pessoa aponta o alvo, o motor procura perto dele */}
+      <section className="mx-auto grid max-w-[560px] gap-5 border-y border-border py-6">
+        <div className="flex flex-wrap justify-center gap-2">
+          {PRESETS.map((preset) => {
+            const active = preset.proximity === proximity && preset.fame === fame;
+            return (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => {
+                  setProximity(preset.proximity);
+                  setFame(preset.fame);
+                  void load(preset.proximity, preset.fame);
+                }}
+                aria-pressed={active}
+                className={`relative isolate rounded-full px-3.5 py-1.5 font-mono text-[10px] transition-colors ${
+                  active ? "text-background" : "text-text-muted hover:text-text-primary"
+                }`}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="discovery-preset"
+                    className="absolute inset-0 z-0 rounded-full bg-text-primary"
+                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                  />
+                )}
+                <span className="relative z-10">{preset.label}</span>
+              </button>
+            );
+          })}
+        </div>
 
-          return (
-            <motion.div
-              key={candidate.id}
-              layout
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`p-6 rounded-2xl bg-surface/40 border transition-all duration-300 space-y-5 flex flex-col justify-between group ${
-                isDisliked
-                  ? "opacity-40 border-border/40 grayscale"
-                  : isLiked
-                  ? "border-accent-gold/60 shadow-glow bg-surface/60"
-                  : "border-border/60 hover:border-accent/40"
-              }`}
-            >
-              <div className="space-y-4">
+        <label className="grid grid-cols-[6.5rem_1fr_3.5rem] items-center gap-3">
+          <span className="eyebrow">Proximidade</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={proximity}
+            onChange={(event) => setProximity(Number(event.target.value))}
+            className="accent-[var(--chroma)]"
+            aria-label="Proximidade do seu gosto atual"
+          />
+          <span className="text-right font-mono text-[10px] text-text-muted">
+            {proximity < 35 ? "longe" : proximity > 70 ? "perto" : "meio"}
+          </span>
+        </label>
 
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-border/60 shadow-magazine flex-shrink-0">
-                      <ResilientCover src={candidate.coverUrl} alt={candidate.artistName} label={candidate.albumName || candidate.artistName} className="h-full w-full" imageClassName="transition-transform duration-500 group-hover:scale-105" />
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-mono text-accent-gold uppercase tracking-wider block">
-                        {candidate.genre || "Gênero não informado"}
-                      </span>
-                      <h3 className="font-serif text-xl font-bold text-text-primary leading-tight group-hover:text-accent-gold transition-colors">
-                        {candidate.artistName}
-                      </h3>
-                      <p className="text-xs text-text-secondary font-mono mt-0.5">
-                        {candidate.trackName}{candidate.albumName ? <> — <span className="italic">{candidate.albumName}</span></> : null}
-                      </p>
-                    </div>
-                  </div>
+        <label className="grid grid-cols-[6.5rem_1fr_3.5rem] items-center gap-3">
+          <span className="eyebrow">Fama</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={fame}
+            onChange={(event) => setFame(Number(event.target.value))}
+            className="accent-[var(--chroma)]"
+            aria-label="Tamanho da plateia do artista"
+          />
+          <span className="text-right font-mono text-[10px] text-text-muted">
+            {fame < 35 ? "obscuro" : fame > 70 ? "famoso" : "meio"}
+          </span>
+        </label>
 
-                  <span className="px-2.5 py-1 rounded-full bg-accent/15 border border-accent/30 text-accent-gold text-[10px] font-mono font-bold flex-shrink-0">
-                    {Math.round(candidate.score)}% DE AFINIDADE
-                  </span>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-surface-soft border border-border/60 text-xs text-text-secondary leading-relaxed font-sans">
-                  {candidate.reason || "Explicação não registrada para este item."}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pt-3 border-t border-border/40 text-xs font-mono">
-                <div className="flex items-center gap-2">
-
-                  <button
-                    onClick={() => handleFeedback(candidate.id, "liked")}
-                    className={`px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 ${
-                      isLiked
-                        ? "bg-status-success/20 text-status-success border-status-success/50 font-bold"
-                        : "bg-surface border-border/60 text-text-secondary hover:text-text-primary"
-                    }`}
-                  >
-                    <ThumbsUp className="w-3.5 h-3.5" />
-                    <span>Curtir</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleFeedback(candidate.id, "disliked")}
-                    className={`px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 ${
-                      isDisliked
-                        ? "bg-status-error/20 text-status-error border-status-error/50 font-bold"
-                        : "bg-surface border-border/60 text-text-secondary hover:text-text-primary"
-                    }`}
-                  >
-                    <ThumbsDown className="w-3.5 h-3.5" />
-                    <span>Não Curtir</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleFeedback(candidate.id, "known")}
-                    className={`px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 ${
-                      isKnown
-                        ? "bg-accent/20 text-accent-gold border-accent/50 font-bold"
-                        : "bg-surface border-border/60 text-text-secondary hover:text-text-primary"
-                    }`}
-                  >
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    <span>Já Conheço</span>
-                  </button>
-                </div>
-
-                <button
-                  onClick={() => handleFeedback(candidate.id, "saved")}
-                  className={`p-2 rounded-lg border transition-all ${
-                    isSaved
-                      ? "bg-accent-gold text-background border-accent-gold"
-                      : "bg-surface border-border/60 text-text-secondary hover:text-text-primary"
-                  }`}
-                >
-                  <Bookmark className="w-4 h-4" />
-                </button>
-              </div>
-            </motion.div>
-          );
-        })}
+        <button
+          type="button"
+          onClick={() => void load(proximity, fame)}
+          disabled={loading}
+          className="mx-auto inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 font-mono text-[11px] font-semibold text-background transition-transform hover:scale-[1.02] disabled:opacity-30"
+        >
+          <RotateCcw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          {loading ? "procurando…" : "buscar com esses ajustes"}
+        </button>
       </section>
+
+      {error && (
+        <p className="mx-auto max-w-[46ch] rounded-lg border border-status-error/30 bg-status-error/10 p-4 text-center text-sm text-status-error">
+          {error}
+        </p>
       )}
 
-      {sessionId && <footer className="p-6 rounded-2xl bg-surface/50 border border-border/60 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="space-y-1">
-          <span className="font-serif text-lg font-bold text-text-primary block">Sessão {sessionId ? sessionId.slice(0, 8) : "não iniciada"}</span>
-          <p className="text-xs text-text-secondary font-sans">
-            Você deu feedback em {items.filter((i) => i.feedback).length} de {items.length} candidatos nesta sessão.
+      {loading && <div className="mx-auto aspect-square w-full max-w-[420px] animate-pulse rounded-sm bg-surface-elevated" />}
+
+      {!loading && !error && queue.length === 0 && (
+        <section className="py-14 text-center">
+          <h2 className="display-lg mx-auto max-w-[22ch] text-[clamp(1.5rem,3vw,2.2rem)]">
+            Nada novo com esses ajustes.
+          </h2>
+          <p className="mx-auto mt-4 max-w-[42ch] text-sm text-text-secondary">
+            Puxe a proximidade para longe ou a fama para baixo — é onde mora o que você ainda não ouviu.
           </p>
-        </div>
+        </section>
+      )}
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleExportSpotify}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-mono font-bold hover:bg-accent-hover transition-all shadow-glow"
-          >
-            <ListPlus className="w-4 h-4" />
-            <span>EXPORTAR SELEÇÃO</span>
-          </button>
-        </div>
-      </footer>}
+      {!loading && !error && !finished && queue.length > 0 && (
+        <DiscoveryStage queue={queue} index={index} onAction={handleAction} />
+      )}
 
-      <AnimatePresence>{showExportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md">
-          <motion.div initial={{ opacity: 0, scale: 0.96, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }} className="w-full max-w-lg p-6 rounded-2xl bg-surface border border-border space-y-5 shadow-magazine">
-            <div className="flex items-center justify-between border-b border-border/60 pb-3">
-              <div className="flex items-center gap-2">
-                <ListPlus className="w-5 h-5 text-accent-gold" />
-                <h3 className="font-serif text-xl font-bold text-text-primary">
-                  Exportar para o Spotify
-                </h3>
-              </div>
+      {finished && (
+        <section className="py-12 text-center">
+          <h2 className="display-lg mx-auto max-w-[20ch] text-[clamp(1.5rem,3vw,2.2rem)]">
+            {kept.length > 0 ? `Você separou ${kept.length}.` : "Nenhuma passou no teste."}
+          </h2>
+          <p className="mx-auto mt-4 max-w-[42ch] text-sm text-text-secondary">
+            {kept.length > 0
+              ? "Dá para levar para o Spotify agora, ou mexer nos controles e buscar mais."
+              : "Mexa nos controles e tente outro canto do mapa."}
+          </p>
+
+          <div className="mt-7 flex flex-wrap justify-center gap-3">
+            {kept.length > 0 && (
               <button
-                onClick={() => setShowExportModal(false)}
-                className="text-xs font-mono text-text-muted hover:text-text-primary"
+                type="button"
+                onClick={handleExport}
+                className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 font-mono text-[11px] font-semibold text-background"
               >
-                FECHAR
+                <ListPlus className="h-4 w-4" />
+                levar {kept.length} para o Spotify
               </button>
-            </div>
+            )}
+            <button
+              type="button"
+              onClick={() => void load(proximity, fame)}
+              className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 font-mono text-[11px] text-text-secondary transition-colors hover:border-accent hover:text-text-primary"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              buscar mais
+            </button>
+          </div>
+        </section>
+      )}
 
-            {exporting ? (
-              <div className="py-8 text-center space-y-3 font-mono text-xs text-text-secondary">
-                <div className="w-8 h-8 mx-auto border-2 border-accent-gold border-t-transparent rounded-full animate-spin" />
-                <p>Buscando faixas no catálogo do Spotify...</p>
+      {!loading && queue.length > 0 && !finished && (
+        <p className="text-center font-mono text-[10px] text-text-muted">
+          {index + 1} de {queue.length} · {kept.length} separadas
+        </p>
+      )}
+
+      <AnimatePresence>
+        {showExport && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 p-4 backdrop-blur-md"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="w-full max-w-lg space-y-5 rounded-xl border border-border bg-surface p-6 shadow-lift"
+              initial={{ opacity: 0, scale: 0.97, y: 14 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.35, ease: EASE_OUT_EXPO }}
+            >
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h3 className="font-display text-lg tracking-tight">Levar para o Spotify</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowExport(false)}
+                  aria-label="Fechar"
+                  className="rounded-full p-1.5 text-text-muted transition-colors hover:text-text-primary"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-            ) : exportResult?.error ? (
-              <div className="p-4 rounded-xl bg-status-error/15 border border-status-error/30 text-status-error text-xs font-mono">
-                {exportResult.error}
-              </div>
-            ) : exportResult ? (
-              <div className="space-y-4">
-                <div className="p-4 rounded-xl bg-surface-elevated border border-border/60 space-y-2 text-xs font-mono">
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Playlist:</span>
-                    <strong className="text-text-primary">{exportResult.playlistTitle}</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Status:</span>
-                    <span className="text-status-success font-bold">
-                      {exportResult.mode === "SPOTIFY_API" ? "Playlist Criada no Spotify" : "Exportação Pronta"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Faixas Resolvidas:</span>
-                    <strong className="text-text-primary">
-                      {exportResult.resolvedCount} de {exportResult.totalItems}
-                    </strong>
-                  </div>
+
+              {exporting && (
+                <div className="space-y-3 py-8 text-center">
+                  <span className="mx-auto block h-7 w-7 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                  <p className="font-mono text-[11px] text-text-muted">Procurando as faixas…</p>
                 </div>
+              )}
 
-                <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 text-xs font-mono">
-                  {exportResult.items.map((item: any, idx: number) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-2 rounded-lg bg-surface/60 border border-border/40"
-                    >
-                      <span className="truncate text-text-primary">
-                        {item.artistName} — {item.trackName}
-                      </span>
+              {!exporting && exportResult?.error && (
+                <p className="rounded-lg border border-status-error/30 bg-status-error/10 p-4 text-xs text-status-error">
+                  {exportResult.error}
+                </p>
+              )}
+
+              {!exporting && exportResult && !exportResult.error && (
+                <div className="space-y-4">
+                  <p className="text-sm text-text-secondary">
+                    <b className="text-text-primary">{exportResult.resolvedCount}</b> de {exportResult.totalItems}{" "}
+                    faixas encontradas
+                    {exportResult.mode === "SPOTIFY_API" ? " e a playlist já está na sua conta." : "."}
+                  </p>
+
+                  <div className="flex items-center gap-3">
+                    {exportResult.m3uPayload && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const blob = new Blob([exportResult.m3uPayload as string], { type: "audio/x-mpegurl" });
+                          const url = URL.createObjectURL(blob);
+                          const anchor = document.createElement("a");
+                          anchor.href = url;
+                          anchor.download = `${exportResult.playlistTitle ?? "grooveyard"}.m3u`;
+                          anchor.click();
+                          URL.revokeObjectURL(url);
+                        }}
+                        className="rounded-full border border-border px-4 py-2 font-mono text-[11px] text-text-secondary transition-colors hover:border-accent hover:text-text-primary"
+                      >
+                        baixar .m3u
+                      </button>
+                    )}
+                    {exportResult.playlistUrl && (
                       <a
-                        href={item.webUrl}
+                        href={exportResult.playlistUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-accent-gold hover:underline flex-shrink-0 ml-2 text-[10px]"
+                        className="flex-1 rounded-full bg-accent px-5 py-2.5 text-center font-mono text-[11px] font-semibold text-background"
                       >
-                        ABRIR NO SPOTIFY
+                        abrir no Spotify
                       </a>
-                    </div>
-                  ))}
+                    )}
+                  </div>
                 </div>
-
-                <div className="pt-2 flex items-center justify-between gap-3">
-                  {exportResult.m3uPayload && (
-                    <button
-                      onClick={() => {
-                        const blob = new Blob([exportResult.m3uPayload], { type: "audio/x-mpegurl" });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `${exportResult.playlistTitle}.m3u`;
-                        a.click();
-                      }}
-                      className="px-4 py-2 rounded-xl bg-surface-elevated border border-border text-xs font-mono text-text-secondary hover:text-text-primary"
-                    >
-                      DOWNLOAD .M3U
-                    </button>
-                  )}
-                  <a
-                    href={exportResult.playlistUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex-1 text-center px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-mono font-bold hover:bg-accent-hover shadow-glow"
-                  >
-                    ABRIR PLAYLIST NO SPOTIFY ↗
-                  </a>
-                </div>
-              </div>
-            ) : null}
+              )}
+            </motion.div>
           </motion.div>
-        </div>
-      )}</AnimatePresence>
-    </MotionPage>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

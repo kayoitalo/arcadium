@@ -73,6 +73,8 @@ describe("Recommendation Scoring Engine", () => {
         noveltyFit: 1.0,
         feedbackFit: 0.5,
         metadataConfidence: 1.0,
+        proximityFit: 0.6,
+        fameFit: 0.4,
       };
 
       const scoreSafe = calculateScore(components, "SAFE");
@@ -109,7 +111,9 @@ describe("Recommendation Scoring Engine", () => {
 
       expect(ranked).toHaveLength(2);
       expect(ranked[0].score).toBeGreaterThanOrEqual(ranked[1].score);
-      expect(ranked[0].reason).toContain("Match determinístico");
+      // o motivo precisa dizer de onde a sugestão veio, não repetir a nota
+      expect(ranked[0].reason).toContain("Gojira");
+      expect(ranked[0].reason).not.toMatch(/^Match/);
       expect(ranked[0].noveltyScore).toBeDefined();
     });
   });

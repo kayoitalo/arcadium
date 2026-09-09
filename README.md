@@ -1,6 +1,6 @@
-# Music Intelligence (SpotStats)
+# Grooveyard
 
-> **Personal Music Statistics, Taste Shift Analysis & Recommendation Platform**
+> **O cemitério dos seus discos — estatísticas de escuta, evolução de gosto e descobertas**
 > 
 > A portfolio-quality, modular Next.js application that transforms listening history into a digital music magazine visual experience with deterministic discovery, AI interpretation, MusicBrainz metadata enrichment, and Spotify playlist export.
 

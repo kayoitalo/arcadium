@@ -1,6 +1,8 @@
 
 
 import {
+  type DiscoveryDials,
+  MODE_DIALS,
   type RawCandidate,
   type ScoredCandidate,
   type ScoreComponents,
@@ -19,9 +21,34 @@ export interface UserProfile {
   uniqueArtists: number;
 }
 
+/**
+ * Ouvintes viram escala 0..1 em log, não linear: a diferença entre 60 mil
+ * e 600 mil ouvintes importa tanto quanto entre 600 mil e 6 milhões. Numa
+ * escala linear todo mundo abaixo de um milhão viraria "zero".
+ */
+export function fameOf(listeners?: number): number {
+  if (!listeners || listeners <= 0) return 0.35;
+  const scaled = (Math.log10(listeners) - 3) / 4; // 1 mil -> 0, 10 milhões -> 1
+  return Math.min(1, Math.max(0, scaled));
+}
+
+/** Distância do gosto atual: é a própria afinidade medida pelo provedor. */
+export function proximityOf(candidate: RawCandidate): number {
+  if (typeof candidate.match === "number") return Math.min(1, Math.max(0, candidate.match));
+  if (candidate.source === "top_artist_deep_cut") return 0.95;
+  if (candidate.source === "artist_graph") return 0.6;
+  return 0.5;
+}
+
+/** Quanto mais perto do alvo pedido, melhor. Alvo, não corte. */
+function fitTo(target: number, actual: number): number {
+  return 1 - Math.abs(target - actual);
+}
+
 export function computeComponents(
   candidate: RawCandidate,
-  profile: UserProfile
+  profile: UserProfile,
+  dials: DiscoveryDials = MODE_DIALS.BALANCED
 ): ScoreComponents {
 
   const artistSimilarity = computeArtistSimilarity(candidate, profile);
@@ -43,6 +70,8 @@ export function computeComponents(
     noveltyFit,
     feedbackFit,
     metadataConfidence,
+    proximityFit: fitTo(dials.proximity / 100, proximityOf(candidate)),
+    fameFit: fitTo(dials.fame / 100, fameOf(candidate.listeners)),
   };
 }
 
@@ -57,7 +86,9 @@ export function calculateScore(
     components.profileRelevance * weights.profileRelevance +
     components.noveltyFit * weights.noveltyFit +
     components.feedbackFit * weights.feedbackFit +
-    components.metadataConfidence * weights.metadataConfidence;
+    components.metadataConfidence * weights.metadataConfidence +
+    components.proximityFit * weights.proximityFit +
+    components.fameFit * weights.fameFit;
 
   return Math.round(Math.min(100, Math.max(0, raw * 100)));
 }
@@ -65,13 +96,18 @@ export function calculateScore(
 export function scoreAndRank(
   candidates: RawCandidate[],
   profile: UserProfile,
-  mode: RecommendationMode
+  mode: RecommendationMode,
+  dials: DiscoveryDials = MODE_DIALS[mode]
 ): ScoredCandidate[] {
   const scored = candidates.map((candidate) => {
-    const components = computeComponents(candidate, profile);
+    const components = computeComponents(candidate, profile, dials);
     const score = calculateScore(components, mode);
     const noveltyScore = Math.round(components.noveltyFit * 100);
-    const reason = buildReason(candidate, components, score, mode);
+    const position = {
+      proximity: Math.round(proximityOf(candidate) * 100),
+      fame: Math.round(fameOf(candidate.listeners) * 100),
+    };
+    const reason = buildReason(candidate, position, score, mode);
 
     return {
       ...candidate,
@@ -79,6 +115,7 @@ export function scoreAndRank(
       noveltyScore,
       components,
       reason,
+      position,
     };
   });
 
@@ -186,30 +223,36 @@ function computeMetadataConfidence(candidate: RawCandidate): number {
 
 function buildReason(
   candidate: RawCandidate,
-  components: ScoreComponents,
+  position: { proximity: number; fame: number },
   score: number,
   mode: RecommendationMode
 ): string {
-  const parts: string[] = [];
-  parts.push(`Match determinístico de ${score}%.`);
+  const origin =
+    candidate.source === "similar_artist" && candidate.sourceArtistName
+      ? `Quem ouve ${candidate.sourceArtistName} costuma chegar aqui`
+      : candidate.source === "top_artist_deep_cut" && candidate.sourceArtistName
+        ? `Faixa de ${candidate.sourceArtistName} que passou batido por você`
+        : candidate.source === "artist_graph"
+          ? "Cruza dois dos seus gêneros principais"
+          : candidate.genre
+            ? `Vizinho de ${candidate.genre}`
+            : "Perto do que você já ouve";
 
-  if (candidate.source === "similar_artist" && candidate.sourceArtistName) {
-    parts.push(`Artista similar a ${candidate.sourceArtistName}, que está no seu perfil.`);
-  } else if (candidate.source === "genre_adjacency") {
-    parts.push(`Gênero adjacente aos seus favoritos.`);
-  } else if (candidate.source === "artist_graph") {
-    parts.push(`Conectado a múltiplos artistas do seu perfil.`);
-  } else if (candidate.source === "top_artist_deep_cut") {
-    parts.push(`Faixa menos conhecida de um artista que você já ouve.`);
-  }
+  // as duas coordenadas viram frase: é o que a pessoa acabou de pedir
+  const distancia =
+    position.proximity >= 70 ? 'bem no seu território'
+    : position.proximity >= 40 ? 'um passo para o lado'
+    : 'longe da sua zona';
 
-  if (components.noveltyFit > 0.7) {
-    parts.push(`Alta novidade — artista novo para você.`);
-  }
+  const plateia =
+    position.fame >= 70 ? 'que muita gente já ouviu'
+    : position.fame >= 40 ? 'de público médio'
+    : 'que quase ninguém ouve';
 
-  if (candidate.genre) {
-    parts.push(`Gênero: ${candidate.genre}.`);
-  }
+  const aposta =
+    score >= 75 ? 'Aposta segura.'
+    : score >= 55 ? 'Vale o teste.'
+    : mode === 'EXPERIMENTAL' ? 'Tiro no escuro.' : 'Aposta de risco.';
 
-  return parts.join(" ");
+  return `${origin} — ${distancia}, ${plateia}. ${aposta}`;
 }

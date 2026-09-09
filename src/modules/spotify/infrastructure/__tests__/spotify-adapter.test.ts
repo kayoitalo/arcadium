@@ -51,7 +51,7 @@ describe("SpotifyAdapter", () => {
   it("creates a private playlist via Spotify API", async () => {
     const mockPlaylistResponse = {
       id: "playlist-12345",
-      name: "Music Intelligence Test Playlist",
+      name: "Grooveyard Test Playlist",
       external_urls: {
         spotify: "https://open.spotify.com/playlist/playlist-12345",
       },
@@ -65,7 +65,7 @@ describe("SpotifyAdapter", () => {
     const result = await adapter.createPlaylist(
       "valid-access-token",
       "user-123",
-      "Music Intelligence Test Playlist",
+      "Grooveyard Test Playlist",
       "Test description"
     );
 
@@ -87,5 +87,58 @@ describe("SpotifyAdapter", () => {
     expect(result.addedCount).toBe(150);
 
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("SpotifyAdapter — autorização recusada", () => {
+  const adapter = new SpotifyAdapter();
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("lança SpotifyAuthError no 401 da busca, em vez de fingir que não achou", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 401 }) as Response));
+
+    await expect(adapter.searchTrackUri("Blitzkrieg Bop", "Ramones", "token-revogado")).rejects.toMatchObject({
+      name: "SpotifyAuthError",
+    });
+  });
+
+  it("lança SpotifyAuthError no 401 da criação de playlist", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 401 }) as Response));
+
+    await expect(adapter.createPlaylist("token", "user", "Titulo", "Descrição")).rejects.toMatchObject({
+      name: "SpotifyAuthError",
+    });
+  });
+
+  it("segue devolvendo null quando a faixa realmente não existe", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ tracks: { items: [] } }),
+    }) as Response));
+
+    const result = await adapter.searchTrackUri("Faixa Inexistente", "Artista", "token-valido");
+    expect(result.uri).toBeNull();
+    expect(result.webUrl).toContain("open.spotify.com/search");
+  });
+
+  it("codifica a query da busca em vez de deixar espaço cru na URL", async () => {
+    let requestedUrl = "";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        requestedUrl = String(input);
+        return { ok: true, status: 200, json: async () => ({ tracks: { items: [] } }) } as Response;
+      }),
+    );
+
+    await adapter.searchTrackUri("LALA", "Myke Towers", "token");
+
+    const url = requestedUrl;
+    // o espaço entre os filtros precisa ir codificado
+    expect(url).not.toMatch(/q=[^&]* [^&]*/);
   });
 });

@@ -1,4 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
+import { isProviderUnavailable } from "../domain/provider-errors";
+
+/** Depois deste prazo, uma entidade FAILED ganha nova chance. */
+const FAILED_RETRY_DAYS = 7;
 import type { Prisma } from "@prisma/client";
 import { MusicBrainzAdapter } from "../infrastructure/musicbrainz-adapter";
 import { CoverArtArchiveAdapter } from "../infrastructure/cover-art-archive-adapter";
@@ -67,16 +71,34 @@ export class EnrichmentService {
     };
   }
 
+  /**
+   * Entidades marcadas como FAILED voltam para a fila depois de um tempo.
+   * Muitas falharam por rede, não por não existirem no provedor — sem
+   * esta janela, elas ficariam aposentadas para sempre.
+   */
+  private retryCutoff(): Date {
+    return new Date(Date.now() - FAILED_RETRY_DAYS * 24 * 60 * 60 * 1000);
+  }
+
+  private pendingStatusFilter() {
+    return {
+      OR: [
+        { metadataStatus: "UNRESOLVED" },
+        { metadataStatus: "FAILED", enrichedAt: { lt: this.retryCutoff() } },
+      ],
+    };
+  }
+
   async enrichUnresolvedArtists(batchSize = 5): Promise<EnrichmentSummary> {
     const recentArtistIds = await this.getRecentEntityIds("artistId", batchSize * 5);
     const recentUnresolved = recentArtistIds.length ? await prisma.artist.findMany({
-      where: { id: { in: recentArtistIds }, metadataStatus: "UNRESOLVED" },
+      where: { id: { in: recentArtistIds }, ...this.pendingStatusFilter() },
     }) : [];
     const recentById = new Map(recentUnresolved.map((artist) => [artist.id, artist]));
     const unresolvedArtists = recentArtistIds.map((id) => recentById.get(id)).filter(Boolean).slice(0, batchSize) as typeof recentUnresolved;
     if (unresolvedArtists.length < batchSize) {
       const fallback = await prisma.artist.findMany({
-        where: { metadataStatus: "UNRESOLVED", id: { notIn: unresolvedArtists.map((artist) => artist.id) } },
+        where: { ...this.pendingStatusFilter(), id: { notIn: unresolvedArtists.map((artist) => artist.id) } },
         take: batchSize - unresolvedArtists.length,
         orderBy: { listeningEvents: { _count: "desc" } },
       });
@@ -151,6 +173,14 @@ export class EnrichmentService {
           summary.details.push({ name: artist.name, status: "FAILED" });
         }
       } catch (error) {
+        if (isProviderUnavailable(error)) {
+          // não conseguimos perguntar — o artista continua na fila
+          console.warn(`[EnrichmentService] Provedor fora do ar em "${artist.name}"; será tentado de novo.`);
+          summary.skipped++;
+          summary.details.push({ name: artist.name, status: "SKIPPED" });
+          continue;
+        }
+
         console.error(`[EnrichmentService] Failed to enrich artist "${artist.name}":`, error);
         summary.failed++;
         summary.details.push({ name: artist.name, status: "FAILED" });

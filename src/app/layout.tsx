@@ -1,26 +1,38 @@
 import type { Metadata } from "next";
-import { Manrope, Space_Mono, Syne } from "next/font/google";
+import { Archivo, Instrument_Sans, Martian_Mono, Unbounded } from "next/font/google";
 import "./globals.css";
 
-const display = Syne({
+const display = Archivo({
   subsets: ["latin"],
+  axes: ["wdth"],
+  display: "swap",
   variable: "--font-display",
 });
 
-const sans = Manrope({
+const sans = Instrument_Sans({
   subsets: ["latin"],
-  variable: "--font-manrope",
+  display: "swap",
+  variable: "--font-sans-body",
 });
 
-const mono = Space_Mono({
+/** Só o logotipo usa esta. O "oo" de Grooveyard vira dois discos. */
+const brand = Unbounded({
   subsets: ["latin"],
-  weight: ["400", "700"],
-  variable: "--font-space-mono",
+  weight: ["600", "700"],
+  display: "swap",
+  variable: "--font-brand",
+});
+
+const mono = Martian_Mono({
+  subsets: ["latin"],
+  weight: ["400", "600"],
+  display: "swap",
+  variable: "--font-data",
 });
 
 export const metadata: Metadata = {
-  title: "SpotStats — Personal Music Intelligence Journal",
-  description: "Digital music magazine and deterministic listening intelligence platform",
+  title: "Grooveyard",
+  description: "O cemitério dos seus discos: tudo o que você ouviu, medido e desenhado.",
 };
 
 export default function RootLayout({
@@ -30,7 +42,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className="dark">
-      <body className={`${sans.variable} ${display.variable} ${mono.variable} font-sans bg-background text-text-primary antialiased min-h-screen selection:bg-accent/30 selection:text-text-primary`}>
+      <body className={`${sans.variable} ${display.variable} ${mono.variable} ${brand.variable} font-sans bg-background text-text-primary antialiased min-h-screen selection:bg-accent/35 selection:text-text-primary`}>
         {children}
       </body>
     </html>

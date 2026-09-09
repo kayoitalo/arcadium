@@ -184,6 +184,8 @@ model RecommendationItem {
   reason          String?
   artistId        String?
   trackId         String?
+  coverUrl        String?
+  previewUrl      String?
   createdAt       DateTime @default(now())
 
   session  RecommendationSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)

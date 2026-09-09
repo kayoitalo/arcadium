@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState, type PropsWithChildren, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
-import { Settings, RefreshCw, Radio, CheckCircle, AlertCircle, Database, Share2, Shield, Download, Trash2 } from "lucide-react";
-import { MotionDiv, MotionPage } from "@/components/ui/motion";
+import { motion } from "framer-motion";
+import { useSearchParams } from "next/navigation";
+import { AlertCircle, CheckCircle, Download, Link2, RefreshCw, Trash2, Unlink } from "lucide-react";
+import { EASE_OUT_EXPO, Reveal } from "@/components/ui/motion";
 
 interface SyncForm {
   username: string;
@@ -11,7 +13,22 @@ interface SyncForm {
 
 interface SyncStatus {
   connection: { username: string; status: string; lastSyncedAt: string | null } | null;
-  latestRun: { status: string; fetchedCount: number; insertedCount: number; duplicateCount: number; errorMessage: string | null; startedAt: string; finishedAt: string | null } | null;
+  latestRun: {
+    status: string;
+    fetchedCount: number;
+    insertedCount: number;
+    duplicateCount: number;
+    errorMessage: string | null;
+    startedAt: string;
+    finishedAt: string | null;
+  } | null;
+}
+
+interface SpotifyStatus {
+  configured: boolean;
+  connected: boolean;
+  displayName?: string;
+  reason?: string;
 }
 
 interface EnrichmentCoverage {
@@ -25,38 +42,94 @@ interface EnrichmentCoverage {
   coverPercentage: number;
 }
 
-export default function SettingsPage() {
+function Section({ title, hint, aside, children }: PropsWithChildren<{ title: string; hint: string; aside?: ReactNode }>) {
+  return (
+    <motion.section
+      className="border-t border-border pt-8"
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-10% 0px" }}
+      transition={{ duration: 0.55, ease: EASE_OUT_EXPO }}
+    >
+      <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
+        <div>
+          <h2 className="font-display text-xl tracking-tight">{title}</h2>
+          <p className="mt-1.5 max-w-[52ch] text-sm text-text-secondary">{hint}</p>
+        </div>
+        {aside}
+      </div>
+      {children}
+    </motion.section>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <span className="eyebrow block">{label}</span>
+      <strong className="mt-1.5 block font-mono text-sm tabular-nums text-text-primary">{value}</strong>
+    </div>
+  );
+}
+
+function SettingsContent() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
-  const [enrichmentCoverage, setEnrichmentCoverage] = useState<EnrichmentCoverage | null>(null);
+  const [coverage, setCoverage] = useState<EnrichmentCoverage | null>(null);
+  const [spotify, setSpotify] = useState<SpotifyStatus | null>(null);
+  const searchParams = useSearchParams();
 
   const loadSyncStatus = useCallback(async () => {
     try {
       const response = await fetch("/api/sync", { cache: "no-store" });
       if (response.ok) setSyncStatus(await response.json());
-    } catch (statusError) {
-      console.error("Failed to load synchronization status", statusError);
+    } catch (cause) {
+      console.error("Failed to load synchronization status", cause);
     }
   }, []);
 
-  const loadEnrichmentCoverage = useCallback(async () => {
+  const loadCoverage = useCallback(async () => {
     try {
       const response = await fetch("/api/enrichment", { cache: "no-store" });
-      if (response.ok) {
-        const payload = await response.json();
-        setEnrichmentCoverage(payload.data);
-      }
-    } catch (coverageError) {
-      console.error("Failed to load enrichment coverage", coverageError);
+      if (response.ok) setCoverage((await response.json()).data);
+    } catch (cause) {
+      console.error("Failed to load enrichment coverage", cause);
+    }
+  }, []);
+
+  const loadSpotify = useCallback(async () => {
+    try {
+      const response = await fetch("/api/spotify/connect", { cache: "no-store" });
+      if (response.ok) setSpotify(await response.json());
+    } catch (cause) {
+      console.error("Failed to load Spotify status", cause);
     }
   }, []);
 
   useEffect(() => {
     void loadSyncStatus();
-    void loadEnrichmentCoverage();
-  }, [loadSyncStatus, loadEnrichmentCoverage]);
+    void loadCoverage();
+    void loadSpotify();
+  }, [loadSyncStatus, loadCoverage, loadSpotify]);
+
+  // o callback devolve o resultado na barra de endereço
+  useEffect(() => {
+    const outcome = searchParams.get("spotify");
+    if (!outcome) return;
+    if (outcome === "conectado") {
+      setMessage(`Spotify conectado como ${searchParams.get("conta") ?? "sua conta"}.`);
+    } else if (outcome === "cancelado") {
+      setError("Você cancelou a autorização no Spotify.");
+    } else if (outcome === "estado-invalido") {
+      setError("A autorização não confere com este navegador. Tente conectar de novo.");
+    } else {
+      setError("Não foi possível concluir a conexão com o Spotify.");
+    }
+    void loadSpotify();
+    window.history.replaceState(null, "", "/settings");
+  }, [searchParams, loadSpotify]);
 
   const {
     register,
@@ -64,326 +137,271 @@ export default function SettingsPage() {
     formState: { errors, isValid },
   } = useForm<SyncForm>({ mode: "onChange" });
 
-  const onSubmit = async (data: SyncForm) => {
-    if (!data.username.trim()) return;
-
+  const run = async (task: () => Promise<string>) => {
     setLoading(true);
     setMessage(null);
     setError(null);
-
     try {
-      const res = await fetch("/api/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: data.username.trim() }),
-      });
-
-      const resData = await res.json();
-
-      if (!res.ok) {
-        throw new Error(resData.error || "Não foi possível iniciar a sincronização");
-      }
-
-      setMessage(
-        `Sincronização concluída. Recebidos: ${resData.sync.fetched}; inseridos: ${resData.sync.inserted}; duplicados ignorados: ${resData.sync.duplicates}.`
-      );
-      await loadSyncStatus();
-    } catch (err: any) {
-      setError(err?.message || "Ocorreu um erro inesperado");
+      setMessage(await task());
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Algo deu errado.");
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <MotionPage className="space-y-8 max-w-4xl pb-12">
+  const onSubmit = (data: SyncForm) =>
+    run(async () => {
+      const response = await fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: data.username.trim() }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? "Não foi possível buscar seu histórico.");
+      await loadSyncStatus();
+      return `Pronto — ${payload.sync.inserted.toLocaleString("pt-BR")} audições novas.`;
+    });
 
-      <header className="p-6 rounded-2xl bg-surface/40 border border-border/60 space-y-1">
-        <div className="flex items-center gap-2">
-          <Settings className="w-5 h-5 text-accent-gold" />
-          <h1 className="font-serif text-3xl font-bold tracking-tight text-text-primary">
-            Configurações e integrações
-          </h1>
-        </div>
-        <p className="text-text-secondary text-xs font-sans">
-          Acompanhe a saúde dos dados, provedores externos e operações do banco local.
-        </p>
+  const enrichArtists = () =>
+    run(async () => {
+      const response = await fetch("/api/enrichment", { method: "POST" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? "A busca de informações falhou.");
+      setCoverage(payload.data.coverage);
+      return `Pronto — ${payload.data.summary.resolved} artistas e ${payload.data.summary.coversResolved} capas a mais.`;
+    });
+
+  const repairCovers = () =>
+    run(async () => {
+      const response = await fetch("/api/enrichment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "covers", batchSize: 20 }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? "Não foi possível buscar as capas.");
+      setCoverage(payload.data.coverage);
+      return `${payload.data.covers.resolved} capas novas encontradas.`;
+    });
+
+  const eraseEverything = () => {
+    if (!confirm("Apagar todo o seu histórico? Isso não pode ser desfeito.")) return;
+    void run(async () => {
+      const response = await fetch("/api/user/data", { method: "DELETE" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? "Não foi possível apagar os dados.");
+      return payload.message;
+    });
+  };
+
+  const connected = syncStatus?.connection;
+
+  return (
+    <div className="max-w-3xl space-y-14 pb-10">
+      <header>
+        <span className="eyebrow">Sua conta</span>
+        <h1 className="display-xl mt-4 text-[clamp(2.2rem,5vw,4rem)]">
+          <Reveal>Ajustes</Reveal>
+        </h1>
       </header>
 
-      <MotionDiv className="p-6 rounded-2xl bg-surface/40 border border-border/60 space-y-5">
-        <div className="flex items-center justify-between pb-3 border-b border-border/60">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-accent-copper/20 border border-accent-copper/40 flex items-center justify-center text-accent-gold font-bold text-lg">
-              <Radio className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-text-primary font-serif">Sincronização com Last.fm</h2>
-              <p className="text-xs text-text-secondary font-mono">Fonte do histórico por user.getRecentTracks</p>
-            </div>
-          </div>
+      {message && (
+        <motion.p
+          className="flex items-start gap-2.5 rounded-lg border border-status-success/30 bg-status-success/10 p-4 text-sm text-status-success"
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          {message}
+        </motion.p>
+      )}
 
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface border border-border text-text-secondary text-xs font-mono font-medium">
-            {syncStatus?.connection ? syncStatus.connection.status : "Não configurado"}
+      {error && (
+        <motion.p
+          className="flex items-start gap-2.5 rounded-lg border border-status-error/30 bg-status-error/10 p-4 text-sm text-status-error"
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          {error}
+        </motion.p>
+      )}
+
+      <Section
+        title="Last.fm"
+        hint="De onde vem o seu histórico. A busca roda sozinha de hora em hora, mas você pode forçar agora."
+        aside={
+          <span className="rounded-full border border-border px-3 py-1 font-mono text-[10px] text-text-muted">
+            {connected ? connected.username : "não conectado"}
           </span>
-        </div>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="block text-[10px] font-mono font-bold text-text-muted uppercase tracking-wider">
-              Usuário do Last.fm
+        }
+      >
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <div>
+            <label htmlFor="lastfm-user" className="eyebrow mb-2 block">
+              Seu usuário
             </label>
             <input
+              id="lastfm-user"
               type="text"
               {...register("username", { required: "Informe o usuário" })}
-              placeholder="Digite seu usuário do Last.fm..."
-              className="w-full px-4 py-2.5 rounded-xl bg-surface border border-border/80 text-xs focus:outline-none focus:border-accent-gold text-text-primary placeholder:text-text-muted transition-colors font-sans"
+              placeholder="usuario"
+              className="w-full max-w-sm border-b border-border bg-transparent py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
             />
-            {errors.username && (
-              <span className="text-status-error text-[10px] font-mono">{errors.username.message}</span>
-            )}
+            {errors.username && <span className="mt-2 block font-mono text-[10px] text-status-error">{errors.username.message}</span>}
           </div>
 
           <button
             type="submit"
             disabled={loading || !isValid}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-mono font-bold hover:bg-accent-hover transition-all shadow-glow disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 font-mono text-[11px] font-semibold text-background transition-transform hover:scale-[1.02] disabled:opacity-30 disabled:hover:scale-100"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            {loading ? "Sincronizando histórico…" : "CONECTAR E SINCRONIZAR"}
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            {loading ? "buscando…" : "buscar agora"}
           </button>
         </form>
 
-        {message && (
-          <div className="p-4 rounded-xl bg-status-success/10 border border-status-success/30 text-status-success text-xs font-mono flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 flex-shrink-0" />
-            <span>{message}</span>
+        {connected && (
+          <div className="mt-7 grid grid-cols-2 gap-6 border-t border-border/60 pt-6 sm:grid-cols-3">
+            <Stat label="Última busca" value={connected.lastSyncedAt ? new Date(connected.lastSyncedAt).toLocaleDateString("pt-BR") : "nunca"} />
+            <Stat label="Novas audições" value={(syncStatus?.latestRun?.insertedCount ?? 0).toLocaleString("pt-BR")} />
+            {syncStatus?.latestRun?.errorMessage && (
+              <p className="col-span-full font-mono text-[11px] text-status-error">{syncStatus.latestRun.errorMessage}</p>
+            )}
           </div>
         )}
+      </Section>
 
-        {error && (
-          <div className="p-4 rounded-xl bg-status-error/10 border border-status-error/30 text-status-error text-xs font-mono flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {syncStatus?.connection && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl bg-surface-elevated/40 border border-border/40 text-xs font-mono">
-            <div><span className="block text-text-muted">STATUS</span><strong className="text-text-primary">{syncStatus.connection.status}</strong></div>
-            <div><span className="block text-text-muted">RECEBIDOS</span><strong className="text-text-primary">{syncStatus.latestRun?.fetchedCount ?? 0}</strong></div>
-            <div><span className="block text-text-muted">INSERIDOS</span><strong className="text-text-primary">{syncStatus.latestRun?.insertedCount ?? 0}</strong></div>
-            <div><span className="block text-text-muted">DUPLICADOS</span><strong className="text-text-primary">{syncStatus.latestRun?.duplicateCount ?? 0}</strong></div>
-            {syncStatus.latestRun?.errorMessage && <p className="col-span-full text-status-error">{syncStatus.latestRun.errorMessage}</p>}
-          </div>
-        )}
-      </MotionDiv>
-
-      <MotionDiv className="p-6 rounded-2xl bg-surface/40 border border-border/60 space-y-5">
-        <div className="flex items-center justify-between pb-3 border-b border-border/60">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-accent-copper/20 border border-accent-copper/40 flex items-center justify-center text-accent-gold font-bold text-lg">
-              <Database className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-text-primary font-serif">Metadados e capas</h2>
-              <p className="text-xs text-text-secondary font-mono">MusicBrainz e Cover Art Archive</p>
-            </div>
-          </div>
-
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent-copper/15 border border-accent-copper/30 text-accent-gold text-xs font-mono font-medium">
-            Limite de 1 requisição/s
-          </span>
+      <Section
+        title="Informações dos artistas"
+        hint="País, gênero, ano de lançamento e capa dos artistas e álbuns que você mais ouve. Roda aos poucos para não sobrecarregar as fontes."
+      >
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={enrichArtists}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 font-mono text-[11px] text-text-primary transition-colors hover:border-accent disabled:opacity-30"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 text-accent ${loading ? "animate-spin" : ""}`} />
+            buscar artistas
+          </button>
+          <button
+            type="button"
+            onClick={repairCovers}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 font-mono text-[11px] text-text-primary transition-colors hover:border-accent disabled:opacity-30"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 text-accent ${loading ? "animate-spin" : ""}`} />
+            procurar capas
+          </button>
         </div>
 
-        <div className="space-y-4">
-          <p className="text-xs text-text-secondary">
-            Resolve país, desambiguação, ano de lançamento, gêneros e capas para entidades prioritárias.
+        {coverage && (
+          <div className="mt-7 grid grid-cols-2 gap-6 border-t border-border/60 pt-6 sm:grid-cols-4">
+            <Stat label="Artistas" value={`${coverage.percentage}%`} />
+            <Stat label="Álbuns" value={coverage.totalCanonicalAlbums.toLocaleString("pt-BR")} />
+            <Stat label="Com capa" value={`${coverage.coverPercentage}%`} />
+            <Stat label="Na fila" value={coverage.pendingCoverLookup.toLocaleString("pt-BR")} />
+          </div>
+        )}
+      </Section>
+
+      <Section
+        title="Playlists"
+        hint="As sugestões de Descobertas podem virar uma playlist. Conectado, ela nasce direto na sua conta; sem conectar, você recebe links de busca e um arquivo .m3u."
+        aside={
+          <span className="rounded-full border border-border px-3 py-1 font-mono text-[10px] text-text-muted">
+            {spotify?.connected ? `conectado como ${spotify.displayName}` : "não conectado"}
+          </span>
+        }
+      >
+        <p className="mb-5 max-w-[56ch] text-sm text-text-secondary">
+          O Spotify é usado só como destino: nada do que está lá volta para as suas estatísticas nem
+          para os textos. A permissão pedida cria playlists e nada mais.
+        </p>
+
+        {spotify && !spotify.configured && (
+          <p className="max-w-[56ch] rounded-lg border border-border bg-surface p-4 text-xs text-text-muted">
+            {spotify.reason}
           </p>
+        )}
 
+        {spotify?.configured && !spotify.connected && (
           <button
             type="button"
-            onClick={async () => {
-              setLoading(true);
-              setMessage(null);
-              setError(null);
-              try {
-                const res = await fetch("/api/enrichment", { method: "POST" });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || "O enriquecimento falhou");
-                setEnrichmentCoverage(data.data.coverage);
-                setMessage(
-                  `Enriquecimento concluído. Artistas resolvidos: ${data.data.summary.resolved}; falhas: ${data.data.summary.failed}; capas encontradas: ${data.data.summary.coversResolved}; indisponíveis: ${data.data.summary.coversMissing}.`
-                );
-              } catch (err: any) {
-                setError(err?.message || "Não foi possível iniciar o enriquecimento");
-              } finally {
-                setLoading(false);
-              }
-            }}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent-copper/30 text-accent-gold border border-accent-copper/50 text-xs font-mono font-bold hover:bg-accent-copper/50 transition-all shadow-glow disabled:opacity-40"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            {loading ? "Enriquecendo metadados…" : "CONTINUAR ENRIQUECIMENTO"}
-          </button>
-
-          <button
-            type="button"
-            onClick={async () => {
-              setLoading(true); setMessage(null); setError(null);
-              try {
-                const response = await fetch("/api/enrichment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "covers", batchSize: 20 }) });
+            onClick={() =>
+              run(async () => {
+                const response = await fetch("/api/spotify/connect", { method: "POST" });
                 const payload = await response.json();
-                if (!response.ok) throw new Error(payload.error || "Não foi possível reparar as capas");
-                setEnrichmentCoverage(payload.data.coverage);
-                setMessage(`Capas processadas: ${payload.data.covers.processed}; recuperadas: ${payload.data.covers.resolved}; indisponíveis: ${payload.data.covers.missing}.`);
-              } catch (repairError) {
-                setError(repairError instanceof Error ? repairError.message : "Não foi possível reparar as capas");
-              } finally { setLoading(false); }
-            }}
-            disabled={loading}
-            className="ml-2 inline-flex items-center gap-2 rounded-xl border border-border/80 bg-surface px-5 py-2.5 font-mono text-xs font-bold text-text-primary transition-colors hover:border-accent/50 hover:bg-surface-elevated disabled:opacity-40"
+                if (!response.ok) throw new Error(payload.error ?? "Não foi possível iniciar a conexão.");
+                window.location.href = payload.authorizeUrl;
+                return "Abrindo o Spotify…";
+              })
+            }
+            className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 font-mono text-[11px] font-semibold text-background transition-transform hover:scale-[1.02] disabled:opacity-30"
           >
-            <RefreshCw className={`h-4 w-4 text-accent-gold ${loading ? "animate-spin" : ""}`} />
-            REPARAR CAPAS
+            <Link2 className="h-3.5 w-3.5" />
+            conectar spotify
           </button>
+        )}
 
-          {enrichmentCoverage && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl bg-surface-elevated/40 border border-border/40 text-xs font-mono">
-              <div><span className="block text-text-muted">ARTISTAS</span><strong className="text-text-primary">{enrichmentCoverage.percentage}%</strong></div>
-              <div><span className="block text-text-muted">ÁLBUNS CANÔNICOS</span><strong className="text-text-primary">{enrichmentCoverage.totalCanonicalAlbums}</strong></div>
-              <div><span className="block text-text-muted">COM CAPA</span><strong className="text-text-primary">{enrichmentCoverage.albumsWithCover} ({enrichmentCoverage.coverPercentage}%)</strong></div>
-              <div><span className="block text-text-muted">PENDENTES</span><strong className="text-text-primary">{enrichmentCoverage.pendingCoverLookup}</strong></div>
-            </div>
-          )}
+        {spotify?.connected && (
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() =>
+              run(async () => {
+                const response = await fetch("/api/spotify/connect", { method: "DELETE" });
+                if (!response.ok) throw new Error("Não foi possível desconectar.");
+                await loadSpotify();
+                return "Spotify desconectado.";
+              })
+            }
+            className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 font-mono text-[11px] text-text-secondary transition-colors hover:border-status-error hover:text-status-error disabled:opacity-30"
+          >
+            <Unlink className="h-3.5 w-3.5" />
+            desconectar
+          </button>
+        )}
+      </Section>
+
+      <Section title="Seus dados" hint="Tudo o que está guardado aqui é seu, e sai daqui quando você quiser.">
+        <div className="flex flex-wrap items-center gap-3">
+          <a
+            href="/api/user/data"
+            download
+            className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 font-mono text-[11px] text-text-primary transition-colors hover:border-accent"
+          >
+            <Download className="h-3.5 w-3.5 text-accent" />
+            baixar cópia
+          </a>
+
+          <button
+            type="button"
+            onClick={eraseEverything}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-full border border-status-error/40 px-5 py-2.5 font-mono text-[11px] text-status-error transition-colors hover:bg-status-error/10 disabled:opacity-30"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            apagar tudo
+          </button>
         </div>
-      </MotionDiv>
+      </Section>
+    </div>
+  );
+}
 
-      <div className="p-6 rounded-2xl bg-surface/40 border border-border/60 space-y-5">
-        <div className="flex items-center justify-between pb-3 border-b border-border/60">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-status-success/20 border border-status-success/40 flex items-center justify-center text-status-success font-bold text-lg">
-              <Share2 className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-text-primary font-serif">Exportação de playlists</h2>
-              <p className="text-xs text-text-secondary font-mono">Spotify opcional, links de busca e arquivos .m3u</p>
-            </div>
-          </div>
-
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface border border-border text-text-secondary text-xs font-mono font-medium">
-            OAuth não configurado
-          </span>
-        </div>
-
-        <div className="space-y-4 text-xs font-mono text-text-secondary">
-          <p className="font-sans leading-relaxed text-text-secondary">
-            Sem OAuth, a exportação gera links de busca e arquivos locais. A criação de playlist privada exige token e usuário Spotify válidos.
-          </p>
-
-          <div className="p-4 rounded-xl bg-surface-elevated/40 border border-border/40 space-y-2">
-            <div className="flex justify-between">
-              <span>Permissão OAuth:</span>
-              <strong className="text-text-primary">playlist-modify-private (opcional)</strong>
-            </div>
-            <div className="flex justify-between">
-              <span>Isolamento de dados:</span>
-              <strong className="text-status-success">Somente destino de exportação</strong>
-            </div>
-            <div className="flex justify-between">
-              <span>Exportação local:</span>
-              <strong className="text-text-primary">Links de busca e arquivos .m3u/.csv</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-6 rounded-2xl bg-surface/40 border border-border/60 space-y-5">
-        <div className="flex items-center justify-between pb-3 border-b border-border/60">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-accent/20 border border-accent/40 flex items-center justify-center text-accent-gold font-bold text-lg">
-              <Shield className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-text-primary font-serif">Privacidade e dados</h2>
-              <p className="text-xs text-text-secondary font-mono">Exporte ou exclua o histórico armazenado</p>
-            </div>
-          </div>
-
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface border border-border text-text-secondary text-xs font-mono font-medium">
-            Controles de exportação e exclusão
-          </span>
-        </div>
-
-        <div className="space-y-4">
-          <p className="text-xs text-text-secondary leading-relaxed font-sans">
-            Exporte uma cópia JSON dos eventos e conexões armazenados ou apague os dados locais desta conta.
-          </p>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <a
-              href="/api/user/data"
-              download
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-surface border border-border/80 text-text-primary text-xs font-mono font-bold hover:bg-surface-elevated transition-colors shadow-card"
-            >
-              <Download className="w-4 h-4 text-accent-gold" />
-              <span>EXPORTAR DADOS (JSON)</span>
-            </a>
-
-            <button
-              type="button"
-              onClick={async () => {
-                if (!confirm("Deseja apagar todos os eventos e conexões armazenados? Esta ação não pode ser desfeita.")) {
-                  return;
-                }
-                setLoading(true);
-                setMessage(null);
-                setError(null);
-                try {
-                  const res = await fetch("/api/user/data", { method: "DELETE" });
-                  const data = await res.json();
-                  if (!res.ok) throw new Error(data.error || "Não foi possível apagar os dados");
-                  setMessage(data.message);
-                } catch (err: any) {
-                  setError(err?.message || "Não foi possível apagar os dados");
-                } finally {
-                  setLoading(false);
-                }
-              }}
-              disabled={loading}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-status-error/15 text-status-error border border-status-error/30 text-xs font-mono font-bold hover:bg-status-error/30 transition-all disabled:opacity-40"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>APAGAR TODO O HISTÓRICO</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-6 rounded-2xl bg-surface/40 border border-border/60 space-y-4">
-        <div className="flex items-center gap-2">
-          <Database className="w-5 h-5 text-accent-gold" />
-          <h2 className="text-base font-bold text-text-primary font-serif">Infraestrutura de dados</h2>
-        </div>
-        <div className="p-4 rounded-xl bg-surface-elevated/40 border border-border/40 space-y-2 text-xs text-text-secondary font-mono">
-          <div className="flex justify-between">
-            <span>Banco principal:</span>
-            <strong className="text-text-primary">Neon PostgreSQL</strong>
-          </div>
-          <div className="flex justify-between">
-            <span>Deduplicação:</span>
-            <strong className="text-text-primary">Chave única SHA-256</strong>
-          </div>
-          <div className="flex justify-between">
-            <span>Metadados:</span>
-            <strong className="text-text-primary">MusicBrainz (1 requisição/s)</strong>
-          </div>
-          <div className="flex justify-between">
-            <span>Destino de exportação:</span>
-            <strong className="text-text-primary">Spotify ou arquivo M3U</strong>
-          </div>
-        </div>
-      </div>
-    </MotionPage>
+/**
+ * O Next exige um limite de Suspense em volta de useSearchParams — é por
+ * ele que chega o resultado do callback do Spotify.
+ */
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<p className="font-mono text-xs text-text-muted">Carregando…</p>}>
+      <SettingsContent />
+    </Suspense>
   );
 }

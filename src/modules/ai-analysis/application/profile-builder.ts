@@ -1,6 +1,7 @@
 
 
 import { prisma } from "@/lib/db/prisma";
+import { filterGenreTags } from "@/modules/enrichment/domain/genre-tags";
 import { getPeriodRanges, type PeriodKey } from "@/modules/statistics/application/overview-service";
 import type { MusicProfileInput } from "../domain/ai-analysis.types";
 
@@ -84,7 +85,7 @@ export class ProfileBuilder {
     const genrePlays = new Map<string, number>();
     for (const artist of enrichedArtists) {
       const plays = topArtistsGrouped.find((item: any) => item.rawArtistName === artist.name)?._count.id ?? 0;
-      const tags = artist.tags?.split(",").map((tag) => tag.trim()).filter(Boolean) ?? [];
+      const tags = filterGenreTags(artist.tags?.split(",") ?? []);
       const weight = tags.length ? plays / tags.length : 0;
       if (artist.tags) {
         for (const tag of tags) {
