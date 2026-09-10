@@ -2,17 +2,18 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { EASE_OUT_EXPO } from "@/components/ui/motion";
-import { catalogNo } from "@/components/ui/editorial";
+import { formatGenre } from "@/lib/format/genre";
 import type { TopArtistItem } from "@/modules/statistics/application/overview-service";
 
 /**
- * O ranking é lido como um livro de prensagem: número de catálogo à
- * esquerda, nome, participação medida em fio de tinta e a contagem à
- * direita em mono tabular. No hover a letra ganha largura — a fonte é
- * variável, então o destaque é a própria tipografia esticando, não uma
- * caixa acendendo.
+ * O ranking. A barra é a participação real do artista no período e a
+ * linha ganha largura tipográfica no hover — a fonte é variável, então
+ * o destaque é a própria letra crescendo, não uma caixa acendendo.
+ *
+ * A segunda linha só mostra o que a catalogação já resolveu: gênero e
+ * país aparecem quando existem, e somem quando não.
  */
-const ROW = "grid grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-3 sm:gap-6";
+const ROW = "grid grid-cols-[30px_minmax(0,1fr)_auto] items-center gap-4 sm:gap-5";
 
 export function RankList({ artists, periodKey }: { artists: TopArtistItem[]; periodKey: string }) {
   const reduced = useReducedMotion();
@@ -21,10 +22,10 @@ export function RankList({ artists, periodKey }: { artists: TopArtistItem[]; per
 
   return (
     <div>
-      <div className={`${ROW} border-b border-border-subtle pb-2 pt-4`}>
-        <span className="label">Catálogo</span>
-        <span className="label">Artista · participação</span>
-        <span className="label text-right">Audições</span>
+      <div className={`${ROW} border-b border-border/50 px-1.5 py-3`}>
+        <span className="micro">#</span>
+        <span className="micro">artista · participação</span>
+        <span className="micro text-right">audições</span>
       </div>
 
       <ul className="m-0 list-none p-0">
@@ -35,43 +36,52 @@ export function RankList({ artists, periodKey }: { artists: TopArtistItem[]; per
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            {artists.map((artist, index) => (
-              <motion.li
-                key={`${artist.id ?? artist.name}-${index}`}
-                className={`${ROW} group relative isolate border-b border-border-subtle px-1 py-4 transition-[padding] duration-500 ease-out hover:pl-3`}
-                initial={reduced ? false : { opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, ease: EASE_OUT_EXPO, delay: index * 0.05 }}
-              >
-                <span className="absolute inset-y-0 left-0 z-0 w-0 bg-accent/[0.07] transition-all duration-500 ease-out group-hover:w-full" />
-
-                <span className={`catalog relative z-10 ${index === 0 ? "text-accent" : ""}`}>
-                  {catalogNo("A", index)}
-                </span>
-
-                <span className="relative z-10 flex min-w-0 flex-col gap-2.5">
-                  <b className="rank-name truncate text-lg sm:text-xl">{artist.name}</b>
-                  <span className="block h-px w-full bg-border">
-                    <motion.span
-                      className="block h-full bg-accent"
-                      initial={reduced ? false : { scaleX: 0 }}
-                      animate={{ scaleX: artist.plays / leader }}
-                      transition={{ duration: 1, ease: EASE_OUT_EXPO, delay: 0.1 + index * 0.05 }}
-                      style={{ transformOrigin: "left center" }}
-                    />
+            {artists.map((artist, index) => {
+              const genre = artist.tags?.[0];
+              return (
+                <motion.li
+                  key={`${artist.id ?? artist.name}-${index}`}
+                  className={`${ROW} group border-b border-border/55 px-1.5 py-4 transition-[padding,background] duration-500 ease-out hover:bg-surface-elevated/70 hover:pl-4`}
+                  initial={reduced ? false : { opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, ease: EASE_OUT_EXPO, delay: index * 0.05 }}
+                >
+                  <span
+                    className="numeral text-[15px]"
+                    style={{ color: index === 0 ? "var(--chroma)" : "#79838c" }}
+                  >
+                    {String(index + 1).padStart(2, "0")}
                   </span>
-                </span>
 
-                <span className="relative z-10 whitespace-nowrap text-right">
-                  <b className="numeral block text-[1.35rem] text-text-primary">
+                  <span className="flex min-w-0 flex-col gap-2">
+                    <b className="rank-name truncate text-lg sm:text-xl">{artist.name}</b>
+                    <span className="flex items-center gap-2.5">
+                      <span className="block h-[2px] max-w-[320px] flex-1 bg-rule">
+                        <motion.span
+                          className="block h-full"
+                          style={{
+                            transformOrigin: "left center",
+                            background: "linear-gradient(90deg, var(--chroma-deep), var(--chroma))",
+                          }}
+                          initial={reduced ? false : { scaleX: 0 }}
+                          animate={{ scaleX: artist.plays / leader }}
+                          transition={{ duration: 1.1, ease: EASE_OUT_EXPO, delay: 0.1 + index * 0.05 }}
+                        />
+                      </span>
+                      <span className="data shrink-0 text-text-muted">
+                        {(artist.share * 100).toFixed(1).replace(".", ",")}%
+                        {genre && <span className="text-text-label"> · {formatGenre(genre)}</span>}
+                        {artist.country && <span className="text-text-label"> · {artist.country}</span>}
+                      </span>
+                    </span>
+                  </span>
+
+                  <span className="data whitespace-nowrap text-right text-[13px] font-semibold text-text-primary">
                     {artist.plays.toLocaleString("pt-BR")}
-                  </b>
-                  <span className="data mt-1 block text-text-muted">
-                    {(artist.share * 100).toFixed(1).replace(".", ",")}%
                   </span>
-                </span>
-              </motion.li>
-            ))}
+                </motion.li>
+              );
+            })}
           </motion.div>
         </AnimatePresence>
       </ul>

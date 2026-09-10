@@ -1,71 +1,101 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ScreenLine } from "@/components/ui/screen-line";
 import { motion } from "framer-motion";
+import { ScreenLine } from "@/components/ui/screen-line";
+import { formatGenre } from "@/lib/format/genre";
+import { useScreenChrome } from "@/components/layout/chrome";
+import { EASE_OUT_EXPO, InViewFade } from "@/components/ui/motion";
 import type { OverviewData, PeriodKey, TasteShiftItem } from "@/modules/statistics/application/overview-service";
-import { EASE_OUT_EXPO, InViewFade, Reveal } from "@/components/ui/motion";
-import { SectionHead } from "@/components/ui/editorial";
 
 const PERIODS = [
-  { key: "30d" as const, label: "30 dias" },
-  { key: "1y" as const, label: "1 ano" },
+  { key: "30d", label: "30 dias" },
+  { key: "1y", label: "1 ano" },
 ];
 
 const decimal = (value: number) => value.toString().replace(".", ",");
 
 /**
  * Uma linha por gênero: bolinha vazada onde ele estava, bolinha cheia
- * onde chegou. O que interessa é a distância entre as duas — por isso o
- * movimento absoluto vem primeiro e o percentual fica de legenda.
+ * onde chegou. O que interessa é a distância entre as duas — o número
+ * à direita é só confirmação.
  */
-function ShiftRow({ item, scale, direction, index }: { item: TasteShiftItem; scale: number; direction: "up" | "down"; index: number }) {
+function ShiftRow({
+  item,
+  scale,
+  rising,
+  index,
+}: {
+  item: TasteShiftItem;
+  scale: number;
+  rising: boolean;
+  index: number;
+}) {
   const from = Math.min(100, (item.previousShare / scale) * 100);
   const to = Math.min(100, (item.currentShare / scale) * 100);
   const left = Math.min(from, to);
   const width = Math.abs(to - from);
-  const rising = direction === "up";
+  const color = rising ? "var(--chroma)" : "#d1665a";
+  const delta = Number((item.currentShare - item.previousShare).toFixed(1));
 
   return (
     <motion.li
-      className="group grid grid-cols-[minmax(0,8rem)_minmax(0,1fr)_auto] items-center gap-4 border-b border-border-subtle py-4 sm:gap-6"
+      className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)_auto] items-center gap-4 border-b border-border/55 px-1.5 py-4 transition-colors duration-300 hover:bg-surface-elevated/70 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_140px] sm:gap-6"
       initial={{ opacity: 0, y: 14 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, ease: EASE_OUT_EXPO, delay: index * 0.05 }}
     >
-      <span className="section-title truncate text-[0.8125rem] text-text-primary">{item.genre}</span>
+      <span className="truncate text-[15px] text-text-primary">{formatGenre(item.genre)}</span>
 
-      <span className="relative block h-4">
-        <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border" />
+      <span className="relative block h-[18px]">
+        <span
+          className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2"
+          style={{ background: "repeating-linear-gradient(90deg, #1b2129 0 3px, transparent 3px 7px)" }}
+        />
         <motion.span
-          className={`absolute top-1/2 h-[2px] -translate-y-1/2 ${rising ? "bg-accent" : "bg-status-error/70"}`}
-          style={{ left: `${left}%` }}
+          className="absolute top-1/2 h-[3px] -translate-y-1/2 rounded-sm"
+          style={{
+            left: `${left}%`,
+            background: rising
+              ? "linear-gradient(90deg, var(--chroma-deep), var(--chroma))"
+              : "linear-gradient(90deg, #d1665a, rgb(209 102 90 / 0.35))",
+          }}
           initial={{ width: 0 }}
           whileInView={{ width: `${width}%` }}
           viewport={{ once: true }}
           transition={{ duration: 0.9, ease: EASE_OUT_EXPO, delay: 0.15 + index * 0.05 }}
         />
         <span
-          className="absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 border border-text-muted bg-background"
-          style={{ left: `${from}%` }}
           title={`antes: ${decimal(item.previousShare)}%`}
+          className="absolute top-1/2 h-[9px] w-[9px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-text-label bg-background"
+          style={{ left: `${from}%` }}
         />
         <motion.span
-          className={`absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 ${rising ? "bg-accent" : "bg-status-error"}`}
-          style={{ left: `${to}%` }}
+          title={`agora: ${decimal(item.currentShare)}%`}
+          className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{
+            left: `${to}%`,
+            background: color,
+            boxShadow: rising ? "0 0 14px -2px var(--chroma-glow)" : undefined,
+          }}
           initial={{ scale: 0 }}
           whileInView={{ scale: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, ease: EASE_OUT_EXPO, delay: 0.6 + index * 0.05 }}
-          title={`agora: ${decimal(item.currentShare)}%`}
         />
       </span>
 
-      <span className="data whitespace-nowrap text-text-muted">
-        {decimal(item.previousShare)}%
-        <span className="mx-1.5 text-border">→</span>
-        <b className={rising ? "text-accent" : "text-status-error"}>{decimal(item.currentShare)}%</b>
+      <span className="data flex items-center justify-end gap-2 whitespace-nowrap text-text-muted">
+        {decimal(item.previousShare)}% <span className="text-border">→</span>
+        <b style={{ color }}>{decimal(item.currentShare)}%</b>
+        <span
+          className="rounded-full px-2 py-0.5"
+          style={{ color, background: rising ? "var(--chroma-soft)" : "rgb(209 102 90 / 0.12)" }}
+        >
+          {delta > 0 ? "+" : "−"}
+          {decimal(Math.abs(delta))}pp
+        </span>
       </span>
     </motion.li>
   );
@@ -76,6 +106,13 @@ export default function TasteEvolutionPage() {
   const [data, setData] = useState<OverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useScreenChrome({
+    title: "Evolução",
+    periods: PERIODS,
+    period,
+    onPeriod: (key) => setPeriod(key as PeriodKey),
+  });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -106,73 +143,105 @@ export default function TasteEvolutionPage() {
 
   const biggest = rising[0];
 
+  const stats = [
+    {
+      label: "Maior salto",
+      value: biggest ? formatGenre(biggest.genre) : "—",
+      note: biggest
+        ? `${decimal(biggest.previousShare)}% → ${decimal(biggest.currentShare)}%`
+        : "sem dado no período",
+      color: "var(--chroma)",
+    },
+    {
+      label: "Em alta",
+      value: String(rising.length),
+      note: rising.length === 1 ? "gênero ganhou espaço" : "gêneros ganharam espaço",
+      color: "#f2f4f3",
+    },
+    {
+      label: "Em queda",
+      value: String(declining.length),
+      note: declining.length === 1 ? "gênero perdeu espaço" : "gêneros perderam espaço",
+      color: "#d1665a",
+    },
+  ];
+
   return (
-    <div className="space-y-14">
-      <header className="flex flex-col justify-between gap-8 border-b border-border pb-9 sm:flex-row sm:items-end">
+    <div className="gy-page flex flex-col gap-16">
+      <header className="grid items-end gap-x-12 gap-y-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
         <div>
           <div className="flex items-center gap-3">
-            <span className="catalog text-accent">GY/02</span>
-            <span className="label">Contra o período anterior</span>
+            <span className="h-px w-[34px] bg-accent" />
+            <span className="eyebrow text-accent">Contra o período anterior</span>
           </div>
-          <h1 className="headline mt-4 max-w-[12ch] text-[clamp(2.2rem,5.4vw,3.9rem)]">
-            <Reveal>O que mudou</Reveal>
+          <h1 className="display mt-5 max-w-[14ch] text-[clamp(2.6rem,5.6vw,4.6rem)]">
+            <span className="block overflow-hidden">
+              <span className="gy-rise">O que mudou</span>
+            </span>
           </h1>
           <div className="max-w-[52ch]">
-            <ScreenLine screen="evolution" fallback="O que entrou e o que saiu de moda no seu fone." />
+            <ScreenLine
+              screen="evolution"
+              fallback="Cada gênero saiu de um ponto e chegou a outro. A distância entre as duas bolinhas é a história."
+            />
           </div>
         </div>
 
-        <div className="flex divide-x divide-border self-start border border-border sm:self-end">
-          {PERIODS.map((option) => (
-            <button
-              key={option.key}
-              type="button"
-              onClick={() => setPeriod(option.key)}
-              data-active={period === option.key}
-              aria-pressed={period === option.key}
-              className="tab"
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+        {hasShift && (
+          <div className="ruled grid-cols-3 border border-border">
+            {stats.map((stat) => (
+              <div key={stat.label} className="bg-background-secondary px-4 py-5">
+                <span className="eyebrow">{stat.label}</span>
+                <strong
+                  className="numeral mt-2.5 block truncate text-[26px]"
+                  style={{ color: stat.color }}
+                >
+                  {stat.value}
+                </strong>
+                <span className="data mt-2 block text-text-muted">{stat.note}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </header>
 
-      {loading && <p className="label">Comparando as duas gavetas…</p>}
+      {loading && <p className="eyebrow">Comparando os dois períodos…</p>}
 
       {error && (
-        <div className="border border-status-error/40 bg-status-error/[0.07] p-6">
-          <span className="label text-status-error">Falha de leitura</span>
+        <div className="panel p-6">
+          <span className="eyebrow text-status-error">Falha de leitura</span>
           <p className="mt-2 text-sm text-status-error">{error}</p>
         </div>
       )}
 
       {!loading && !error && !hasShift && (
-        <section className="py-14">
-          <h2 className="headline max-w-[18ch] text-[clamp(1.6rem,3vw,2.4rem)]">Ainda não dá para comparar.</h2>
-          <p className="liner mt-5 max-w-[46ch]">
-            Para medir o movimento é preciso conhecer o gênero dos artistas nos dois períodos — e a
-            catalogação vai sendo preenchida aos poucos, em segundo plano.
+        <section className="py-16">
+          <h2 className="headline max-w-[18ch] text-[clamp(1.6rem,3vw,2.4rem)]">
+            Ainda não dá para comparar.
+          </h2>
+          <p className="mt-5 max-w-[46ch] text-[15px] leading-[1.66] text-text-secondary">
+            Para medir o movimento é preciso conhecer o gênero dos artistas nos dois períodos — e isso
+            vai sendo preenchido aos poucos, em segundo plano.
           </p>
         </section>
       )}
 
       {!loading && !error && hasShift && (
         <>
-          {biggest && (
-            <p className="liner-lead max-w-[52ch] border-l border-accent pl-5">
-              <em className="capitalize">{biggest.genre}</em> foi o maior salto: saiu de{" "}
-              {decimal(biggest.previousShare)}% para {decimal(biggest.currentShare)}% da sua escuta.
-            </p>
-          )}
-
           {rising.length > 0 && (
             <InViewFade>
               <section>
-                <SectionHead code="GY/02·A" title="Ganhou espaço" note="antes → agora" />
+                <div className="flex items-baseline justify-between gap-6 border-b border-border pb-3.5">
+                  <h2 className="headline text-[clamp(1.4rem,2.6vw,1.9rem)]">Ganhou espaço</h2>
+                  <div className="micro flex gap-8">
+                    <span>0%</span>
+                    <span>{decimal(Number((scale / 2).toFixed(1)))}%</span>
+                    <span>{decimal(Number(scale.toFixed(1)))}%</span>
+                  </div>
+                </div>
                 <ul className="m-0 list-none p-0">
                   {rising.map((item, index) => (
-                    <ShiftRow key={item.genre} item={item} scale={scale} direction="up" index={index} />
+                    <ShiftRow key={item.genre} item={item} scale={scale} rising index={index} />
                   ))}
                 </ul>
               </section>
@@ -182,10 +251,13 @@ export default function TasteEvolutionPage() {
           {declining.length > 0 && (
             <InViewFade>
               <section>
-                <SectionHead code="GY/02·B" title="Perdeu espaço" note="antes → agora" />
+                <div className="flex items-baseline justify-between gap-6 border-b border-border pb-3.5">
+                  <h2 className="headline text-[clamp(1.4rem,2.6vw,1.9rem)]">Perdeu espaço</h2>
+                  <span className="micro">mesma escala</span>
+                </div>
                 <ul className="m-0 list-none p-0">
                   {declining.map((item, index) => (
-                    <ShiftRow key={item.genre} item={item} scale={scale} direction="down" index={index} />
+                    <ShiftRow key={item.genre} item={item} scale={scale} rising={false} index={index} />
                   ))}
                 </ul>
               </section>

@@ -1,7 +1,32 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Em que horas do dia a agulha desce. É calculado no banco, sobre o
+ * mesmo filtro da listagem, e no fuso do usuário — em UTC a madrugada
+ * de quem ouve à noite apareceria no lugar errado.
+ */
+async function hourHistogram(userId: string, timezone: string, search: string): Promise<number[]> {
+  const term = `%${search.trim()}%`;
+  const filter = search.trim()
+    ? Prisma.sql`AND ("rawArtistName" ILIKE ${term} OR "rawTrackName" ILIKE ${term} OR "rawAlbumName" ILIKE ${term})`
+    : Prisma.empty;
+
+  const rows = await prisma.$queryRaw<Array<{ hour: number; plays: number }>>`
+    SELECT EXTRACT(HOUR FROM "playedAt" AT TIME ZONE ${timezone})::int AS hour,
+           COUNT(*)::int AS plays
+    FROM "ListeningEvent"
+    WHERE "userId" = ${userId} ${filter}
+    GROUP BY 1
+  `;
+
+  const buckets = Array.from({ length: 24 }, () => 0);
+  for (const row of rows) buckets[row.hour] = Number(row.plays);
+  return buckets;
+}
 
 export async function GET(request: Request) {
   try {
@@ -12,10 +37,10 @@ export async function GET(request: Request) {
 
     const user = await prisma.user.findFirst();
     if (!user) {
-      return NextResponse.json({ events: [], totalPages: 0, totalItems: 0, page });
+      return NextResponse.json({ events: [], totalPages: 0, totalItems: 0, page, hourHistogram: [] });
     }
 
-    const where: any = { userId: user.id };
+    const where: Prisma.ListeningEventWhereInput = { userId: user.id };
     if (search.trim()) {
       where.OR = [
         { rawArtistName: { contains: search, mode: "insensitive" } },
@@ -27,26 +52,31 @@ export async function GET(request: Request) {
     const totalItems = await prisma.listeningEvent.count({ where });
     const totalPages = Math.ceil(totalItems / limit);
 
-    const events = await prisma.listeningEvent.findMany({
-      where,
-      orderBy: { playedAt: "desc" },
-      skip: (page - 1) * limit,
-      take: limit,
-      select: {
-        id: true,
-        playedAt: true,
-        rawArtistName: true,
-        rawTrackName: true,
-        rawAlbumName: true,
-        provider: true,
-      },
-    });
+    const [events, hours] = await Promise.all([
+      prisma.listeningEvent.findMany({
+        where,
+        orderBy: { playedAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+        select: {
+          id: true,
+          playedAt: true,
+          rawArtistName: true,
+          rawTrackName: true,
+          rawAlbumName: true,
+          provider: true,
+          album: { select: { coverUrl: true } },
+        },
+      }),
+      hourHistogram(user.id, user.timezone, search),
+    ]);
 
     return NextResponse.json({
-      events,
+      events: events.map(({ album, ...event }) => ({ ...event, coverUrl: album?.coverUrl ?? null })),
       page,
       totalPages,
       totalItems,
+      hourHistogram: hours,
     });
   } catch (error: any) {
     console.error("History API error:", error);

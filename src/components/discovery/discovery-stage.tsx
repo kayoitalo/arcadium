@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Bookmark, Check, Pause, Play, SkipForward, ThumbsUp } from "lucide-react";
 import { ResilientCover } from "@/components/ui/resilient-cover";
 import { EASE_OUT_EXPO } from "@/components/ui/motion";
+import { formatGenre } from "@/lib/format/genre";
 import { usePreviewPlayer } from "./use-preview-player";
 
 export interface StageCandidate {
@@ -30,47 +31,76 @@ interface StageProps {
 
 /** Anel que corre em volta da capa enquanto a prévia toca. */
 function ProgressRing({ progress }: { progress: number }) {
-  const radius = 49;
-  const circumference = 2 * Math.PI * radius;
+  const circumference = 2 * Math.PI * 49;
 
   return (
-    <svg viewBox="0 0 100 100" className="pointer-events-none absolute -inset-2 h-[calc(100%+1rem)] w-[calc(100%+1rem)] -rotate-90">
-      <circle cx="50" cy="50" r={radius} fill="none" stroke="currentColor" strokeWidth="0.5" className="text-border" />
+    <svg
+      viewBox="0 0 100 100"
+      className="pointer-events-none absolute -inset-2.5 h-[calc(100%+20px)] w-[calc(100%+20px)] -rotate-90"
+      aria-hidden
+    >
+      <circle cx="50" cy="50" r="49" fill="none" stroke="#1b2129" strokeWidth="0.7" />
       <circle
         cx="50"
         cy="50"
-        r={radius}
+        r="49"
         fill="none"
-        stroke="currentColor"
+        stroke="var(--chroma)"
         strokeWidth="1.4"
         strokeLinecap="round"
-        className="text-accent"
         strokeDasharray={circumference}
         strokeDashoffset={circumference * (1 - progress)}
+        style={{ transition: "stroke-dashoffset 400ms linear" }}
       />
     </svg>
   );
 }
 
-/** Onde a sugestão caiu nos mesmos eixos que a pessoa regulou. */
-function PositionPlot({ position }: { position: { proximity: number; fame: number } }) {
+/** Um botão de decisão: o círculo em cima, o que ele faz embaixo. */
+function ActionButton({
+  onClick,
+  label,
+  hint,
+  size,
+  primary = false,
+  children,
+}: {
+  onClick: () => void;
+  label: string;
+  hint: string;
+  size: number;
+  primary?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="relative h-11 w-11 shrink-0 rounded-sm border border-border">
-        <span className="absolute inset-x-0 top-1/2 h-px bg-border" />
-        <span className="absolute inset-y-0 left-1/2 w-px bg-border" />
-        <motion.span
-          className="absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 bg-accent"
-          animate={{ left: `${position.proximity}%`, top: `${100 - position.fame}%` }}
-          transition={{ duration: 0.5, ease: EASE_OUT_EXPO }}
-        />
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className="group flex cursor-pointer flex-col items-center gap-2 border-0 bg-transparent"
+    >
+      <span
+        className={`flex items-center justify-center rounded-full transition-[transform,color,border-color] duration-300 group-hover:-translate-y-1 ${
+          primary
+            ? "text-background shadow-glow group-hover:scale-105"
+            : "border border-border text-text-secondary group-hover:border-text-primary group-hover:text-text-primary"
+        }`}
+        style={{
+          height: size,
+          width: size,
+          background: primary ? "var(--chroma)" : undefined,
+        }}
+      >
+        {children}
       </span>
-      <span className="catalog leading-relaxed">
-        proximidade {String(position.proximity).padStart(3, "0")}
-        <br />
-        fama {String(position.fame).padStart(3, "0")}
+      <span
+        className="data uppercase tracking-[0.1em] text-[8.5px]"
+        style={{ color: primary ? "var(--chroma)" : "#8b959e" }}
+      >
+        {hint}
       </span>
-    </div>
+    </button>
   );
 }
 
@@ -118,19 +148,9 @@ export function DiscoveryStage({ queue, index, onAction }: StageProps) {
   };
 
   return (
-    <div className="relative mx-auto flex w-full max-w-[420px] flex-col items-center">
-      <div className="mb-4 flex w-full items-baseline justify-between gap-4 border-b border-border pb-2">
-        <span className="catalog text-accent">
-          GY·TP-{String(index + 1).padStart(3, "0")}
-        </span>
-        <span className="catalog">
-          {player.available ? "prévia 30s" : "sem prévia"} · afinidade{" "}
-          {Math.round(current.score * 100) / 100}
-        </span>
-      </div>
-
+    <div className="flex w-full flex-col items-center">
       {/* as próximas ficam atrás, dando profundidade à fila */}
-      <div className="relative w-full" style={{ perspective: 1200 }}>
+      <div className="relative w-full max-w-[460px]" style={{ perspective: 1300 }}>
         {upcoming.map((entry, depth) => (
           <motion.div
             key={entry.id}
@@ -141,10 +161,10 @@ export function DiscoveryStage({ queue, index, onAction }: StageProps) {
               y: -(depth + 1) * 14,
               opacity: 0.5 - depth * 0.15,
             }}
-            transition={{ duration: 0.5, ease: EASE_OUT_EXPO }}
+            transition={{ duration: 0.56, ease: EASE_OUT_EXPO }}
             style={{ zIndex: -depth - 1 }}
           >
-            <div className="aspect-square w-full border border-border bg-surface-elevated" />
+            <div className="aspect-square w-full rounded-[3px] bg-surface ring-1 ring-rule" />
           </motion.div>
         ))}
 
@@ -162,36 +182,64 @@ export function DiscoveryStage({ queue, index, onAction }: StageProps) {
               onClick={player.toggle}
               disabled={!player.available}
               aria-label={player.playing ? "Pausar prévia" : "Tocar prévia"}
-              className="group relative block w-full disabled:cursor-default"
+              className="group relative block w-full cursor-pointer border-0 bg-transparent p-0 disabled:cursor-default"
             >
-              <ResilientCover
-                src={current.coverUrl}
-                alt={`Capa de ${current.albumName ?? current.trackName}`}
-                label={current.albumName ?? current.artistName}
-                priority
-                className="aspect-square w-full border border-border shadow-lift"
-                imageClassName={player.playing ? "scale-[1.02] transition-transform duration-700" : "transition-transform duration-700"}
-              />
+              <span className="relative block aspect-square w-full overflow-hidden rounded-[3px] shadow-lift ring-1 ring-white/[0.07]">
+                <ResilientCover
+                  src={current.coverUrl}
+                  alt={`Capa de ${current.albumName ?? current.trackName}`}
+                  label={current.albumName ?? current.artistName}
+                  priority
+                  className="h-full w-full"
+                  imageClassName={
+                    player.playing ? "scale-[1.02] transition-transform duration-700" : "transition-transform duration-700"
+                  }
+                />
+
+                {/* rótulo de disco no centro, girando enquanto toca */}
+                <span
+                  className="absolute left-1/2 top-1/2 flex aspect-square w-[34%] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-1 rounded-full p-[6%] text-center"
+                  style={{
+                    background: "var(--chroma)",
+                    boxShadow: "0 3px 14px rgb(0 0 0 / 0.55)",
+                    animation: player.playing && !reduced ? "gy-spin 4s linear infinite" : undefined,
+                  }}
+                >
+                  <b className="data truncate text-[8px] font-semibold uppercase tracking-[0.12em] text-black/60">
+                    {current.artistName}
+                  </b>
+                  <span className="line-clamp-2 text-[11px] leading-tight text-black/80">
+                    {current.albumName ?? current.trackName}
+                  </span>
+                  <span className="h-1.5 w-1.5 rounded-full bg-background" />
+                </span>
+
+                <span
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    background:
+                      "linear-gradient(118deg, rgb(255 255 255 / 0.08) 0%, transparent 34%, transparent 64%, rgb(255 255 255 / 0.05) 100%)",
+                  }}
+                />
+              </span>
 
               {player.available && <ProgressRing progress={player.progress} />}
 
-              <span
-                className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
-                  player.playing ? "opacity-0 group-hover:opacity-100" : "opacity-100"
-                }`}
-              >
-                <span className="flex h-16 w-16 items-center justify-center rounded-full border border-paper/20 bg-background/80 backdrop-blur-sm">
-                  {player.available ? (
-                    player.playing ? (
-                      <Pause className="h-6 w-6" />
-                    ) : (
-                      <Play className="ml-0.5 h-6 w-6" />
-                    )
-                  ) : (
-                    <span className="catalog">sem prévia</span>
-                  )}
+              {player.available ? (
+                <span
+                  className={`absolute inset-0 flex items-end justify-center pb-[8%] transition-opacity duration-300 ${
+                    player.playing ? "opacity-0 group-hover:opacity-100" : "opacity-100"
+                  }`}
+                >
+                  <span className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-background/80 ring-1 ring-white/15 backdrop-blur-sm">
+                    {player.playing ? <Pause className="h-5 w-5" /> : <Play className="ml-0.5 h-5 w-5" />}
+                  </span>
                 </span>
-              </span>
+              ) : (
+                <span className="data absolute bottom-3 left-3 rounded-full bg-background/80 px-2.5 py-1 text-text-muted backdrop-blur-sm">
+                  sem prévia
+                </span>
+              )}
             </button>
           </motion.div>
         </AnimatePresence>
@@ -200,75 +248,46 @@ export function DiscoveryStage({ queue, index, onAction }: StageProps) {
       <AnimatePresence mode="wait">
         <motion.div
           key={current.id}
-          className="mt-7 w-full text-center"
+          className="mt-8 w-full max-w-[500px] text-center"
           initial={reduced ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.4, ease: EASE_OUT_EXPO }}
         >
-          <h2 className="headline text-[clamp(1.5rem,4vw,2.1rem)]">{current.artistName}</h2>
-          <p className="mt-2 text-sm text-text-secondary">{current.trackName}</p>
           {current.genre && (
-            <p className="catalog mt-2.5 block text-accent">
-              <span className="text-border">[</span> {current.genre} <span className="text-border">]</span>
-            </p>
+            <span className="data inline-flex items-center gap-2 rounded-full border border-border-glow px-3 py-1 text-accent">
+              <span className="h-[5px] w-[5px] rounded-full bg-accent" />
+              {formatGenre(current.genre)}
+            </span>
           )}
+
+          <h2 className="display mt-4 text-[clamp(1.8rem,4vw,2.6rem)]">{current.artistName}</h2>
+          <p className="mt-2 text-[15px] text-text-secondary">{current.trackName}</p>
 
           {current.reason && (
-            <p className="liner mx-auto mt-5 max-w-[40ch] text-[0.9375rem]">{current.reason}</p>
-          )}
-
-          {current.position && (
-            <div className="mt-5 flex justify-center">
-              <PositionPlot position={current.position} />
-            </div>
+            <p className="mx-auto mt-5 max-w-[44ch] border-l-2 border-border-glow pl-3.5 text-left text-[13px] leading-[1.66] text-text-secondary">
+              {current.reason}
+            </p>
           )}
         </motion.div>
       </AnimatePresence>
 
-      <div className="mt-9 grid w-full grid-cols-2 divide-x divide-y divide-border border border-border sm:grid-cols-4 sm:divide-y-0">
-        <button
-          type="button"
-          onClick={() => decide("known")}
-          title="Já conheço"
-          className="stamp justify-center border-0 !px-2 text-text-muted"
-        >
-          <Check className="h-3.5 w-3.5" />
-          conheço
-        </button>
-
-        <button
-          type="button"
-          onClick={() => decide("skipped")}
-          title="Pular (→)"
-          className="stamp justify-center border-0 !px-2 text-text-secondary"
-        >
-          <SkipForward className="h-3.5 w-3.5" />
-          pular
-        </button>
-
-        <button
-          type="button"
-          onClick={() => decide("saved")}
-          title="Guardar (↓)"
-          className="stamp justify-center border-0 !px-2"
-        >
-          <Bookmark className="h-3.5 w-3.5" />
-          guardar
-        </button>
-
-        <button
-          type="button"
-          onClick={() => decide("liked")}
-          title="Curti (↑)"
-          className="stamp stamp-ink justify-center border-0 !px-2"
-        >
-          <ThumbsUp className="h-3.5 w-3.5" />
-          curti
-        </button>
+      <div className="mt-9 flex items-start gap-3.5">
+        <ActionButton onClick={() => decide("known")} label="Já conheço" hint="conheço" size={44}>
+          <Check className="h-4 w-4" />
+        </ActionButton>
+        <ActionButton onClick={() => decide("skipped")} label="Pular" hint="pular →" size={54}>
+          <SkipForward className="h-5 w-5" />
+        </ActionButton>
+        <ActionButton onClick={() => decide("liked")} label="Curti" hint="curtir ↑" size={72} primary>
+          <ThumbsUp className="h-6 w-6" />
+        </ActionButton>
+        <ActionButton onClick={() => decide("saved")} label="Guardar" hint="guardar ↓" size={54}>
+          <Bookmark className="h-5 w-5" />
+        </ActionButton>
       </div>
 
-      <p className="catalog mt-5 block">espaço toca · ↑ curtir · ↓ guardar · → pular</p>
+      <p className="data mt-6 text-text-label">espaço toca a prévia</p>
     </div>
   );
 }

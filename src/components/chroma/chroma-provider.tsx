@@ -6,8 +6,10 @@ import { chromaFromPixels, coverProxyUrl, NEUTRAL_CHROMA, type Chroma } from "@/
 
 interface ChromaContextValue {
   chroma: Chroma;
+  /** Nome do disco que está tingindo a tela — a barra de contexto mostra. */
+  tintLabel: string | null;
   /** Extrai o croma da capa e tinge a interface inteira. */
-  adoptCover: (coverUrl?: string | null) => void;
+  adoptCover: (coverUrl?: string | null, label?: string | null) => void;
   reset: () => void;
 }
 
@@ -68,6 +70,7 @@ async function readChroma(proxiedUrl: string): Promise<Chroma | null> {
 
 export function ChromaProvider({ children }: PropsWithChildren) {
   const [chroma, setChroma] = useState<Chroma>(NEUTRAL_CHROMA);
+  const [tintLabel, setTintLabel] = useState<string | null>(null);
   const cache = useRef(new Map<string, Chroma>());
   const pending = useRef<string | null>(null);
 
@@ -75,7 +78,9 @@ export function ChromaProvider({ children }: PropsWithChildren) {
     applyToDocument(chroma);
   }, [chroma]);
 
-  const adoptCover = useCallback((coverUrl?: string | null) => {
+  const adoptCover = useCallback((coverUrl?: string | null, label?: string | null) => {
+    setTintLabel(label ?? null);
+
     const proxied = coverProxyUrl(coverUrl);
     if (!proxied) {
       setChroma(NEUTRAL_CHROMA);
@@ -98,10 +103,14 @@ export function ChromaProvider({ children }: PropsWithChildren) {
 
   const reset = useCallback(() => {
     pending.current = null;
+    setTintLabel(null);
     setChroma(NEUTRAL_CHROMA);
   }, []);
 
-  const value = useMemo(() => ({ chroma, adoptCover, reset }), [chroma, adoptCover, reset]);
+  const value = useMemo(
+    () => ({ chroma, tintLabel, adoptCover, reset }),
+    [chroma, tintLabel, adoptCover, reset],
+  );
 
   return <ChromaContext.Provider value={value}>{children}</ChromaContext.Provider>;
 }
