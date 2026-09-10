@@ -1,28 +1,39 @@
 @import "tailwindcss";
 
 /* ============================================================
-   Grooveyard — sistema visual
-   A cor de acento não é fixa: ela é extraída da capa em foco e
-   escrita em --chroma-* pelo ChromaProvider. Tudo que é acento
-   no app aponta para essas variáveis.
+   GROOVEYARD — sistema visual "arquivo de prensagem"
+   ------------------------------------------------------------
+   A tela é uma ficha de arquivo de gravadora: fundo de goma-laca
+   (preto quente, nunca cinza-azulado), tipografia condensada de
+   caixote de disco, notas em serifa como texto de contracapa e
+   dados em mono como número de matriz.
+
+   A cor de acento não é fixa: é a tinta spot da prensagem, extraída
+   da capa em foco e escrita em --chroma-* pelo ChromaProvider. Uma
+   tinta por página, como numa impressão de uma cor sobre papel.
    ============================================================ */
 
 @theme {
-  --color-background: #08090b;
-  --color-background-secondary: #0b0d10;
+  /* goma-laca: preto quente, com viés de marrom, não de azul */
+  --color-background: #0d0c0a;
+  --color-background-secondary: #100e0c;
 
-  --color-surface: #101317;
-  --color-surface-elevated: #151a20;
-  --color-surface-soft: #1a2027;
-  --color-surface-glass: rgb(16 19 23 / 0.72);
+  --color-surface: #16130f;
+  --color-surface-elevated: #1c1814;
+  --color-surface-soft: #241f19;
+  --color-surface-glass: rgb(22 19 15 / 0.86);
 
-  --color-border: #232a32;
-  --color-border-subtle: #171d23;
+  /* papel: usado nos blocos invertidos (aba ativa, carimbo, botão) */
+  --color-paper: #f0e9da;
+
+  /* fios: 1px é a unidade de construção da página */
+  --color-border: #2d2720;
+  --color-border-subtle: #1f1a15;
   --color-border-glow: var(--chroma-line);
 
-  --color-text-primary: #f2f4f3;
-  --color-text-secondary: #aab2b9;
-  --color-text-muted: #79838c;
+  --color-text-primary: #ece4d4;
+  --color-text-secondary: #a89d8b;
+  --color-text-muted: #857b6c;
 
   --color-accent: var(--chroma);
   --color-accent-hover: var(--chroma-bright);
@@ -31,69 +42,69 @@
   --color-accent-burgundy: var(--chroma-deep);
   --color-accent-glow: var(--chroma-soft);
 
-  --color-status-success: #5faa8b;
-  --color-status-warning: #d6a45c;
-  --color-status-error: #d1665a;
+  /* óxido, oliva e âmbar — cores de fita e de rótulo, não de dashboard */
+  --color-status-success: #8ba36b;
+  --color-status-warning: #c9a15a;
+  --color-status-error: #c05a45;
 
   --color-rank-gold: var(--chroma-bright);
-  --color-rank-silver: #aab2b9;
+  --color-rank-silver: #a89d8b;
   --color-rank-bronze: var(--chroma-deep);
 
-  --font-sans: var(--font-sans-body), "Instrument Sans", system-ui, sans-serif;
-  --font-serif: var(--font-display), "Archivo", "Helvetica Neue", Arial, sans-serif;
-  --font-display: var(--font-display), "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-sans: var(--font-display), "Bricolage Grotesque", system-ui, sans-serif;
+  --font-display: var(--font-display), "Bricolage Grotesque", system-ui, sans-serif;
+  --font-serif: var(--font-liner), "Instrument Serif", Georgia, serif;
   --font-mono: var(--font-data), ui-monospace, Menlo, monospace;
-  --font-brand: var(--font-brand), "Unbounded", var(--font-display), sans-serif;
 
-  --shadow-glow: 0 0 40px -12px var(--chroma-glow);
-  --shadow-card: 0 18px 44px -22px rgb(0 0 0 / 0.85);
-  --shadow-lift: 0 34px 60px -28px rgb(0 0 0 / 0.9);
+  --shadow-glow: 0 0 40px -14px var(--chroma-glow);
+  --shadow-card: 0 18px 44px -24px rgb(0 0 0 / 0.9);
+  --shadow-lift: 0 30px 64px -30px rgb(0 0 0 / 0.95);
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 :root {
-  /* croma padrão — substituído assim que uma capa entra em foco */
-  --chroma-h: 196;
-  --chroma-s: 72%;
-  --chroma-l: 56%;
+  /* tinta padrão — trocada assim que uma capa entra em foco */
+  --chroma-h: 28;
+  --chroma-s: 62%;
+  --chroma-l: 58%;
 
   --chroma: hsl(var(--chroma-h) var(--chroma-s) var(--chroma-l));
   --chroma-bright: hsl(var(--chroma-h) var(--chroma-s) calc(var(--chroma-l) + 12%));
   --chroma-deep: hsl(var(--chroma-h) calc(var(--chroma-s) * 0.8) calc(var(--chroma-l) - 16%));
   --chroma-soft: hsl(var(--chroma-h) var(--chroma-s) var(--chroma-l) / 0.14);
-  --chroma-line: hsl(var(--chroma-h) var(--chroma-s) var(--chroma-l) / 0.38);
-  --chroma-glow: hsl(var(--chroma-h) var(--chroma-s) 46% / 0.42);
+  --chroma-line: hsl(var(--chroma-h) var(--chroma-s) var(--chroma-l) / 0.4);
+  --chroma-glow: hsl(var(--chroma-h) var(--chroma-s) 44% / 0.4);
 
-  --background: #08090b;
-  --surface: #101317;
-  --text-primary: #f2f4f3;
-  --text-secondary: #aab2b9;
-  --text-muted: #79838c;
-  --border: #232a32;
+  --background: #0d0c0a;
+  --surface: #16130f;
+  --paper: #f0e9da;
+  --text-primary: #ece4d4;
+  --text-secondary: #a89d8b;
+  --text-muted: #857b6c;
+  --border: #2d2720;
   --accent-primary: var(--chroma);
   --accent-gold: var(--chroma-bright);
 
   color-scheme: dark;
 }
 
-/* a troca de croma é uma transição, não um corte */
+/* a troca de tinta é uma transição, não um corte */
 :root {
   transition: --chroma-h 700ms var(--ease-in-out-soft),
               --chroma-s 700ms var(--ease-in-out-soft),
               --chroma-l 700ms var(--ease-in-out-soft);
 }
 
-@property --chroma-h { syntax: "<number>"; inherits: true; initial-value: 196; }
-@property --chroma-s { syntax: "<percentage>"; inherits: true; initial-value: 72%; }
-@property --chroma-l { syntax: "<percentage>"; inherits: true; initial-value: 56%; }
+@property --chroma-h { syntax: "<number>"; inherits: true; initial-value: 28; }
+@property --chroma-s { syntax: "<percentage>"; inherits: true; initial-value: 62%; }
+@property --chroma-l { syntax: "<percentage>"; inherits: true; initial-value: 58%; }
 
 body {
   color: var(--text-primary);
   background-color: var(--background);
   font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
-  letter-spacing: -0.008em;
   overflow-x: hidden;
 }
 
@@ -101,85 +112,327 @@ h1, h2, h3, h4 {
   text-wrap: balance;
 }
 
-/* ---------- vozes tipográficas ---------- */
-.font-serif,
-.font-display {
-  font-family: var(--font-display);
-  font-variation-settings: "wdth" 100, "wght" 700;
-  letter-spacing: -0.035em;
-}
+/* ============================================================
+   VOZES TIPOGRÁFICAS
+   Três, cada uma com um trabalho: condensada grotesca para o que
+   grita (marca, manchete, número), serifa para o que conversa
+   (contracapa, comentário), mono para o que se catalogado (rótulo,
+   matriz, hora, percentual).
+   ============================================================ */
 
-.display-xl {
-  font-family: var(--font-display);
-  font-variation-settings: "wdth" 92, "wght" 800;
-  letter-spacing: -0.05em;
-  line-height: 0.93;
-}
-
-.display-lg {
-  font-family: var(--font-display);
-  font-variation-settings: "wdth" 96, "wght" 800;
-  letter-spacing: -0.042em;
-  line-height: 0.98;
-}
-
-.numeral {
-  font-family: var(--font-display);
-  font-variation-settings: "wdth" 84, "wght" 800;
-  letter-spacing: -0.055em;
-  font-variant-numeric: tabular-nums;
+.wordmark {
+  font-family: var(--font-display), "Bricolage Grotesque", system-ui, sans-serif;
+  font-variation-settings: "wdth" 76, "wght" 800;
+  letter-spacing: -0.005em;
+  text-transform: uppercase;
   line-height: 1;
 }
 
-.font-mono {
-  letter-spacing: 0.02em;
+.headline {
+  font-family: var(--font-display), "Bricolage Grotesque", system-ui, sans-serif;
+  font-variation-settings: "wdth" 82, "wght" 800;
+  letter-spacing: -0.026em;
+  line-height: 0.92;
 }
 
-.eyebrow {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  font-weight: 600;
-  letter-spacing: 0.19em;
+/* título de seção: caixa alta condensada, como carimbo de caixote */
+.section-title {
+  font-family: var(--font-display), "Bricolage Grotesque", system-ui, sans-serif;
+  font-variation-settings: "wdth" 84, "wght" 700;
   text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 1;
 }
 
-/* ---------- superfícies ---------- */
+.numeral {
+  font-family: var(--font-display), "Bricolage Grotesque", system-ui, sans-serif;
+  font-variation-settings: "wdth" 74, "wght" 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.88;
+}
+
+/* contracapa: a serifa é a voz que comenta o que os números medem */
+.liner {
+  font-family: var(--font-liner), "Instrument Serif", Georgia, serif;
+  font-size: 1.0625rem;
+  line-height: 1.62;
+  letter-spacing: 0.004em;
+  color: var(--text-secondary);
+}
+
+.liner-lead {
+  font-family: var(--font-liner), "Instrument Serif", Georgia, serif;
+  font-size: clamp(1.125rem, 1.9vw, 1.375rem);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.liner em,
+.liner-lead em {
+  font-style: italic;
+  color: var(--text-primary);
+}
+
+/* rótulo de arquivo */
+.label {
+  color: var(--text-muted);
+  font-family: var(--font-data), ui-monospace, Menlo, monospace;
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+/* número de catálogo / matriz: sempre mono, sempre com espaço */
+.catalog {
+  font-family: var(--font-data), ui-monospace, Menlo, monospace;
+  font-size: 0.5625rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.data {
+  font-family: var(--font-data), ui-monospace, Menlo, monospace;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+/* ============================================================
+   MATÉRIA IMPRESSA
+   O fundo não é uma cor plana: é papelão sem revestimento. O grão
+   fica por cima de tudo, fixo, e não recebe evento nenhum.
+   ============================================================ */
+
+.press-grain {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)'/%3E%3C/svg%3E");
+}
+
+/* ============================================================
+   SUPERFÍCIES E FIOS
+   ============================================================ */
+
 .glass-panel {
-  background: rgb(16 19 23 / 0.82);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgb(35 42 50 / 0.8);
+  background: rgb(13 12 10 / 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
 }
 
-.glass-card,
-.editorial-card {
-  background: rgb(16 19 23 / 0.6);
-  border: 1px solid rgb(35 42 50 / 0.75);
-  transition: border-color 0.4s var(--ease-out-expo), background 0.4s var(--ease-out-expo);
+/* marcas de registro de impressão nos cantos de um bloco */
+.registered {
+  position: relative;
 }
 
-.glass-card:hover {
-  border-color: var(--chroma-line);
-  background: rgb(21 26 32 / 0.75);
+.registered::before,
+.registered::after {
+  content: "";
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--border), var(--border)) center / 100% 1px no-repeat,
+    linear-gradient(var(--border), var(--border)) center / 1px 100% no-repeat;
 }
 
-.hairline {
-  border-color: var(--border);
-}
+.registered::before { top: -14px; left: -14px; }
+.registered::after { bottom: -14px; right: -14px; }
 
 .chroma-aura {
-  background: radial-gradient(44% 54% at 68% 32%, var(--chroma-glow), transparent 68%);
-  filter: blur(28px);
+  background: radial-gradient(42% 52% at 66% 34%, var(--chroma-glow), transparent 70%);
+  filter: blur(30px);
 }
+
+/* ============================================================
+   CONTROLES — retangulares, carimbados. Nada de pílula.
+   ============================================================ */
+
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-data), ui-monospace, Menlo, monospace;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  transition: background 0.25s var(--ease-out-expo), color 0.25s var(--ease-out-expo),
+              border-color 0.25s var(--ease-out-expo);
+}
+
+.stamp:hover:not(:disabled) {
+  background: var(--paper);
+  border-color: var(--paper);
+  color: var(--background);
+}
+
+.stamp:disabled {
+  opacity: 0.3;
+}
+
+.stamp-ink {
+  background: var(--chroma);
+  border-color: var(--chroma);
+  color: #14110d;
+}
+
+.stamp-ink:hover:not(:disabled) {
+  background: var(--chroma-bright);
+  border-color: var(--chroma-bright);
+  color: #14110d;
+}
+
+.stamp-danger:hover:not(:disabled) {
+  background: var(--color-status-error);
+  border-color: var(--color-status-error);
+  color: #14110d;
+}
+
+/* aba de fichário: quadrada, marcada por barra de tinta em cima */
+.tab {
+  position: relative;
+  padding: 0.55rem 0.85rem 0.5rem;
+  font-family: var(--font-data), ui-monospace, Menlo, monospace;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  transition: color 0.25s var(--ease-out-expo), background 0.25s var(--ease-out-expo);
+}
+
+.tab:hover {
+  color: var(--text-secondary);
+  background: rgb(240 233 218 / 0.03);
+}
+
+.tab[data-active="true"] {
+  color: var(--text-primary);
+  background: rgb(240 233 218 / 0.05);
+}
+
+.tab[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  inset: -1px 0 auto;
+  height: 2px;
+  background: var(--chroma);
+}
+
+/* campo: linha de preenchimento de ficha */
+.field {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 0.6rem 0.25rem;
+  color: var(--text-primary);
+  font-family: var(--font-data), ui-monospace, Menlo, monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  transition: border-color 0.25s var(--ease-out-expo);
+}
+
+.field::placeholder {
+  color: var(--text-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.625rem;
+}
+
+.field:focus {
+  outline: none;
+  border-color: var(--chroma);
+}
+
+/* potenciômetro: trilho fino, cursor quadrado de mesa de corte */
+.pot {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  background: transparent;
+  cursor: ew-resize;
+}
+
+.pot::-webkit-slider-runnable-track {
+  height: 1px;
+  background: var(--border);
+}
+
+.pot::-moz-range-track {
+  height: 1px;
+  background: var(--border);
+}
+
+.pot::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 3px;
+  height: 18px;
+  margin-top: -8.5px;
+  background: var(--chroma);
+  border: 0;
+  border-radius: 0;
+}
+
+.pot::-moz-range-thumb {
+  width: 3px;
+  height: 18px;
+  background: var(--chroma);
+  border: 0;
+  border-radius: 0;
+}
+
+.pot:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--chroma-soft);
+}
+
+/* ============================================================
+   DETALHES
+   ============================================================ */
 
 ::selection {
   background: var(--chroma-soft);
 }
 
 :focus-visible {
-  outline: 2px solid var(--chroma);
+  outline: 1px solid var(--chroma);
   outline-offset: 3px;
+}
+
+/* nome no ranking: a largura da fonte variável é o destaque */
+.rank-name {
+  font-family: var(--font-display), "Bricolage Grotesque", system-ui, sans-serif;
+  font-variation-settings: "wdth" 88, "wght" 600;
+  letter-spacing: -0.015em;
+  transition: font-variation-settings 380ms var(--ease-out-expo);
+}
+
+.group:hover .rank-name {
+  font-variation-settings: "wdth" 102, "wght" 700;
+}
+
+/* texto de lombada: o nome do arquivo corre na vertical, como num disco */
+.spine-text {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -193,17 +446,5 @@ h1, h2, h3, h4 {
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--background); }
-::-webkit-scrollbar-thumb { background: #232a32; border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: #2d2720; }
 ::-webkit-scrollbar-thumb:hover { background: var(--chroma); }
-
-/* nome do ranking: a largura da fonte variável é o destaque */
-.rank-name {
-  font-family: var(--font-display);
-  font-variation-settings: "wdth" 100, "wght" 600;
-  letter-spacing: -0.025em;
-  transition: font-variation-settings 380ms var(--ease-out-expo);
-}
-
-.group:hover .rank-name {
-  font-variation-settings: "wdth" 113, "wght" 700;
-}

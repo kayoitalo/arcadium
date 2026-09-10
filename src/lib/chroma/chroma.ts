@@ -4,8 +4,12 @@ export interface Chroma {
   l: number;
 }
 
-/** Croma neutro usado quando a capa é monocromática, falha ou não existe. */
-export const NEUTRAL_CHROMA: Chroma = { h: 196, s: 26, l: 62 };
+/**
+ * Tinta neutra, usada quando a capa é monocromática, falha ou não existe.
+ * É um latão quente: sobre a goma-laca do fundo, um acento frio soaria
+ * como se a página tivesse sido impressa em outra gráfica.
+ */
+export const NEUTRAL_CHROMA: Chroma = { h: 30, s: 46, l: 60 };
 
 /** Faixa em que um acento continua legível sobre o fundo grafite. */
 const MIN_SATURATION = 44;

@@ -278,7 +278,7 @@ export function Groove({ activity, totalPlays }: GrooveProps) {
             <strong className={`numeral block text-4xl sm:text-5xl ${hovered ? "text-accent" : "text-text-primary"}`}>
               {(hovered ? hovered.plays : totalPlays).toLocaleString("pt-BR")}
             </strong>
-            <span className="eyebrow mt-2 block">
+            <span className="label mt-2 block">
               {hovered ? formatDay(hovered.date) : "audições no período"}
             </span>
           </motion.div>

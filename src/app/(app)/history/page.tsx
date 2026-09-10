@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ScreenLine } from "@/components/ui/screen-line";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { CountUp, EASE_OUT_EXPO, Reveal } from "@/components/ui/motion";
 
@@ -31,6 +31,8 @@ function dayLabel(iso: string): string {
   const formatted = DAY_FORMAT.format(date);
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
+
+const ROW = "grid grid-cols-[3.25rem_minmax(0,1fr)] items-baseline gap-4 sm:grid-cols-[4rem_minmax(0,1fr)_12rem] sm:gap-6";
 
 export default function HistoryPage() {
   const [events, setEvents] = useState<HistoryEvent[]>([]);
@@ -85,51 +87,64 @@ export default function HistoryPage() {
   }, [events]);
 
   return (
-    <div className="space-y-14 pb-10">
-      <header className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
-        <div>
-          <span className="eyebrow">Tudo o que tocou</span>
-          <h1 className="display-xl mt-4 text-[clamp(2.2rem,5vw,4rem)]">
-            <Reveal>Histórico</Reveal>
-          </h1>
-          <p className="mt-4 font-mono text-xs text-text-muted">
-            <CountUp value={totalItems} className="text-text-secondary" /> audições registradas
-          </p>
-          <ScreenLine screen="history" fallback="Tudo o que tocou, do mais recente para trás." />
-        </div>
+    <div className="space-y-14">
+      <header className="border-b border-border pb-9">
+        <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
+          <div>
+            <div className="flex items-center gap-3">
+              <span className="catalog text-accent">GY/04</span>
+              <span className="label">Livro de audições</span>
+            </div>
 
-        <div className="relative w-full lg:w-80">
-          <Search className="pointer-events-none absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setPage(1);
-            }}
-            placeholder="Buscar artista, faixa ou álbum"
-            aria-label="Buscar no histórico"
-            className="w-full border-b border-border bg-transparent py-2.5 pl-7 pr-2 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none"
-          />
+            <h1 className="headline mt-4 text-[clamp(2.2rem,5.4vw,3.9rem)]">
+              <Reveal>Histórico</Reveal>
+            </h1>
+
+            <p className="data mt-4 text-text-muted">
+              <CountUp value={totalItems} className="text-text-secondary" /> audições lançadas no livro
+            </p>
+
+            <div className="max-w-[52ch]">
+              <ScreenLine screen="history" fallback="Tudo o que tocou, do mais recente para trás." />
+            </div>
+          </div>
+
+          <label className="w-full lg:w-80">
+            <span className="label mb-1.5 block">Busca no livro</span>
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              placeholder="artista, faixa ou álbum"
+              aria-label="Buscar no histórico"
+              className="field"
+            />
+          </label>
         </div>
       </header>
 
-      {loading && <p className="font-mono text-xs text-text-muted">Carregando…</p>}
+      {loading && <p className="label">Lendo o livro…</p>}
 
       {error && (
-        <div className="rounded-xl border border-status-error/30 bg-status-error/10 p-6 text-sm text-status-error">{error}</div>
+        <div className="border border-status-error/40 bg-status-error/[0.07] p-6">
+          <span className="label text-status-error">Falha de leitura</span>
+          <p className="mt-2 text-sm text-status-error">{error}</p>
+        </div>
       )}
 
       {!loading && !error && events.length === 0 && (
-        <section className="py-16">
-          <h2 className="display-lg max-w-[20ch] text-[clamp(1.6rem,3vw,2.4rem)]">
-            {search ? "Nada com esse nome." : "Nada por aqui ainda."}
+        <section className="py-14">
+          <h2 className="headline max-w-[20ch] text-[clamp(1.6rem,3vw,2.4rem)]">
+            {search ? "Nada com esse nome." : "Nenhum lançamento ainda."}
           </h2>
-          {search && (
-            <p className="mt-4 max-w-[42ch] text-sm text-text-secondary">
-              Tente parte do nome do artista, da faixa ou do álbum.
-            </p>
-          )}
+          <p className="liner mt-4 max-w-[42ch]">
+            {search
+              ? "Tente parte do nome do artista, da faixa ou do álbum."
+              : "Registre seu usuário do Last.fm na ficha técnica para começar o livro."}
+          </p>
         </section>
       )}
 
@@ -137,18 +152,19 @@ export default function HistoryPage() {
         <div className="space-y-12">
           {days.map(([key, dayEvents], dayIndex) => (
             <section key={key}>
-              <div className="sticky top-[57px] z-10 flex items-baseline justify-between gap-4 border-b border-border bg-background/90 py-2.5 backdrop-blur-md">
-                <h2 className="font-display text-sm" style={{ fontVariationSettings: '"wdth" 104, "wght" 700' }}>
-                  {dayLabel(dayEvents[0].playedAt)}
-                </h2>
-                <span className="eyebrow">{dayEvents.length} audições</span>
+              <div className="sticky top-[6.1rem] z-10 flex items-baseline justify-between gap-4 border-b border-border bg-background/95 py-2.5 backdrop-blur-md">
+                <div className="flex items-baseline gap-3">
+                  <span className="catalog text-accent">Sessão</span>
+                  <h2 className="section-title text-[0.9375rem]">{dayLabel(dayEvents[0].playedAt)}</h2>
+                </div>
+                <span className="label">{dayEvents.length} audições</span>
               </div>
 
               <ul className="m-0 list-none p-0">
                 {dayEvents.map((event, index) => (
                   <motion.li
                     key={event.id}
-                    className="group relative isolate grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4 border-b border-border/60 py-3.5 transition-[padding] duration-500 ease-out hover:pl-3"
+                    className={`${ROW} group relative isolate border-b border-border-subtle py-3 transition-[padding] duration-500 ease-out hover:pl-2.5`}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{
@@ -157,18 +173,19 @@ export default function HistoryPage() {
                       delay: Math.min(0.5, dayIndex * 0.04 + index * 0.02),
                     }}
                   >
-                    <span className="absolute inset-y-0 left-0 z-0 w-0 bg-accent/10 transition-all duration-500 ease-out group-hover:w-full" />
+                    <span className="absolute inset-y-0 left-0 z-0 w-0 bg-accent/[0.07] transition-all duration-500 ease-out group-hover:w-full" />
+
+                    <span className="data relative z-10 text-text-muted transition-colors group-hover:text-accent">
+                      {TIME_FORMAT.format(new Date(event.playedAt))}
+                    </span>
 
                     <span className="relative z-10 flex min-w-0 flex-col gap-0.5">
                       <b className="truncate text-sm font-semibold text-text-primary">{event.rawTrackName}</b>
-                      <span className="truncate text-xs text-text-secondary">
-                        {event.rawArtistName}
-                        {event.rawAlbumName && <span className="text-text-muted"> · {event.rawAlbumName}</span>}
-                      </span>
+                      <span className="truncate text-xs text-text-secondary">{event.rawArtistName}</span>
                     </span>
 
-                    <span className="relative z-10 whitespace-nowrap font-mono text-[11px] tabular-nums text-text-muted">
-                      {TIME_FORMAT.format(new Date(event.playedAt))}
+                    <span className="catalog relative z-10 hidden truncate text-right sm:block">
+                      {event.rawAlbumName ?? "—"}
                     </span>
                   </motion.li>
                 ))}
@@ -180,27 +197,29 @@ export default function HistoryPage() {
 
       {!loading && !error && events.length > 0 && (
         <div className="flex items-center justify-between border-t border-border pt-5">
-          <span className="font-mono text-[11px] text-text-muted">
-            página {page} de {totalPages || 1}
+          <span className="catalog">
+            Folha {page} de {totalPages || 1}
           </span>
-          <div className="flex gap-2">
+          <div className="flex divide-x divide-border border border-border">
             <button
               type="button"
               disabled={page <= 1}
               onClick={() => setPage((current) => Math.max(1, current - 1))}
-              aria-label="Página anterior"
-              className="rounded-full border border-border p-2 text-text-secondary transition-colors hover:border-accent hover:text-text-primary disabled:opacity-25 disabled:hover:border-border"
+              aria-label="Folha anterior"
+              className="stamp border-0"
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-3.5 w-3.5" />
+              anterior
             </button>
             <button
               type="button"
               disabled={page >= totalPages}
               onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-              aria-label="Próxima página"
-              className="rounded-full border border-border p-2 text-text-secondary transition-colors hover:border-accent hover:text-text-primary disabled:opacity-25 disabled:hover:border-border"
+              aria-label="Próxima folha"
+              className="stamp border-0"
             >
-              <ChevronRight className="h-4 w-4" />
+              próxima
+              <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
