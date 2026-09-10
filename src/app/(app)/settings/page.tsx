@@ -5,7 +5,8 @@ import { useForm } from "react-hook-form";
 import { motion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
 import { AlertCircle, CheckCircle, Download, Link2, RefreshCw, Trash2, Unlink } from "lucide-react";
-import { EASE_OUT_EXPO, Reveal } from "@/components/ui/motion";
+import { EASE_OUT_EXPO } from "@/components/ui/motion";
+import { useScreenChrome } from "@/components/layout/chrome";
 
 interface SyncForm {
   username: string;
@@ -59,11 +60,11 @@ function Section({
     >
       <div className="mb-7 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div>
-          <div className="flex items-baseline gap-3">
-            <span className="catalog text-accent">{code}</span>
-            <h2 className="section-title text-[1.05rem]">{title}</h2>
+          <div className="flex items-baseline gap-2.5">
+            <span className="eyebrow text-accent">{code}</span>
+            <h2 className="headline text-[1.35rem]">{title}</h2>
           </div>
-          <p className="liner mt-2.5 max-w-[54ch] text-[0.9375rem]">{hint}</p>
+          <p className="mt-3 max-w-[54ch] text-[15px] leading-[1.66] text-text-secondary">{hint}</p>
         </div>
         {aside}
       </div>
@@ -72,21 +73,27 @@ function Section({
   );
 }
 
-/** Carimbo de estado: quadrado, mono, sem cor de aviso. */
+/** Estado da ligação, sem cor de alarme: é informação, não aviso. */
 function Chip({ children }: PropsWithChildren) {
-  return <span className="catalog border border-border px-2.5 py-1.5">{children}</span>;
+  return (
+    <span className="data inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 text-text-secondary">
+      <span className="h-[5px] w-[5px] rounded-full bg-accent" />
+      {children}
+    </span>
+  );
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <span className="label block">{label}</span>
-      <strong className="numeral mt-2 block text-xl text-text-primary">{value}</strong>
+      <span className="eyebrow block">{label}</span>
+      <strong className="numeral mt-2.5 block text-2xl text-text-primary">{value}</strong>
     </div>
   );
 }
 
 function SettingsContent() {
+  useScreenChrome({ title: "Ajustes" });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -212,23 +219,25 @@ function SettingsContent() {
   const connected = syncStatus?.connection;
 
   return (
-    <div className="max-w-3xl space-y-14">
+    <div className="gy-page max-w-3xl space-y-14">
       <header>
         <div className="flex items-center gap-3">
-          <span className="catalog text-accent">GY/05</span>
-          <span className="label">Ficha técnica do arquivo</span>
+          <span className="h-px w-[34px] bg-accent" />
+          <span className="eyebrow text-accent">Sua conta</span>
         </div>
-        <h1 className="headline mt-4 text-[clamp(2.2rem,5.4vw,3.9rem)]">
-          <Reveal>Ficha técnica</Reveal>
+        <h1 className="display mt-5 text-[clamp(2.6rem,5.6vw,4.2rem)]">
+          <span className="block overflow-hidden">
+            <span className="gy-rise">Ajustes</span>
+          </span>
         </h1>
-        <p className="liner mt-5 max-w-[52ch]">
-          De onde vem cada número, o que fica guardado e para onde as prensagens podem ir.
+        <p className="mt-5 max-w-[54ch] text-[15px] leading-[1.66] text-text-secondary">
+          De onde vem cada número, o que fica guardado aqui e para onde as descobertas podem ir.
         </p>
       </header>
 
       {message && (
         <motion.p
-          className="flex items-start gap-2.5 border border-status-success/40 bg-status-success/[0.07] p-4 text-sm text-status-success"
+          className="flex items-start gap-2.5 rounded-lg border border-status-success/40 bg-status-success/[0.07] p-4 text-sm text-status-success"
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -239,7 +248,7 @@ function SettingsContent() {
 
       {error && (
         <motion.p
-          className="flex items-start gap-2.5 border border-status-error/40 bg-status-error/[0.07] p-4 text-sm text-status-error"
+          className="flex items-start gap-2.5 rounded-lg border border-status-error/40 bg-status-error/[0.07] p-4 text-sm text-status-error"
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -250,13 +259,13 @@ function SettingsContent() {
 
       <Section
         code="01"
-        title="Last.fm — a fonte"
+        title="Last.fm"
         hint="De onde vem o seu histórico. A busca roda sozinha de hora em hora, mas você pode forçar agora."
         aside={<Chip>{connected ? connected.username : "não conectado"}</Chip>}
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div>
-            <label htmlFor="lastfm-user" className="label mb-2 block">
+            <label htmlFor="lastfm-user" className="eyebrow mb-2 block">
               Seu usuário
             </label>
             <input
@@ -264,15 +273,15 @@ function SettingsContent() {
               type="text"
               {...register("username", { required: "Informe o usuário" })}
               placeholder="usuario"
-              className="field max-w-sm"
+              className="field-line max-w-sm"
             />
-            {errors.username && <span className="catalog mt-2 block text-status-error">{errors.username.message}</span>}
+            {errors.username && <span className="data mt-2 block text-status-error">{errors.username.message}</span>}
           </div>
 
           <button
             type="submit"
             disabled={loading || !isValid}
-            className="stamp stamp-ink"
+            className="pill pill-ink"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
             {loading ? "buscando…" : "buscar agora"}
@@ -292,7 +301,7 @@ function SettingsContent() {
 
       <Section
         code="02"
-        title="Catalogação"
+        title="Informações dos artistas"
         hint="País, gênero, ano de lançamento e capa dos artistas e álbuns que você mais ouve. Roda aos poucos, em respeito ao limite de 1 requisição por segundo do MusicBrainz."
       >
         <div className="flex flex-wrap gap-3">
@@ -300,16 +309,16 @@ function SettingsContent() {
             type="button"
             onClick={enrichArtists}
             disabled={loading}
-            className="stamp"
+            className="pill"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-            catalogar artistas
+            buscar artistas
           </button>
           <button
             type="button"
             onClick={repairCovers}
             disabled={loading}
-            className="stamp"
+            className="pill"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
             procurar capas
@@ -328,17 +337,17 @@ function SettingsContent() {
 
       <Section
         code="03"
-        title="Spotify — só destino"
-        hint="As prensagens de teste podem virar uma playlist. Conectado, ela nasce direto na sua conta; sem conectar, você recebe links de busca e um arquivo .m3u."
+        title="Playlists"
+        hint="As descobertas que você separar podem virar uma playlist. Conectado, ela nasce direto na sua conta; sem conectar, você recebe links de busca e um arquivo .m3u."
         aside={<Chip>{spotify?.connected ? `conectado · ${spotify.displayName}` : "não conectado"}</Chip>}
       >
-        <p className="liner mb-6 max-w-[56ch] text-[0.9375rem]">
+        <p className="mb-6 max-w-[56ch] text-[15px] leading-[1.66] text-text-secondary">
           O Spotify é usado só como destino: nada do que está lá volta para as suas estatísticas nem
           para os textos. A permissão pedida cria playlists e nada mais.
         </p>
 
         {spotify && !spotify.configured && (
-          <p className="max-w-[56ch] border border-border bg-surface p-4 text-xs text-text-muted">
+          <p className="max-w-[56ch] rounded-lg border border-border bg-surface p-4 text-xs text-text-muted">
             {spotify.reason}
           </p>
         )}
@@ -356,7 +365,7 @@ function SettingsContent() {
                 return "Abrindo o Spotify…";
               })
             }
-            className="stamp stamp-ink"
+            className="pill pill-ink"
           >
             <Link2 className="h-3.5 w-3.5" />
             conectar spotify
@@ -375,7 +384,7 @@ function SettingsContent() {
                 return "Spotify desconectado.";
               })
             }
-            className="stamp stamp-danger"
+            className="pill pill-danger"
           >
             <Unlink className="h-3.5 w-3.5" />
             desconectar
@@ -392,7 +401,7 @@ function SettingsContent() {
           <a
             href="/api/user/data"
             download
-            className="stamp"
+            className="pill"
           >
             <Download className="h-3.5 w-3.5" />
             baixar cópia
@@ -402,7 +411,7 @@ function SettingsContent() {
             type="button"
             onClick={eraseEverything}
             disabled={loading}
-            className="stamp stamp-danger border-status-error/50 text-status-error"
+            className="pill pill-danger border-status-error/50 text-status-error"
           >
             <Trash2 className="h-3.5 w-3.5" />
             apagar tudo
@@ -419,7 +428,7 @@ function SettingsContent() {
  */
 export default function SettingsPage() {
   return (
-    <Suspense fallback={<p className="label">Abrindo a ficha…</p>}>
+    <Suspense fallback={<p className="eyebrow">Carregando…</p>}>
       <SettingsContent />
     </Suspense>
   );

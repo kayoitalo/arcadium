@@ -1,32 +1,36 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Instrument_Serif, Martian_Mono } from "next/font/google";
+import { Archivo, Instrument_Sans, Martian_Mono, Unbounded } from "next/font/google";
 import "./globals.css";
 
 /**
- * Três vozes, três trabalhos.
- *
- * Bricolage Grotesque é variável em largura: a mesma fonte condensa até
- * 76 na marca e nas manchetes (letra de caixote de disco) e abre até 100
- * no texto de interface. É de onde vem a identidade — não é Inter.
+ * Archivo é variável em largura: a mesma fonte condensa até 78 nas
+ * manchetes e nos números e abre até 112 no nome do artista em foco.
+ * É de onde vem o desenho da tela.
  */
-const display = Bricolage_Grotesque({
+const display = Archivo({
   subsets: ["latin"],
-  axes: ["opsz", "wdth"],
+  axes: ["wdth"],
   display: "swap",
   variable: "--font-display",
 });
 
-/** A voz de contracapa: o que comenta o que os números medem. */
-const liner = Instrument_Serif({
+/** A voz que conversa: narrativa, descrições, nomes de faixa. */
+const sans = Instrument_Sans({
   subsets: ["latin"],
-  weight: "400",
-  style: ["normal", "italic"],
   display: "swap",
-  variable: "--font-liner",
+  variable: "--font-sans-body",
 });
 
-/** Rótulo de arquivo, número de matriz, hora, percentual. */
-const data = Martian_Mono({
+/** Só o logotipo usa esta. O "oo" de Grooveyard vira dois discos. */
+const brand = Unbounded({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  display: "swap",
+  variable: "--font-brand",
+});
+
+/** Etiqueta, hora, percentual — tudo que é medido. */
+const mono = Martian_Mono({
   subsets: ["latin"],
   weight: ["400", "600"],
   display: "swap",
@@ -34,9 +38,8 @@ const data = Martian_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Grooveyard — arquivo de escuta",
-  description:
-    "O cemitério dos seus discos: cada audição catalogada, medida e prensada em ficha de arquivo.",
+  title: "Grooveyard",
+  description: "O cemitério dos seus discos: tudo o que você ouviu, medido e desenhado.",
 };
 
 export default function RootLayout({
@@ -47,7 +50,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className="dark">
       <body
-        className={`${display.variable} ${liner.variable} ${data.variable} font-sans min-h-screen bg-background text-text-primary antialiased`}
+        className={`${sans.variable} ${display.variable} ${mono.variable} ${brand.variable} font-sans min-h-screen bg-background text-text-primary antialiased`}
       >
         {children}
       </body>

@@ -11,6 +11,8 @@ interface ResilientCoverProps {
   className?: string;
   imageClassName?: string;
   priority?: boolean;
+  /** Em miniatura (abaixo de ~64px) o título não cabe: só a bolacha fica. */
+  compact?: boolean;
 }
 
 function hueFor(value: string): number {
@@ -21,11 +23,19 @@ function hueFor(value: string): number {
 
 /**
  * A maioria dos álbuns não tem capa armazenada, então o estado sem
- * imagem não pode ser um buraco: é uma prensagem de rótulo branco —
- * sulcos concêntricos, rótulo no centro e o título datilografado no pé,
- * como um disco de teste que saiu da fábrica sem arte.
+ * imagem não pode ser um buraco: é uma bolacha prensada em branco, com
+ * os sulcos desenhados, o rótulo no centro e o título gravado no pé.
+ * A cor vem do nome, então o mesmo álbum tem sempre a mesma bolacha.
  */
-export function ResilientCover({ src, alt, label = alt, className = "", imageClassName = "", priority = false }: ResilientCoverProps) {
+export function ResilientCover({
+  src,
+  alt,
+  label = alt,
+  className = "",
+  imageClassName = "",
+  priority = false,
+  compact = false,
+}: ResilientCoverProps) {
   const proxied = useMemo(() => coverProxyUrl(src), [src]);
   const [status, setStatus] = useState<"loading" | "loaded" | "failed">(proxied ? "loading" : "failed");
   const hue = useMemo(() => hueFor(label), [label]);
@@ -50,7 +60,7 @@ export function ResilientCover({ src, alt, label = alt, className = "", imageCla
             hsl(${hue} 14% 10%)`,
         }}
       >
-        <span className="catalog line-clamp-3 leading-relaxed text-text-secondary/80">{label}</span>
+        {!compact && <span className="data line-clamp-3 leading-relaxed text-white/45">{label}</span>}
       </div>
 
       <AnimatePresence>

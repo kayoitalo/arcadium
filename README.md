@@ -32,19 +32,16 @@
 
 ---
 
-## 🎨 Visual Design System — Arquivo de Prensagem
+## 🎨 Visual Design System
 
-The interface is a record label's archive card, not a dashboard.
+The interface is a listening room: cool graphite, one live color, and the record itself as the main object.
 
-- **Masthead**: `GROOVEYARD — ARQUIVO DE ESCUTA`, with catalogue stamp (`GY–ARQ · 33⅓ RPM`) and square filing tabs (`01 VISÃO GERAL`, `02 EVOLUÇÃO`, …).
-- **Color Palette**: Shellac ground (`#0d0c0a`, warm black biased to brown), surface (`#16130f`), ivory text (`#ece4d4`), hue-biased warm neutrals, 1px rules (`#2d2720`) as the unit of construction. Status colors are tape and label colors: olive (`#8ba36b`), amber (`#c9a15a`), oxide red (`#c05a45`).
-- **Spot ink**: the accent is not fixed — `ChromaProvider` extracts it from the album cover in focus and writes it to `--chroma-*`, so each screen is printed in one ink, like a single-color press run.
-- **Typography — three voices**: `Bricolage Grotesque` variable (condensed to `wdth 76–85` for wordmark, headlines and figures), `Instrument Serif` (liner-note voice: AI narrative, pull quotes, colophon) and `Martian Mono` (catalogue numbers, labels, timestamps, percentages).
-- **Print matter**: uncoated paper grain overlay, registration marks on major blocks, a vertical spine carrying the current section, and a sleeve colophon crediting every data source.
-- **Terms of art as content**: `TEMPO DE AGULHA` (needle time), catalogue numbers (`GY·A-001`, `GY·LP-003`, `GY·TP-001`), `SESSÃO` / `FOLHA 1 DE 9` in the listening ledger, `MESA DE CORTE` and `PRENSAGEM 01 DE 03` in discovery.
-- **Interactive Album Collages**: 2.5D floating album covers with 3D perspective and mouse parallax ambient glow.
-
----
+- **Chrome**: two fixed rows — wordmark + underlined nav, then a context bar carrying the screen name, the period selector (it stays reachable after scrolling) and a `TINGIDO POR ● {album}` indicator.
+- **Spot color**: the accent is not fixed. `ChromaProvider` extracts it from the album cover in focus and writes it to `--chroma-*`, so the whole screen — rules, bars, ring, needle — is tinted by whatever is playing.
+- **Color palette**: ground `#08090b`, panel `#0a0c0e`, inner rule `#1b2129`, border `#232a32`, text `#f2f4f3` / `#aab2b9` / `#79838c`, oxide red `#d1665a` for losses. A 1px scanline overlay gives the black some grain.
+- **Typography**: `Archivo` variable (width axis, condensed to 78 in headlines and figures, opened to 112 on the hovered artist), `Instrument Sans` for prose, `Martian Mono` for labels and measured values, `Unbounded` for the wordmark only.
+- **Turntable hero**: platter, spinning record with the cover as its center label, sleeve behind, tonearm resting on the groove, and an `NA AGULHA / A SEGUIR` deck where hovering pulls the record out of its sleeve.
+- **Charts from real data only**: sparkline from daily plays, listening-hour histogram aggregated in Postgres in the user's timezone, genre dumbbells (before → after on one shared scale), and the yearly spiral groove.
 
 ## ⚡ API Endpoints
 
