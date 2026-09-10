@@ -21,8 +21,9 @@ function hueFor(value: string): number {
 
 /**
  * A maioria dos álbuns não tem capa armazenada, então o estado sem
- * imagem não pode ser um buraco: é uma bolacha prensada em branco,
- * com os sulcos desenhados e o título gravado.
+ * imagem não pode ser um buraco: é uma prensagem de rótulo branco —
+ * sulcos concêntricos, rótulo no centro e o título datilografado no pé,
+ * como um disco de teste que saiu da fábrica sem arte.
  */
 export function ResilientCover({ src, alt, label = alt, className = "", imageClassName = "", priority = false }: ResilientCoverProps) {
   const proxied = useMemo(() => coverProxyUrl(src), [src]);
@@ -37,13 +38,19 @@ export function ResilientCover({ src, alt, label = alt, className = "", imageCla
         className="absolute inset-0 flex items-end p-3"
         style={{
           background: `
+            radial-gradient(circle at 50% 50%,
+              hsl(${hue} 12% 20%) 0 21%,
+              transparent 21.5%),
+            radial-gradient(circle at 50% 50%,
+              hsl(${hue} 6% 6%) 0 2.5%,
+              transparent 3%),
             repeating-radial-gradient(circle at 50% 50%,
-              hsl(${hue} 14% 13%) 0 3px,
-              hsl(${hue} 16% 9%) 3px 6px),
-            hsl(${hue} 18% 10%)`,
+              hsl(${hue} 10% 13%) 0 3px,
+              hsl(${hue} 12% 9%) 3px 6px),
+            hsl(${hue} 14% 10%)`,
         }}
       >
-        <span className="font-display line-clamp-3 text-[11px] leading-tight text-white/55">{label}</span>
+        <span className="catalog line-clamp-3 leading-relaxed text-text-secondary/80">{label}</span>
       </div>
 
       <AnimatePresence>

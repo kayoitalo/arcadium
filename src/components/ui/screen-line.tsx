@@ -36,7 +36,7 @@ export function ScreenLine({ screen, fallback }: { screen: ScreenKey; fallback: 
   return (
     <motion.p
       key={line}
-      className="mt-5 max-w-[52ch] text-[15px] leading-relaxed text-text-secondary"
+      className="liner mt-5 max-w-[52ch]"
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: EASE_OUT_EXPO, delay: 0.15 }}

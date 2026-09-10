@@ -110,7 +110,7 @@ function Disc({
       type="button"
       onClick={onSelect}
       aria-label={`Focar em ${album.title}, de ${album.artistName}`}
-      className="absolute rounded-sm focus-visible:outline-2"
+      className="absolute focus-visible:outline-2"
       style={{
         left: `${50 + orbit.x / 2}%`,
         top: `${50 + orbit.y / 2}%`,
@@ -154,8 +154,8 @@ function Disc({
         alt={`Capa de ${album.title}`}
         label={album.title}
         priority={isCenter}
-        className={`aspect-square w-full rounded-sm ${
-          isCenter ? "shadow-lift ring-1 ring-white/[0.08]" : "ring-1 ring-white/[0.04]"
+        className={`aspect-square w-full border ${
+          isCenter ? "border-border shadow-lift" : "border-border-subtle"
         }`}
         imageClassName={isCenter ? "" : "saturate-[.7] brightness-[.78]"}
       />

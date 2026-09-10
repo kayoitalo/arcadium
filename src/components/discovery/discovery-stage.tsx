@@ -35,7 +35,7 @@ function ProgressRing({ progress }: { progress: number }) {
 
   return (
     <svg viewBox="0 0 100 100" className="pointer-events-none absolute -inset-2 h-[calc(100%+1rem)] w-[calc(100%+1rem)] -rotate-90">
-      <circle cx="50" cy="50" r={radius} fill="none" stroke="currentColor" strokeWidth="0.7" className="text-border" />
+      <circle cx="50" cy="50" r={radius} fill="none" stroke="currentColor" strokeWidth="0.5" className="text-border" />
       <circle
         cx="50"
         cy="50"
@@ -60,15 +60,15 @@ function PositionPlot({ position }: { position: { proximity: number; fame: numbe
         <span className="absolute inset-x-0 top-1/2 h-px bg-border" />
         <span className="absolute inset-y-0 left-1/2 w-px bg-border" />
         <motion.span
-          className="absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent"
+          className="absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 bg-accent"
           animate={{ left: `${position.proximity}%`, top: `${100 - position.fame}%` }}
           transition={{ duration: 0.5, ease: EASE_OUT_EXPO }}
         />
       </span>
-      <span className="font-mono text-[9.5px] leading-relaxed text-text-muted">
-        proximidade {position.proximity}
+      <span className="catalog leading-relaxed">
+        proximidade {String(position.proximity).padStart(3, "0")}
         <br />
-        fama {position.fame}
+        fama {String(position.fame).padStart(3, "0")}
       </span>
     </div>
   );
@@ -119,6 +119,16 @@ export function DiscoveryStage({ queue, index, onAction }: StageProps) {
 
   return (
     <div className="relative mx-auto flex w-full max-w-[420px] flex-col items-center">
+      <div className="mb-4 flex w-full items-baseline justify-between gap-4 border-b border-border pb-2">
+        <span className="catalog text-accent">
+          GY·TP-{String(index + 1).padStart(3, "0")}
+        </span>
+        <span className="catalog">
+          {player.available ? "prévia 30s" : "sem prévia"} · afinidade{" "}
+          {Math.round(current.score * 100) / 100}
+        </span>
+      </div>
+
       {/* as próximas ficam atrás, dando profundidade à fila */}
       <div className="relative w-full" style={{ perspective: 1200 }}>
         {upcoming.map((entry, depth) => (
@@ -134,7 +144,7 @@ export function DiscoveryStage({ queue, index, onAction }: StageProps) {
             transition={{ duration: 0.5, ease: EASE_OUT_EXPO }}
             style={{ zIndex: -depth - 1 }}
           >
-            <div className="aspect-square w-full rounded-sm bg-surface-elevated ring-1 ring-border" />
+            <div className="aspect-square w-full border border-border bg-surface-elevated" />
           </motion.div>
         ))}
 
@@ -159,7 +169,7 @@ export function DiscoveryStage({ queue, index, onAction }: StageProps) {
                 alt={`Capa de ${current.albumName ?? current.trackName}`}
                 label={current.albumName ?? current.artistName}
                 priority
-                className="aspect-square w-full rounded-sm shadow-lift ring-1 ring-white/[0.07]"
+                className="aspect-square w-full border border-border shadow-lift"
                 imageClassName={player.playing ? "scale-[1.02] transition-transform duration-700" : "transition-transform duration-700"}
               />
 
@@ -170,7 +180,7 @@ export function DiscoveryStage({ queue, index, onAction }: StageProps) {
                   player.playing ? "opacity-0 group-hover:opacity-100" : "opacity-100"
                 }`}
               >
-                <span className="flex h-16 w-16 items-center justify-center rounded-full bg-background/75 backdrop-blur-sm ring-1 ring-white/15">
+                <span className="flex h-16 w-16 items-center justify-center rounded-full border border-paper/20 bg-background/80 backdrop-blur-sm">
                   {player.available ? (
                     player.playing ? (
                       <Pause className="h-6 w-6" />
@@ -178,7 +188,7 @@ export function DiscoveryStage({ queue, index, onAction }: StageProps) {
                       <Play className="ml-0.5 h-6 w-6" />
                     )
                   ) : (
-                    <span className="font-mono text-[9px] text-text-muted">sem prévia</span>
+                    <span className="catalog">sem prévia</span>
                   )}
                 </span>
               </span>
@@ -196,12 +206,16 @@ export function DiscoveryStage({ queue, index, onAction }: StageProps) {
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.4, ease: EASE_OUT_EXPO }}
         >
-          <h2 className="display-lg text-[clamp(1.5rem,4vw,2.1rem)]">{current.artistName}</h2>
-          <p className="mt-1.5 text-sm text-text-secondary">{current.trackName}</p>
-          {current.genre && <p className="mt-2 font-mono text-[10px] text-accent">{current.genre}</p>}
+          <h2 className="headline text-[clamp(1.5rem,4vw,2.1rem)]">{current.artistName}</h2>
+          <p className="mt-2 text-sm text-text-secondary">{current.trackName}</p>
+          {current.genre && (
+            <p className="catalog mt-2.5 block text-accent">
+              <span className="text-border">[</span> {current.genre} <span className="text-border">]</span>
+            </p>
+          )}
 
           {current.reason && (
-            <p className="mx-auto mt-5 max-w-[38ch] text-xs leading-relaxed text-text-muted">{current.reason}</p>
+            <p className="liner mx-auto mt-5 max-w-[40ch] text-[0.9375rem]">{current.reason}</p>
           )}
 
           {current.position && (
@@ -212,56 +226,49 @@ export function DiscoveryStage({ queue, index, onAction }: StageProps) {
         </motion.div>
       </AnimatePresence>
 
-      <div className="mt-8 flex items-center gap-3">
-        <motion.button
+      <div className="mt-9 grid w-full grid-cols-2 divide-x divide-y divide-border border border-border sm:grid-cols-4 sm:divide-y-0">
+        <button
           type="button"
           onClick={() => decide("known")}
-          whileTap={{ scale: 0.9 }}
           title="Já conheço"
-          aria-label="Já conheço"
-          className="rounded-full border border-border p-3 text-text-muted transition-colors hover:border-text-muted hover:text-text-secondary"
+          className="stamp justify-center border-0 !px-2 text-text-muted"
         >
-          <Check className="h-4 w-4" />
-        </motion.button>
+          <Check className="h-3.5 w-3.5" />
+          conheço
+        </button>
 
-        <motion.button
+        <button
           type="button"
           onClick={() => decide("skipped")}
-          whileTap={{ scale: 0.9 }}
           title="Pular (→)"
-          aria-label="Pular"
-          className="rounded-full border border-border p-4 text-text-secondary transition-colors hover:border-text-primary hover:text-text-primary"
+          className="stamp justify-center border-0 !px-2 text-text-secondary"
         >
-          <SkipForward className="h-5 w-5" />
-        </motion.button>
+          <SkipForward className="h-3.5 w-3.5" />
+          pular
+        </button>
 
-        <motion.button
-          type="button"
-          onClick={() => decide("liked")}
-          whileTap={{ scale: 0.9 }}
-          whileHover={{ scale: 1.06 }}
-          title="Curti (↑)"
-          aria-label="Curti"
-          className="rounded-full bg-accent p-5 text-background shadow-glow"
-        >
-          <ThumbsUp className="h-6 w-6" />
-        </motion.button>
-
-        <motion.button
+        <button
           type="button"
           onClick={() => decide("saved")}
-          whileTap={{ scale: 0.9 }}
           title="Guardar (↓)"
-          aria-label="Guardar"
-          className="rounded-full border border-border p-4 text-text-secondary transition-colors hover:border-accent hover:text-accent"
+          className="stamp justify-center border-0 !px-2"
         >
-          <Bookmark className="h-5 w-5" />
-        </motion.button>
+          <Bookmark className="h-3.5 w-3.5" />
+          guardar
+        </button>
+
+        <button
+          type="button"
+          onClick={() => decide("liked")}
+          title="Curti (↑)"
+          className="stamp stamp-ink justify-center border-0 !px-2"
+        >
+          <ThumbsUp className="h-3.5 w-3.5" />
+          curti
+        </button>
       </div>
 
-      <p className="mt-5 font-mono text-[9.5px] text-text-muted">
-        espaço toca · ↑ curtir · ↓ guardar · → pular
-      </p>
+      <p className="catalog mt-5 block">espaço toca · ↑ curtir · ↓ guardar · → pular</p>
     </div>
   );
 }

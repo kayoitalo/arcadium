@@ -1,29 +1,32 @@
 import type { Metadata } from "next";
-import { Archivo, Instrument_Sans, Martian_Mono, Unbounded } from "next/font/google";
+import { Bricolage_Grotesque, Instrument_Serif, Martian_Mono } from "next/font/google";
 import "./globals.css";
 
-const display = Archivo({
+/**
+ * Três vozes, três trabalhos.
+ *
+ * Bricolage Grotesque é variável em largura: a mesma fonte condensa até
+ * 76 na marca e nas manchetes (letra de caixote de disco) e abre até 100
+ * no texto de interface. É de onde vem a identidade — não é Inter.
+ */
+const display = Bricolage_Grotesque({
   subsets: ["latin"],
-  axes: ["wdth"],
+  axes: ["opsz", "wdth"],
   display: "swap",
   variable: "--font-display",
 });
 
-const sans = Instrument_Sans({
+/** A voz de contracapa: o que comenta o que os números medem. */
+const liner = Instrument_Serif({
   subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
   display: "swap",
-  variable: "--font-sans-body",
+  variable: "--font-liner",
 });
 
-/** Só o logotipo usa esta. O "oo" de Grooveyard vira dois discos. */
-const brand = Unbounded({
-  subsets: ["latin"],
-  weight: ["600", "700"],
-  display: "swap",
-  variable: "--font-brand",
-});
-
-const mono = Martian_Mono({
+/** Rótulo de arquivo, número de matriz, hora, percentual. */
+const data = Martian_Mono({
   subsets: ["latin"],
   weight: ["400", "600"],
   display: "swap",
@@ -31,8 +34,9 @@ const mono = Martian_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Grooveyard",
-  description: "O cemitério dos seus discos: tudo o que você ouviu, medido e desenhado.",
+  title: "Grooveyard — arquivo de escuta",
+  description:
+    "O cemitério dos seus discos: cada audição catalogada, medida e prensada em ficha de arquivo.",
 };
 
 export default function RootLayout({
@@ -42,7 +46,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className="dark">
-      <body className={`${sans.variable} ${display.variable} ${mono.variable} ${brand.variable} font-sans bg-background text-text-primary antialiased min-h-screen selection:bg-accent/35 selection:text-text-primary`}>
+      <body
+        className={`${display.variable} ${liner.variable} ${data.variable} font-sans min-h-screen bg-background text-text-primary antialiased`}
+      >
         {children}
       </body>
     </html>

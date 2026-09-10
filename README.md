@@ -32,11 +32,16 @@
 
 ---
 
-## 🎨 Visual Design System — Digital Music Magazine
+## 🎨 Visual Design System — Arquivo de Prensagem
 
-- **Masthead**: `MI — MUSIC INTELLIGENCE` with warm editorial dark aesthetic.
-- **Color Palette**: Warm editorial dark background (`#090806`), surface (`#15120f`), marfim text (`#f0e7d8`), copper (`#b47a46`), and gold (`#c59a60`) accents.
-- **Typography**: Google Fonts `Instrument Serif` (editorial serif) and `Inter` (clean UI sans).
+The interface is a record label's archive card, not a dashboard.
+
+- **Masthead**: `GROOVEYARD — ARQUIVO DE ESCUTA`, with catalogue stamp (`GY–ARQ · 33⅓ RPM`) and square filing tabs (`01 VISÃO GERAL`, `02 EVOLUÇÃO`, …).
+- **Color Palette**: Shellac ground (`#0d0c0a`, warm black biased to brown), surface (`#16130f`), ivory text (`#ece4d4`), hue-biased warm neutrals, 1px rules (`#2d2720`) as the unit of construction. Status colors are tape and label colors: olive (`#8ba36b`), amber (`#c9a15a`), oxide red (`#c05a45`).
+- **Spot ink**: the accent is not fixed — `ChromaProvider` extracts it from the album cover in focus and writes it to `--chroma-*`, so each screen is printed in one ink, like a single-color press run.
+- **Typography — three voices**: `Bricolage Grotesque` variable (condensed to `wdth 76–85` for wordmark, headlines and figures), `Instrument Serif` (liner-note voice: AI narrative, pull quotes, colophon) and `Martian Mono` (catalogue numbers, labels, timestamps, percentages).
+- **Print matter**: uncoated paper grain overlay, registration marks on major blocks, a vertical spine carrying the current section, and a sleeve colophon crediting every data source.
+- **Terms of art as content**: `TEMPO DE AGULHA` (needle time), catalogue numbers (`GY·A-001`, `GY·LP-003`, `GY·TP-001`), `SESSÃO` / `FOLHA 1 DE 9` in the listening ledger, `MESA DE CORTE` and `PRENSAGEM 01 DE 03` in discovery.
 - **Interactive Album Collages**: 2.5D floating album covers with 3D perspective and mouse parallax ambient glow.
 
 ---
@@ -91,6 +96,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ---
 
 ## 🔒 Security & Background Scheduling
+
+`POST /api/sync` serves two callers: the scheduler, which sends `CRON_SECRET`, and the "buscar agora" button, which runs in the browser and carries no secret — a browser request is authorized when it is same-origin (`Sec-Fetch-Site: same-origin` with a matching `Origin`), which a third-party page cannot forge.
 
 Background synchronization is scheduled via **GitHub Actions** (`.github/workflows/scheduled-sync.yml`) running hourly:
 ```bash

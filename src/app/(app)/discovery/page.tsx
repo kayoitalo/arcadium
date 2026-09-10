@@ -147,12 +147,15 @@ export default function DiscoveryPage() {
   const finished = !loading && !error && queue.length > 0 && index >= queue.length;
 
   return (
-    <div className="relative space-y-10 pb-10">
+    <div className="relative space-y-12">
       <div className="chroma-aura pointer-events-none absolute -inset-x-40 -top-32 -z-10 h-[620px]" />
 
-      <header className="text-center">
-        <span className="eyebrow">A partir de tudo o que você já ouviu</span>
-        <h1 className="display-xl mt-4 text-[clamp(2rem,4.6vw,3.4rem)]">
+      <header className="border-b border-border pb-9 text-center">
+        <div className="flex items-center justify-center gap-3">
+          <span className="catalog text-accent">GY/03</span>
+          <span className="label">Prensagens de teste</span>
+        </div>
+        <h1 className="headline mt-4 text-[clamp(2rem,4.8vw,3.4rem)]">
           <Reveal>Para ouvir depois</Reveal>
         </h1>
         <div className="mx-auto max-w-[52ch]">
@@ -163,9 +166,16 @@ export default function DiscoveryPage() {
         </div>
       </header>
 
-      {/* os dois controles: a pessoa aponta o alvo, o motor procura perto dele */}
-      <section className="mx-auto grid max-w-[560px] gap-5 border-y border-border py-6">
-        <div className="flex flex-wrap justify-center gap-2">
+      {/* a mesa de corte: a pessoa aponta o alvo, o motor procura perto dele */}
+      <section className="mx-auto max-w-[600px] border border-border">
+        <div className="flex items-baseline justify-between gap-4 border-b border-border px-4 py-2.5">
+          <span className="label">Mesa de corte</span>
+          <span className="catalog">
+            proximidade {String(proximity).padStart(3, "0")} · fama {String(fame).padStart(3, "0")}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 divide-x divide-y divide-border border-b border-border sm:grid-cols-4 sm:divide-y-0">
           {PRESETS.map((preset) => {
             const active = preset.proximity === proximity && preset.fame === fame;
             return (
@@ -177,81 +187,77 @@ export default function DiscoveryPage() {
                   setFame(preset.fame);
                   void load(preset.proximity, preset.fame);
                 }}
+                data-active={active}
                 aria-pressed={active}
-                className={`relative isolate rounded-full px-3.5 py-1.5 font-mono text-[10px] transition-colors ${
-                  active ? "text-background" : "text-text-muted hover:text-text-primary"
-                }`}
+                className="tab whitespace-nowrap"
               >
-                {active && (
-                  <motion.span
-                    layoutId="discovery-preset"
-                    className="absolute inset-0 z-0 rounded-full bg-text-primary"
-                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                  />
-                )}
-                <span className="relative z-10">{preset.label}</span>
+                {preset.label}
               </button>
             );
           })}
         </div>
 
-        <label className="grid grid-cols-[6.5rem_1fr_3.5rem] items-center gap-3">
-          <span className="eyebrow">Proximidade</span>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={proximity}
-            onChange={(event) => setProximity(Number(event.target.value))}
-            className="accent-[var(--chroma)]"
-            aria-label="Proximidade do seu gosto atual"
-          />
-          <span className="text-right font-mono text-[10px] text-text-muted">
-            {proximity < 35 ? "longe" : proximity > 70 ? "perto" : "meio"}
-          </span>
-        </label>
+        <div className="grid gap-6 p-5 sm:p-6">
+          <label className="grid grid-cols-[6.5rem_1fr_4rem] items-center gap-4">
+            <span className="label">Proximidade</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={proximity}
+              onChange={(event) => setProximity(Number(event.target.value))}
+              className="pot"
+              aria-label="Proximidade do seu gosto atual"
+            />
+            <span className="catalog text-right">
+              {proximity < 35 ? "longe" : proximity > 70 ? "perto" : "meio"}
+            </span>
+          </label>
 
-        <label className="grid grid-cols-[6.5rem_1fr_3.5rem] items-center gap-3">
-          <span className="eyebrow">Fama</span>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={fame}
-            onChange={(event) => setFame(Number(event.target.value))}
-            className="accent-[var(--chroma)]"
-            aria-label="Tamanho da plateia do artista"
-          />
-          <span className="text-right font-mono text-[10px] text-text-muted">
-            {fame < 35 ? "obscuro" : fame > 70 ? "famoso" : "meio"}
-          </span>
-        </label>
+          <label className="grid grid-cols-[6.5rem_1fr_4rem] items-center gap-4">
+            <span className="label">Fama</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={fame}
+              onChange={(event) => setFame(Number(event.target.value))}
+              className="pot"
+              aria-label="Tamanho da plateia do artista"
+            />
+            <span className="catalog text-right">
+              {fame < 35 ? "obscuro" : fame > 70 ? "famoso" : "meio"}
+            </span>
+          </label>
 
-        <button
-          type="button"
-          onClick={() => void load(proximity, fame)}
-          disabled={loading}
-          className="mx-auto inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 font-mono text-[11px] font-semibold text-background transition-transform hover:scale-[1.02] disabled:opacity-30"
-        >
-          <RotateCcw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-          {loading ? "procurando…" : "buscar com esses ajustes"}
-        </button>
+          <button
+            type="button"
+            onClick={() => void load(proximity, fame)}
+            disabled={loading}
+            className="stamp stamp-ink mx-auto"
+          >
+            <RotateCcw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            {loading ? "prensando…" : "prensar com esses ajustes"}
+          </button>
+        </div>
       </section>
 
       {error && (
-        <p className="mx-auto max-w-[46ch] rounded-lg border border-status-error/30 bg-status-error/10 p-4 text-center text-sm text-status-error">
+        <p className="mx-auto max-w-[46ch] border border-status-error/40 bg-status-error/[0.07] p-4 text-center text-sm text-status-error">
           {error}
         </p>
       )}
 
-      {loading && <div className="mx-auto aspect-square w-full max-w-[420px] animate-pulse rounded-sm bg-surface-elevated" />}
+      {loading && (
+        <div className="mx-auto aspect-square w-full max-w-[420px] animate-pulse border border-border bg-surface-elevated" />
+      )}
 
       {!loading && !error && queue.length === 0 && (
         <section className="py-14 text-center">
-          <h2 className="display-lg mx-auto max-w-[22ch] text-[clamp(1.5rem,3vw,2.2rem)]">
+          <h2 className="headline mx-auto max-w-[22ch] text-[clamp(1.5rem,3vw,2.2rem)]">
             Nada novo com esses ajustes.
           </h2>
-          <p className="mx-auto mt-4 max-w-[42ch] text-sm text-text-secondary">
+          <p className="liner mx-auto mt-4 max-w-[42ch]">
             Puxe a proximidade para longe ou a fama para baixo — é onde mora o que você ainda não ouviu.
           </p>
         </section>
@@ -262,67 +268,64 @@ export default function DiscoveryPage() {
       )}
 
       {finished && (
-        <section className="py-12 text-center">
-          <h2 className="display-lg mx-auto max-w-[20ch] text-[clamp(1.5rem,3vw,2.2rem)]">
+        <section className="border-y border-border py-12 text-center">
+          <span className="label">Fim da pilha</span>
+          <h2 className="headline mx-auto mt-3 max-w-[20ch] text-[clamp(1.5rem,3vw,2.2rem)]">
             {kept.length > 0 ? `Você separou ${kept.length}.` : "Nenhuma passou no teste."}
           </h2>
-          <p className="mx-auto mt-4 max-w-[42ch] text-sm text-text-secondary">
+          <p className="liner mx-auto mt-4 max-w-[42ch]">
             {kept.length > 0
-              ? "Dá para levar para o Spotify agora, ou mexer nos controles e buscar mais."
-              : "Mexa nos controles e tente outro canto do mapa."}
+              ? "Dá para levar para o Spotify agora, ou mexer na mesa de corte e prensar outra pilha."
+              : "Mexa na mesa de corte e tente outro canto do mapa."}
           </p>
 
-          <div className="mt-7 flex flex-wrap justify-center gap-3">
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
             {kept.length > 0 && (
-              <button
-                type="button"
-                onClick={handleExport}
-                className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 font-mono text-[11px] font-semibold text-background"
-              >
-                <ListPlus className="h-4 w-4" />
-                levar {kept.length} para o Spotify
+              <button type="button" onClick={handleExport} className="stamp stamp-ink">
+                <ListPlus className="h-3.5 w-3.5" />
+                levar {kept.length} para o spotify
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => void load(proximity, fame)}
-              className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 font-mono text-[11px] text-text-secondary transition-colors hover:border-accent hover:text-text-primary"
-            >
+            <button type="button" onClick={() => void load(proximity, fame)} className="stamp">
               <RotateCcw className="h-3.5 w-3.5" />
-              buscar mais
+              prensar mais
             </button>
           </div>
         </section>
       )}
 
       {!loading && queue.length > 0 && !finished && (
-        <p className="text-center font-mono text-[10px] text-text-muted">
-          {index + 1} de {queue.length} · {kept.length} separadas
+        <p className="catalog block text-center">
+          prensagem {String(index + 1).padStart(2, "0")} de {String(queue.length).padStart(2, "0")} ·{" "}
+          {kept.length} separadas
         </p>
       )}
 
       <AnimatePresence>
         {showExport && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 p-4 backdrop-blur-md"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 p-4 backdrop-blur-md"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="w-full max-w-lg space-y-5 rounded-xl border border-border bg-surface p-6 shadow-lift"
+              className="w-full max-w-lg space-y-5 border border-border bg-surface p-6 shadow-lift"
               initial={{ opacity: 0, scale: 0.97, y: 14 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.35, ease: EASE_OUT_EXPO }}
             >
               <div className="flex items-center justify-between border-b border-border pb-3">
-                <h3 className="font-display text-lg tracking-tight">Levar para o Spotify</h3>
+                <div className="flex items-baseline gap-3">
+                  <span className="catalog text-accent">GY/03·X</span>
+                  <h3 className="section-title text-[0.9375rem]">Levar para o Spotify</h3>
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowExport(false)}
                   aria-label="Fechar"
-                  className="rounded-full p-1.5 text-text-muted transition-colors hover:text-text-primary"
+                  className="p-1.5 text-text-muted transition-colors hover:text-text-primary"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -330,13 +333,13 @@ export default function DiscoveryPage() {
 
               {exporting && (
                 <div className="space-y-3 py-8 text-center">
-                  <span className="mx-auto block h-7 w-7 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-                  <p className="font-mono text-[11px] text-text-muted">Procurando as faixas…</p>
+                  <span className="mx-auto block h-7 w-7 animate-spin rounded-full border border-accent border-t-transparent" />
+                  <p className="label">Procurando as faixas…</p>
                 </div>
               )}
 
               {!exporting && exportResult?.error && (
-                <p className="rounded-lg border border-status-error/30 bg-status-error/10 p-4 text-xs text-status-error">
+                <p className="border border-status-error/40 bg-status-error/[0.07] p-4 text-xs text-status-error">
                   {exportResult.error}
                 </p>
               )}
@@ -362,7 +365,7 @@ export default function DiscoveryPage() {
                           anchor.click();
                           URL.revokeObjectURL(url);
                         }}
-                        className="rounded-full border border-border px-4 py-2 font-mono text-[11px] text-text-secondary transition-colors hover:border-accent hover:text-text-primary"
+                        className="stamp"
                       >
                         baixar .m3u
                       </button>
@@ -372,9 +375,9 @@ export default function DiscoveryPage() {
                         href={exportResult.playlistUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex-1 rounded-full bg-accent px-5 py-2.5 text-center font-mono text-[11px] font-semibold text-background"
+                        className="stamp stamp-ink flex-1 justify-center"
                       >
-                        abrir no Spotify
+                        abrir no spotify
                       </a>
                     )}
                   </div>
