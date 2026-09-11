@@ -276,7 +276,7 @@ export class OverviewService {
       where: { OR: albumKeys.map((item) => ({ name: item.rawAlbumName!, artist: { name: item.rawArtistName } })) },
       select: { id: true, name: true, coverUrl: true, appleMusicUrl: true, artist: { select: { name: true } } },
     });
-    const canonicalByKey = new Map(canonicalAlbums.map((album) => [`${album.artist.name} ${album.name}`, album]));
+    const canonicalByKey = new Map(canonicalAlbums.map((album) => [`${album.artist.name}\u0000${album.name}`, album]));
 
     const trackPlays = canonicalAlbums.length ? await prisma.listeningEvent.groupBy({
       by: ["albumId", "trackId"],
@@ -297,7 +297,7 @@ export class OverviewService {
     const trackById = new Map(previewTracks.map((track) => [track.id, track]));
 
     return albumKeys.map((item) => {
-      const canonical = canonicalByKey.get(`${item.rawArtistName} ${item.rawAlbumName}`);
+      const canonical = canonicalByKey.get(`${item.rawArtistName}\u0000${item.rawAlbumName}`);
       const preview = canonical ? trackById.get(bestTrackByAlbum.get(canonical.id) ?? "") : undefined;
       return {
         id: canonical?.id ?? null, title: item.rawAlbumName!, artistName: item.rawArtistName,

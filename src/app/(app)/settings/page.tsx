@@ -41,6 +41,11 @@ interface EnrichmentCoverage {
   albumsWithoutCover: number;
   pendingCoverLookup: number;
   coverPercentage: number;
+  albumsInCatalog: number;
+  pendingCatalogLookup: number;
+  totalTracks: number;
+  tracksWithDuration: number;
+  durationPercentage: number;
 }
 
 type Signal = "on" | "off" | "error";
@@ -210,6 +215,24 @@ function SettingsContent() {
       return `${payload.data.covers.resolved} capas novas encontradas.`;
     });
 
+  /**
+   * Duas chamadas por disco no ritmo da Apple: o lote é pequeno de
+   * propósito e a fila drena aos poucos, um clique de cada vez.
+   */
+  const fetchCatalog = () =>
+    run(async () => {
+      const response = await fetch("/api/enrichment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "catalog", batchSize: 8 }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? "Não foi possível consultar o catálogo.");
+      setCoverage(payload.data.coverage);
+      const { matched, missing, tracksUpdated } = payload.data.catalog;
+      return `${matched} discos encontrados, ${missing} sem correspondência e ${tracksUpdated} faixas com duração e prévia.`;
+    });
+
   const eraseEverything = () => {
     if (!confirm("Apagar todo o seu histórico? Isso não pode ser desfeito.")) return;
     void run(async () => {
@@ -338,6 +361,42 @@ function SettingsContent() {
 
       <Module
         code="03"
+        title="Catálogo da Apple"
+        hint="De onde vêm capa, gênero, ano, duração exata e a prévia de 30s — inclusive dos discos que o MusicBrainz não conhece, que são a maioria. Cada clique consulta oito discos, começando pelos que você mais ouviu no último mês."
+        status={
+          <Status signal={coverage && coverage.albumsInCatalog > 0 ? "on" : "off"}>
+            {coverage
+              ? `${coverage.albumsInCatalog.toLocaleString("pt-BR")} de ${coverage.totalCanonicalAlbums.toLocaleString("pt-BR")} discos`
+              : "—"}
+          </Status>
+        }
+      >
+        <button type="button" onClick={fetchCatalog} disabled={loading} className="key">
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          consultar catálogo
+        </button>
+
+        {coverage && (
+          <div className="ruled mt-6 grid-cols-2 border border-border sm:grid-cols-3">
+            <Readout label="No catálogo" className="px-4 py-4">
+              <strong className="numeral block text-2xl">
+                {coverage.albumsInCatalog.toLocaleString("pt-BR")}
+              </strong>
+            </Readout>
+            <Readout label="Na fila" className="px-4 py-4">
+              <strong className="numeral block text-2xl">
+                {coverage.pendingCatalogLookup.toLocaleString("pt-BR")}
+              </strong>
+            </Readout>
+            <Readout label="Faixas com duração" className="px-4 py-4">
+              <strong className="numeral block text-2xl">{coverage.durationPercentage}%</strong>
+            </Readout>
+          </div>
+        )}
+      </Module>
+
+      <Module
+        code="04"
         title="Playlists"
         hint="As descobertas que você separar podem virar uma playlist. Conectado, ela nasce direto na sua conta; sem conectar, você recebe links de busca e um arquivo .m3u."
         status={
@@ -398,7 +457,7 @@ function SettingsContent() {
       </Module>
 
       <Module
-        code="04"
+        code="05"
         title="Seus dados"
         hint="Tudo o que está guardado aqui é seu, e sai daqui quando você quiser — em JSON, de uma vez."
       >
