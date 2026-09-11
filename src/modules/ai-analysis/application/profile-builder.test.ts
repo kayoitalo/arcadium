@@ -12,6 +12,10 @@ vi.mock("@/lib/db/prisma", () => ({
     artist: {
       findMany: vi.fn(),
     },
+    // o gênero do catálogo da Apple entra como reserva de quem não tem tag
+    album: {
+      findMany: vi.fn(),
+    },
   },
 }));
 
@@ -46,9 +50,17 @@ describe("ProfileBuilder", () => {
       ]);
     });
 
+    // A tem tag curada no MusicBrainz; B só tem tag descartável e depende
+    // do gênero que o catálogo da Apple deu aos discos dele
     vi.mocked(prisma.artist.findMany).mockResolvedValue([
       { name: "Artist A", tags: "punk rock, pop punk, Japan" } as any,
-      { name: "Artist B", tags: "hip hop, trap latino, Seen Live" } as any,
+      { name: "Artist B", tags: "Seen Live, Japan" } as any,
+    ]);
+
+    vi.mocked(prisma.album.findMany).mockResolvedValue([
+      { itunesGenre: "hip hop", artist: { name: "Artist B" } } as any,
+      { itunesGenre: "hip hop", artist: { name: "Artist B" } } as any,
+      { itunesGenre: "pop", artist: { name: "Artist B" } } as any,
     ]);
 
     vi.mocked(prisma.listeningEvent.findFirst).mockResolvedValue({
@@ -69,8 +81,12 @@ describe("ProfileBuilder", () => {
     expect(profile.topGenres).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: "punk rock" }),
+        // veio do catálogo, não do MusicBrainz: é o gênero mais frequente
+        // entre os discos de B, e "pop" (uma aparição) fica de fora
         expect.objectContaining({ name: "hip hop" }),
       ])
     );
+    expect(profile.topGenres.map((genre) => genre.name)).not.toContain("Seen Live");
+    expect(profile.topGenres.map((genre) => genre.name)).not.toContain("pop");
   });
 });

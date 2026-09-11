@@ -7,6 +7,7 @@ import { ArrowRight } from "lucide-react";
 import { useChroma } from "@/components/chroma/chroma-provider";
 import { useScreenChrome } from "@/components/layout/chrome";
 import { CoverWall } from "@/components/overview/cover-wall";
+import { Decades } from "@/components/overview/decades";
 import { Movement } from "@/components/overview/movement";
 import { RankList } from "@/components/overview/rank-list";
 import { Spectrum } from "@/components/overview/spectrum";
@@ -328,6 +329,25 @@ export default function OverviewPage() {
               aside={<span className="data pb-1 text-text-muted">escolha um para pôr na agulha</span>}
             />
             <CoverWall albums={albums} selectedIndex={focused} onSelect={putOnDeck} />
+          </section>
+        </InViewFade>
+      )}
+
+      {/* ---------- décadas ---------- */}
+      {data && data.decades.items.length > 0 && (
+        <InViewFade>
+          <section>
+            <SectionHead
+              index="05"
+              eyebrow="Décadas"
+              title="De que época é a sua escuta"
+              aside={
+                <span className="data pb-1 text-text-muted">ano de lançamento vindo do catálogo</span>
+              }
+            />
+            <div className="mt-6">
+              <Decades distribution={data.decades} />
+            </div>
           </section>
         </InViewFade>
       )}
