@@ -15,7 +15,7 @@ import {
   type ScreenLines,
 } from "../domain/ai-analysis.types";
 
-const NARRATIVE_PROMPT_VERSION = "v4-roast";
+const NARRATIVE_PROMPT_VERSION = "v5-eras";
 
 /**
  * O hash do perfil muda a cada audição nova, então sozinho ele nunca

@@ -10,6 +10,8 @@ export interface TrackPreview {
   url: string;
   /** Capa que veio junto, quando o provedor tem uma melhor que a nossa. */
   artworkUrl?: string;
+  /** A faixa no Apple Music: quem oferece a prévia ganha o link junto. */
+  appleMusicUrl?: string;
 }
 
 export interface PreviewProvider {

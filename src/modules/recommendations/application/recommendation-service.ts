@@ -6,7 +6,7 @@ import { scoreAndRank, type UserProfile } from "../domain/scoring";
 import { isCollaborationOfKnownArtist, limitPerArtist } from "../domain/candidate-filters";
 import type { SimilarArtistProvider } from "../domain/similar-artist-provider.interface";
 import { LastFmSimilarArtistProvider } from "../infrastructure/lastfm-similar-adapter";
-import type { PreviewProvider } from "../domain/preview-provider.interface";
+import type { PreviewProvider, TrackPreview } from "../domain/preview-provider.interface";
 import { ItunesPreviewAdapter } from "../infrastructure/itunes-preview-adapter";
 import type { TrackCoverProvider } from "@/modules/enrichment/domain/cover-art-provider.interface";
 import { LastFmCoverAdapter } from "@/modules/enrichment/infrastructure/lastfm-cover-adapter";
@@ -58,6 +58,7 @@ function toSessionResult(session: {
       reason: item.reason,
       coverUrl: item.coverUrl ?? null,
       previewUrl: item.previewUrl ?? null,
+      appleMusicUrl: item.appleMusicUrl ?? null,
       position: (item.scoreComponents as any)?.position ?? null,
     })),
   };
@@ -96,6 +97,7 @@ export interface SessionResult {
     reason: string | null;
     coverUrl: string | null;
     previewUrl: string | null;
+    appleMusicUrl: string | null;
     position: { proximity: number; fame: number } | null;
   }>;
 }
@@ -140,7 +142,7 @@ export class RecommendationService {
 
     const scored = scoreAndRank(filtered, profile, mode, dials).slice(0, size);
 
-    const [covers, previewUrls] = await Promise.all([
+    const [covers, previews] = await Promise.all([
       this.resolveCovers(scored),
       this.resolvePreviews(scored),
     ]);
@@ -168,7 +170,8 @@ export class RecommendationService {
             artistId: candidate.artistId || null,
             trackId: candidate.trackId || null,
             coverUrl: covers.get(coverKey(candidate)) ?? null,
-            previewUrl: previewUrls.get(coverKey(candidate)) ?? null,
+            previewUrl: previews.get(coverKey(candidate))?.url ?? null,
+            appleMusicUrl: previews.get(coverKey(candidate))?.appleMusicUrl ?? null,
           })),
         },
       },
@@ -523,8 +526,8 @@ export class RecommendationService {
    * A prévia é o que transforma a tela de sugestões em algo que se escuta
    * em vez de se ler. Buscamos só para os itens que sobraram na sessão.
    */
-  private async resolvePreviews(candidates: ScoredCandidate[]): Promise<Map<string, string>> {
-    const resolved = new Map<string, string>();
+  private async resolvePreviews(candidates: ScoredCandidate[]): Promise<Map<string, TrackPreview>> {
+    const resolved = new Map<string, TrackPreview>();
 
     const found = await Promise.all(
       candidates.map(async (candidate) => ({
@@ -536,7 +539,7 @@ export class RecommendationService {
     );
 
     for (const { key, preview } of found) {
-      if (preview?.url) resolved.set(key, preview.url);
+      if (preview?.url) resolved.set(key, preview);
     }
 
     return resolved;

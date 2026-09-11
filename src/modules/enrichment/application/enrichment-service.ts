@@ -7,11 +7,20 @@ import type { Prisma } from "@prisma/client";
 import { MusicBrainzAdapter } from "../infrastructure/musicbrainz-adapter";
 import { CoverArtArchiveAdapter } from "../infrastructure/cover-art-archive-adapter";
 import { LastFmCoverAdapter } from "../infrastructure/lastfm-cover-adapter";
-import { ItunesCoverAdapter } from "../infrastructure/itunes-cover-adapter";
+import { ItunesCatalogAdapter, normalizeTitle, type CatalogTrack } from "../infrastructure/itunes-catalog-adapter";
 import type { AlbumCoverFallbackProvider, CoverArtResult } from "../domain/cover-art-provider.interface";
 
 /** Um álbum que nenhuma fonte achou volta para a fila depois deste prazo. */
 const COVER_RETRY_DAYS = 30;
+
+export interface CatalogSummary {
+  processed: number;
+  /** Discos achados no catálogo da Apple. */
+  matched: number;
+  missing: number;
+  /** Faixas suas que ganharam duração, prévia e link. */
+  tracksUpdated: number;
+}
 
 export interface EnrichmentSummary {
   totalProcessed: number;
@@ -34,25 +43,39 @@ export interface EnrichmentCoverage {
   albumsWithoutCover: number;
   pendingCoverLookup: number;
   coverPercentage: number;
+  /** Discos já vinculados ao catálogo da Apple. */
+  albumsInCatalog: number;
+  pendingCatalogLookup: number;
+  totalTracks: number;
+  tracksWithDuration: number;
+  durationPercentage: number;
 }
 
 export class EnrichmentService {
   constructor(
     private adapter = new MusicBrainzAdapter(),
     private coverArt = new CoverArtArchiveAdapter(),
+    private catalog = new ItunesCatalogAdapter(),
     /** Tentadas em ordem quando o Cover Art Archive não tem (ou o álbum nem está no MusicBrainz). */
-    private fallbackCoverArt: AlbumCoverFallbackProvider[] = [new LastFmCoverAdapter(), new ItunesCoverAdapter()],
+    private fallbackCoverArt: AlbumCoverFallbackProvider[] = [new LastFmCoverAdapter(), catalog],
   ) {}
 
   async getCoverageStats(): Promise<EnrichmentCoverage> {
     // a capa vale para todo álbum, não só para os que o MusicBrainz conhece
-    const [totalArtists, resolvedCount, failedCount, totalCanonicalAlbums, albumsWithCover, pendingCoverLookup] = await Promise.all([
+    const [
+      totalArtists, resolvedCount, failedCount, totalCanonicalAlbums, albumsWithCover, pendingCoverLookup,
+      albumsInCatalog, pendingCatalogLookup, totalTracks, tracksWithDuration,
+    ] = await Promise.all([
       prisma.artist.count(),
       prisma.artist.count({ where: { metadataStatus: "RESOLVED" } }),
       prisma.artist.count({ where: { metadataStatus: "FAILED" } }),
       prisma.album.count(),
       prisma.album.count({ where: { coverUrl: { not: null } } }),
       prisma.album.count({ where: { coverFetchedAt: null } }),
+      prisma.album.count({ where: { itunesCollectionId: { not: null } } }),
+      prisma.album.count({ where: { itunesFetchedAt: null } }),
+      prisma.track.count(),
+      prisma.track.count({ where: { durationMs: { not: null } } }),
     ]);
     const unresolvedCount = totalArtists - (resolvedCount + failedCount);
     const percentage = totalArtists ? Math.round((resolvedCount / totalArtists) * 100) : 0;
@@ -70,6 +93,11 @@ export class EnrichmentService {
       albumsWithoutCover,
       pendingCoverLookup,
       coverPercentage,
+      albumsInCatalog,
+      pendingCatalogLookup,
+      totalTracks,
+      tracksWithDuration,
+      durationPercentage: totalTracks ? Math.round((tracksWithDuration / totalTracks) * 100) : 0,
     };
   }
 
@@ -291,6 +319,107 @@ export class EnrichmentService {
     }
 
     return { processed: albums.length, resolved, missing };
+  }
+
+  /**
+   * O catálogo da Apple, disco a disco: uma busca acha o álbum e um
+   * lookup traz todas as faixas dele de uma vez. Do álbum ficam o
+   * vínculo, o link, o gênero e o ano (quando o MusicBrainz não deu); das
+   * faixas que você ouviu, a duração exata, a prévia e o link.
+   *
+   * Duas chamadas por disco no ritmo de ~19 por minuto: um lote de 6 leva
+   * perto de 40 segundos. Os mais ouvidos no último mês vêm primeiro.
+   */
+  async enrichAlbumsFromCatalog(batchSize = 6): Promise<CatalogSummary> {
+    const retryBefore = new Date(Date.now() - COVER_RETRY_DAYS * 86_400_000);
+    const catalogWhere: Prisma.AlbumWhereInput = { OR: [
+      { itunesFetchedAt: null },
+      { itunesCollectionId: null, itunesFetchedAt: { lt: retryBefore } },
+    ] };
+    const include = { artist: { select: { name: true } } } as const;
+
+    const recentAlbumIds = await this.getRecentEntityIds("albumId", batchSize * 5);
+    const recentAlbums = recentAlbumIds.length
+      ? await prisma.album.findMany({ where: { ...catalogWhere, id: { in: recentAlbumIds } }, include })
+      : [];
+    const recentById = new Map(recentAlbums.map((album) => [album.id, album]));
+    const albums = recentAlbumIds.map((id) => recentById.get(id)).filter(Boolean).slice(0, batchSize) as typeof recentAlbums;
+    if (albums.length < batchSize) {
+      albums.push(...await prisma.album.findMany({
+        where: { ...catalogWhere, id: { notIn: albums.map((album) => album.id) } },
+        take: batchSize - albums.length,
+        orderBy: { listeningEvents: { _count: "desc" } },
+        include,
+      }));
+    }
+
+    const summary: CatalogSummary = { processed: albums.length, matched: 0, missing: 0, tracksUpdated: 0 };
+
+    for (const album of albums) {
+      try {
+        const found = await this.catalog.searchAlbum(album.artist.name, album.name);
+        if (!found) {
+          await prisma.album.update({ where: { id: album.id }, data: { itunesFetchedAt: new Date() } });
+          summary.missing++;
+          continue;
+        }
+
+        const tracks = await this.catalog.lookupTracks(found.collectionId);
+        const takeCover = !album.coverUrl && found.artworkUrl;
+
+        await prisma.album.update({
+          where: { id: album.id },
+          data: {
+            itunesCollectionId: found.collectionId,
+            appleMusicUrl: found.appleMusicUrl,
+            itunesGenre: found.genre,
+            releaseYear: album.releaseYear ?? found.releaseYear,
+            ...(takeCover
+              ? { coverUrl: found.artworkUrl, coverSource: "itunes", coverEntityType: "release", coverFetchedAt: new Date() }
+              : {}),
+            itunesFetchedAt: new Date(),
+          },
+        });
+
+        summary.matched++;
+        summary.tracksUpdated += await this.applyCatalogTracks(album.id, album.artistId, tracks);
+      } catch (error) {
+        // rede ou limite da Apple: o disco fica na fila para o próximo lote
+        console.warn(`[EnrichmentService] Catalog lookup failed for "${album.name}".`, error);
+      }
+    }
+
+    return summary;
+  }
+
+  /** Casa as faixas do disco no catálogo com as que você ouviu dele, pelo título. */
+  private async applyCatalogTracks(albumId: string, artistId: string, tracks: CatalogTrack[]): Promise<number> {
+    if (tracks.length === 0) return 0;
+
+    const byTitle = new Map(tracks.map((track) => [normalizeTitle(track.name), track]));
+    const heard = await prisma.track.findMany({
+      where: { artistId, listeningEvents: { some: { albumId } } },
+      select: { id: true, name: true, durationMs: true },
+    });
+
+    let updated = 0;
+    for (const track of heard) {
+      const match = byTitle.get(normalizeTitle(track.name));
+      if (!match) continue;
+
+      await prisma.track.update({
+        where: { id: track.id },
+        data: {
+          durationMs: track.durationMs ?? match.durationMs,
+          previewUrl: match.previewUrl,
+          itunesTrackId: match.trackId,
+          appleMusicUrl: match.appleMusicUrl,
+        },
+      });
+      updated++;
+    }
+
+    return updated;
   }
 
   /**

@@ -1,8 +1,12 @@
 
 
 import { prisma } from "@/lib/db/prisma";
-import { filterGenreTags } from "@/modules/enrichment/domain/genre-tags";
+import { loadArtistGenres } from "@/modules/statistics/application/artist-genres";
+import { decadeDistribution } from "@/modules/statistics/application/decades";
 import { getPeriodRanges, type PeriodKey } from "@/modules/statistics/application/overview-service";
+
+/** Abaixo disso o retrato das décadas é parcial demais para virar piada. */
+const MIN_ERA_COVERAGE = 20;
 import type { MusicProfileInput } from "../domain/ai-analysis.types";
 
 export class ProfileBuilder {
@@ -77,20 +81,15 @@ export class ProfileBuilder {
       }));
 
     const artistNames = topArtistsGrouped.map((a: any) => a.rawArtistName);
-    const enrichedArtists = await prisma.artist.findMany({
-      where: { name: { in: artistNames }, tags: { not: null } },
-      select: { name: true, tags: true },
-    });
+    // tags do MusicBrainz, com o gênero do catálogo da Apple de reserva
+    const genresByArtist = await loadArtistGenres(artistNames);
 
     const genrePlays = new Map<string, number>();
-    for (const artist of enrichedArtists) {
-      const plays = topArtistsGrouped.find((item: any) => item.rawArtistName === artist.name)?._count.id ?? 0;
-      const tags = filterGenreTags(artist.tags?.split(",") ?? []);
-      const weight = tags.length ? plays / tags.length : 0;
-      if (artist.tags) {
-        for (const tag of tags) {
-          genrePlays.set(tag, (genrePlays.get(tag) || 0) + weight);
-        }
+    for (const item of topArtistsGrouped as any[]) {
+      const tags = genresByArtist.get(item.rawArtistName) ?? [];
+      const weight = tags.length ? item._count.id / tags.length : 0;
+      for (const tag of tags) {
+        genrePlays.set(tag, (genrePlays.get(tag) || 0) + weight);
       }
     }
     const totalGenreWeight = [...genrePlays.values()].reduce((a, b) => a + b, 0) || 1;

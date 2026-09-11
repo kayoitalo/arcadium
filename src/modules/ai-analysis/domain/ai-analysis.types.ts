@@ -30,6 +30,11 @@ export interface MusicProfileInput {
   totalPlays: number;
   uniqueArtists: number;
   uniqueTracks: number;
+  /** De que décadas saem os discos, como fração das audições com ano conhecido. */
+  eras?: Array<{
+    decade: string;
+    share: number;
+  }>;
 }
 
 export const profileNarrativeSchema = z.object({
@@ -41,7 +46,7 @@ export const profileNarrativeSchema = z.object({
   tone: z.enum(["EDITORIAL", "RELAXED", "PLAYFUL", "NOSTALGIC", "ANALYTICAL"]).default("RELAXED"),
   referencedEvidence: z.array(z.enum([
     "totalPlays", "uniqueArtists", "uniqueTracks", "topArtists", "topGenres",
-    "risingArtists", "discovery", "concentration",
+    "risingArtists", "discovery", "concentration", "eras",
   ])).max(12).default([]),
   tasteKeywords: z.array(z.string()).max(5).optional(),
 });

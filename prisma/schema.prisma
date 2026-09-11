@@ -88,6 +88,10 @@ model Track {
   normalizedName String
   durationMs     Int?
   mbid           String?
+  /// Prévia de 30s do catálogo da Apple
+  previewUrl     String?
+  itunesTrackId  String?
+  appleMusicUrl  String?
   enrichedAt     DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -113,6 +117,12 @@ model Album {
   coverEntityType String?
   coverMbid      String?
   coverFetchedAt DateTime?
+  /// Vínculo com o catálogo da Apple: com ele as próximas consultas vão direto, sem busca por nome
+  itunesCollectionId String?
+  appleMusicUrl  String?
+  /// Gênero do catálogo da Apple, normalizado — reserva quando o artista não tem tags
+  itunesGenre    String?
+  itunesFetchedAt DateTime?
   enrichedAt     DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -124,6 +134,7 @@ model Album {
   @@index([coverFetchedAt])
   @@index([releaseGroupMbid])
   @@index([releaseGroupFetchedAt])
+  @@index([itunesFetchedAt])
 }
 
 model ListeningEvent {
@@ -186,6 +197,7 @@ model RecommendationItem {
   trackId         String?
   coverUrl        String?
   previewUrl      String?
+  appleMusicUrl   String?
   createdAt       DateTime @default(now())
 
   session  RecommendationSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)

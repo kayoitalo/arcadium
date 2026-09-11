@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
-import { filterGenreTags } from "@/modules/enrichment/domain/genre-tags";
+import { loadArtistGenres } from "./artist-genres";
+import { decadeDistribution, type DecadeDistribution } from "./decades";
 
 export type PeriodKey = "7d" | "30d" | "1y" | "all";
 export interface PeriodRange { start: Date; end: Date }
@@ -18,13 +19,22 @@ export function percentChange(current: number, previous: number): number | null 
 
 export interface MetricSummary {
   totalPlays: number; uniqueArtists: number; uniqueTracks: number; listeningMinutes: number;
-  durationSource: "TRACK_METADATA" | "ESTIMATE"; playsChangePercent: number | null;
+  durationSource: "TRACK_METADATA" | "ESTIMATE";
+  /** Quanto das audições do período tem duração real (do catálogo), em %. O resto é estimado. */
+  durationCoverage: number;
+  playsChangePercent: number | null;
   artistsChangePercent: number | null; tracksChangePercent: number | null;
 }
 export interface ConcentrationMetrics { top5ArtistShare: number; top10TrackShare: number; artistDiversityRatio: number }
 export interface TopArtistItem { id: string | null; name: string; plays: number; share: number; country?: string | null; tags?: string[] }
 export interface TopTrackItem { id: string | null; name: string; artistName: string; plays: number }
-export interface AlbumItem { id: string | null; title: string; artistName: string; plays: number; coverUrl?: string }
+export interface AlbumItem {
+  id: string | null; title: string; artistName: string; plays: number; coverUrl?: string;
+  /** Prévia da faixa mais ouvida do disco que tem prévia no catálogo. */
+  previewUrl?: string;
+  previewTrack?: string;
+  appleMusicUrl?: string;
+}
 export interface ActivityPoint { label: string; hours: number; plays: number }
 export interface TasteShiftItem { genre: string; changePercent: number; currentShare: number; previousShare: number }
 export interface DiscoveryItem { id: string; artistName: string; albumName: string; discoveredAt: string; plays: number; coverUrl?: string }
@@ -76,6 +86,8 @@ export interface OverviewData {
   period: PeriodKey; summary: MetricSummary; concentration: ConcentrationMetrics;
   topArtists: TopArtistItem[]; topTracks: TopTrackItem[]; topAlbums: AlbumItem[];
   listeningActivity: ActivityPoint[]; tasteShift: { rising: TasteShiftItem[]; declining: TasteShiftItem[] };
+  /** De que décadas vêm os discos que tocaram no período. */
+  decades: DecadeDistribution;
   discoveries: DiscoveryItem[]; recommended: RecommendationItem | null; aiStory: AiStorySummary;
   syncStatus: { lastSyncedAt: Date | null; totalStoredEvents: number };
   dataQuality: DataQuality;
@@ -84,10 +96,10 @@ export interface OverviewData {
 export function createEmptyOverview(period: PeriodKey, lastSyncedAt: Date | null = null, totalStoredEvents = 0): OverviewData {
   return {
     period,
-    summary: { totalPlays: 0, uniqueArtists: 0, uniqueTracks: 0, listeningMinutes: 0, durationSource: "ESTIMATE", playsChangePercent: null, artistsChangePercent: null, tracksChangePercent: null },
+    summary: { totalPlays: 0, uniqueArtists: 0, uniqueTracks: 0, listeningMinutes: 0, durationSource: "ESTIMATE", durationCoverage: 0, playsChangePercent: null, artistsChangePercent: null, tracksChangePercent: null },
     concentration: { top5ArtistShare: 0, top10TrackShare: 0, artistDiversityRatio: 0 },
     topArtists: [], topTracks: [], topAlbums: [], listeningActivity: [],
-    tasteShift: { rising: [], declining: [] }, discoveries: [], recommended: null,
+    tasteShift: { rising: [], declining: [] }, decades: { items: [], coverage: 0 }, discoveries: [], recommended: null,
     aiStory: {
       headline: "Seu histórico musical começa aqui.",
       narrative: "Sincronize suas audições do Last.fm para gerar estatísticas verificáveis.",
@@ -108,6 +120,9 @@ export function activityByUtcDay(events: { playedAt: Date }[]): ActivityPoint[] 
     label, plays, hours: Number(((plays * 3.5) / 60).toFixed(1)),
   }));
 }
+
+/** Duração assumida para uma faixa sem duração conhecida: 3min30. */
+const ESTIMATED_TRACK_MS = 210_000;
 
 export class OverviewService {
   async getOverviewData(userId: string, period: PeriodKey = "30d", referenceDate = new Date()): Promise<OverviewData> {
@@ -137,39 +152,12 @@ export class OverviewService {
       prisma.listeningEvent.groupBy({ by: ["rawArtistName"], where: currentWhere, _count: { id: true }, orderBy: { _count: { id: "desc" } } }),
       prisma.listeningEvent.groupBy({ by: ["rawArtistName", "rawTrackName"], where: currentWhere, _count: { id: true }, orderBy: { _count: { id: "desc" } } }),
       prisma.listeningEvent.groupBy({ by: ["rawArtistName", "rawAlbumName"], where: { ...currentWhere, NOT: { rawAlbumName: null } }, _count: { id: true }, orderBy: { _count: { id: "desc" } }, take: 6 }),
-      prisma.listeningEvent.findMany({ where: currentWhere, select: { playedAt: true, track: { select: { durationMs: true } } }, orderBy: { playedAt: "asc" } }),
+      prisma.listeningEvent.findMany({
+        where: currentWhere,
+        select: { playedAt: true, track: { select: { durationMs: true } }, album: { select: { releaseYear: true } } },
+        orderBy: { playedAt: "asc" },
+      }),
     ]);
-
-    const topArtistGroups = artistGroups.slice(0, 10);
-    const artistMetadata = await prisma.artist.findMany({
-      where: { name: { in: topArtistGroups.map((item) => item.rawArtistName) } },
-      select: { id: true, name: true, country: true, tags: true },
-    });
-    const metadataByName = new Map(artistMetadata.map((artist) => [artist.name, artist]));
-    const topArtists: TopArtistItem[] = topArtistGroups.map((item) => {
-      const metadata = metadataByName.get(item.rawArtistName);
-      return {
-        id: metadata?.id ?? null, name: item.rawArtistName, plays: item._count.id,
-        share: Number((item._count.id / currentPlays).toFixed(3)), country: metadata?.country ?? null,
-        tags: filterGenreTags(metadata?.tags?.split(",") ?? []),
-      };
-    });
-    const topTracks: TopTrackItem[] = trackGroups.slice(0, 10).map((item) => ({
-      id: null, name: item.rawTrackName, artistName: item.rawArtistName, plays: item._count.id,
-    }));
-    const albumKeys = albumGroups.filter((item) => item.rawAlbumName);
-    const canonicalAlbums = albumKeys.length ? await prisma.album.findMany({
-      where: { OR: albumKeys.map((item) => ({ name: item.rawAlbumName!, artist: { name: item.rawArtistName } })) },
-      select: { id: true, name: true, coverUrl: true, artist: { select: { name: true } } },
-    }) : [];
-    const canonicalByKey = new Map(canonicalAlbums.map((album) => [`${album.artist.name}\u0000${album.name}`, album]));
-    const topAlbums: AlbumItem[] = albumKeys.map((item) => {
-      const canonical = canonicalByKey.get(`${item.rawArtistName}\u0000${item.rawAlbumName}`);
-      return {
-        id: canonical?.id ?? null, title: item.rawAlbumName!, artistName: item.rawArtistName,
-        plays: item._count.id, coverUrl: canonical?.coverUrl ?? undefined,
-      };
-    });
 
     const [previousPlays, previousArtistGroups, previousTrackGroups] = previous ? await Promise.all([
       prisma.listeningEvent.count({ where: { userId, playedAt: { gte: previous.start, lt: previous.end } } }),
@@ -179,14 +167,36 @@ export class OverviewService {
       }),
       prisma.listeningEvent.groupBy({ by: ["rawArtistName", "rawTrackName"], where: { userId, playedAt: { gte: previous.start, lt: previous.end } } }),
     ]) : [0, [], []];
-    const genreArtistNames = [...new Set([...artistGroups.map((item) => item.rawArtistName), ...previousArtistGroups.map((item) => item.rawArtistName)])];
-    const genreMetadata = genreArtistNames.length ? await prisma.artist.findMany({
-      where: { name: { in: genreArtistNames }, tags: { not: null } }, select: { name: true, tags: true },
-    }) : [];
-    const tagsByArtist = new Map(genreMetadata.map((artist) => [artist.name, filterGenreTags(artist.tags?.split(",") ?? [])]));
+
+    // gênero com a reserva do catálogo: o mesmo mapa serve ao ranking e à evolução
+    const genresByArtist = await loadArtistGenres([
+      ...artistGroups.map((item) => item.rawArtistName),
+      ...previousArtistGroups.map((item) => item.rawArtistName),
+    ]);
+
+    const topArtistGroups = artistGroups.slice(0, 10);
+    const artistMetadata = await prisma.artist.findMany({
+      where: { name: { in: topArtistGroups.map((item) => item.rawArtistName) } },
+      select: { id: true, name: true, country: true },
+    });
+    const metadataByName = new Map(artistMetadata.map((artist) => [artist.name, artist]));
+    const topArtists: TopArtistItem[] = topArtistGroups.map((item) => {
+      const metadata = metadataByName.get(item.rawArtistName);
+      return {
+        id: metadata?.id ?? null, name: item.rawArtistName, plays: item._count.id,
+        share: Number((item._count.id / currentPlays).toFixed(3)), country: metadata?.country ?? null,
+        tags: genresByArtist.get(item.rawArtistName) ?? [],
+      };
+    });
+    const topTracks: TopTrackItem[] = trackGroups.slice(0, 10).map((item) => ({
+      id: null, name: item.rawTrackName, artistName: item.rawArtistName, plays: item._count.id,
+    }));
+
+    const topAlbums = await this.loadTopAlbums(albumGroups, currentWhere);
+
     const tasteShift = previous ? calculateTasteShift(
-      artistGroups.map((item) => ({ name: item.rawArtistName, plays: item._count.id, tags: tagsByArtist.get(item.rawArtistName) ?? [] })),
-      previousArtistGroups.map((item) => ({ name: item.rawArtistName, plays: item._count.id, tags: tagsByArtist.get(item.rawArtistName) ?? [] })),
+      artistGroups.map((item) => ({ name: item.rawArtistName, plays: item._count.id, tags: genresByArtist.get(item.rawArtistName) ?? [] })),
+      previousArtistGroups.map((item) => ({ name: item.rawArtistName, plays: item._count.id, tags: genresByArtist.get(item.rawArtistName) ?? [] })),
     ) : { rising: [], declining: [] };
     const firstListens = await prisma.listeningEvent.groupBy({
       by: ["rawArtistName"], where: { userId }, _min: { playedAt: true }, _count: { id: true },
@@ -215,13 +225,14 @@ export class OverviewService {
     const mainArtist = topArtists[0];
     const knownDurationMs = periodEvents.reduce((sum, event) => sum + (event.track?.durationMs ?? 0), 0);
     const knownDurationEvents = periodEvents.filter((event) => event.track?.durationMs).length;
-    const listeningMinutes = Math.round((knownDurationMs + (currentPlays - knownDurationEvents) * 210_000) / 60_000);
+    const listeningMinutes = Math.round((knownDurationMs + (currentPlays - knownDurationEvents) * ESTIMATED_TRACK_MS) / 60_000);
 
     return {
       period,
       summary: {
         totalPlays: currentPlays, uniqueArtists: artistGroups.length, uniqueTracks: trackGroups.length,
         listeningMinutes, durationSource: knownDurationEvents === currentPlays ? "TRACK_METADATA" : "ESTIMATE",
+        durationCoverage: Math.round((knownDurationEvents / currentPlays) * 100),
         playsChangePercent: previous ? percentChange(currentPlays, previousPlays) : null,
         artistsChangePercent: previous ? percentChange(artistGroups.length, previousArtistGroups.length) : null,
         tracksChangePercent: previous ? percentChange(trackGroups.length, previousTrackGroups.length) : null,
@@ -232,7 +243,9 @@ export class OverviewService {
         artistDiversityRatio: Math.min(100, Math.round((artistGroups.length / currentPlays) * 100)),
       },
       topArtists, topTracks, topAlbums, listeningActivity: activityByUtcDay(periodEvents),
-      tasteShift, discoveries,
+      tasteShift,
+      decades: decadeDistribution(periodEvents.map((event) => event.album?.releaseYear)),
+      discoveries,
       recommended: latestRecommendation ? {
         id: latestRecommendation.id, title: latestRecommendation.trackName, artistName: latestRecommendation.artistName,
         reason: latestRecommendation.reason ?? "Motivo não registrado para este item.", coverUrl: recommendationAlbum?.coverUrl ?? undefined,
@@ -245,5 +258,54 @@ export class OverviewService {
       syncStatus: { lastSyncedAt: connection?.lastSyncedAt ?? null, totalStoredEvents },
       dataQuality: empty.dataQuality,
     };
+  }
+
+  /**
+   * Os discos do período com capa, link do Apple Music e uma prévia: a
+   * da faixa mais ouvida do disco que tem prévia no catálogo. É o que a
+   * vitrola toca quando o disco está na agulha.
+   */
+  private async loadTopAlbums(
+    albumGroups: Array<{ rawArtistName: string; rawAlbumName: string | null; _count: { id: number } }>,
+    currentWhere: { userId: string; playedAt?: { gte: Date; lte: Date } },
+  ): Promise<AlbumItem[]> {
+    const albumKeys = albumGroups.filter((item) => item.rawAlbumName);
+    if (albumKeys.length === 0) return [];
+
+    const canonicalAlbums = await prisma.album.findMany({
+      where: { OR: albumKeys.map((item) => ({ name: item.rawAlbumName!, artist: { name: item.rawArtistName } })) },
+      select: { id: true, name: true, coverUrl: true, appleMusicUrl: true, artist: { select: { name: true } } },
+    });
+    const canonicalByKey = new Map(canonicalAlbums.map((album) => [`${album.artist.name} ${album.name}`, album]));
+
+    const trackPlays = canonicalAlbums.length ? await prisma.listeningEvent.groupBy({
+      by: ["albumId", "trackId"],
+      where: { ...currentWhere, albumId: { in: canonicalAlbums.map((album) => album.id) }, track: { previewUrl: { not: null } } },
+      _count: { id: true },
+      orderBy: { _count: { id: "desc" } },
+    }) : [];
+
+    // a lista vem do mais ouvido para o menos: a primeira faixa de cada disco vence
+    const bestTrackByAlbum = new Map<string, string>();
+    for (const row of trackPlays) {
+      if (row.albumId && row.trackId && !bestTrackByAlbum.has(row.albumId)) bestTrackByAlbum.set(row.albumId, row.trackId);
+    }
+    const previewTracks = bestTrackByAlbum.size ? await prisma.track.findMany({
+      where: { id: { in: [...bestTrackByAlbum.values()] } },
+      select: { id: true, name: true, previewUrl: true },
+    }) : [];
+    const trackById = new Map(previewTracks.map((track) => [track.id, track]));
+
+    return albumKeys.map((item) => {
+      const canonical = canonicalByKey.get(`${item.rawArtistName} ${item.rawAlbumName}`);
+      const preview = canonical ? trackById.get(bestTrackByAlbum.get(canonical.id) ?? "") : undefined;
+      return {
+        id: canonical?.id ?? null, title: item.rawAlbumName!, artistName: item.rawArtistName,
+        plays: item._count.id, coverUrl: canonical?.coverUrl ?? undefined,
+        previewUrl: preview?.previewUrl ?? undefined,
+        previewTrack: preview?.name,
+        appleMusicUrl: canonical?.appleMusicUrl ?? undefined,
+      };
+    });
   }
 }

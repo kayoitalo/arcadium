@@ -3,6 +3,12 @@ import { NextResponse } from "next/server";
 
 const enrichmentService = new EnrichmentService();
 
+/**
+ * O lote do catálogo da Apple anda no ritmo da API deles (~19 chamadas
+ * por minuto) e leva perto de 40s; o padrão da Vercel cortaria antes.
+ */
+export const maxDuration = 60;
+
 export async function GET() {
   try {
     const coverage = await enrichmentService.getCoverageStats();
@@ -16,13 +22,13 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     let batchSize = 5;
-    let action: "all" | "covers" = "all";
+    let action: "all" | "covers" | "catalog" = "all";
     try {
       const body = await request.json();
       if (body.batchSize && typeof body.batchSize === "number") {
         batchSize = Math.min(20, Math.max(1, body.batchSize));
       }
-      if (body.action === "covers") action = "covers";
+      if (body.action === "covers" || body.action === "catalog") action = body.action;
     } catch {
 
     }
@@ -31,6 +37,13 @@ export async function POST(request: Request) {
       const covers = await enrichmentService.enrichMissingAlbumCovers(batchSize);
       const coverage = await enrichmentService.getCoverageStats();
       return NextResponse.json({ success: true, data: { covers, coverage } });
+    }
+
+    if (action === "catalog") {
+      // duas chamadas por disco: mais de 8 não cabe em um minuto
+      const catalog = await enrichmentService.enrichAlbumsFromCatalog(Math.min(8, batchSize));
+      const coverage = await enrichmentService.getCoverageStats();
+      return NextResponse.json({ success: true, data: { catalog, coverage } });
     }
 
     const summary = await enrichmentService.enrichUnresolvedArtists(batchSize);

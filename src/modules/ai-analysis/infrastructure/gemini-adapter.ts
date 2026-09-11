@@ -81,6 +81,10 @@ clichê que os cerca, o público que atraem. Ramones é três acordes e jaqueta 
 Angra é solo de guitarra que não acaba. Bad Bunny é perreo às três da tarde. É desse
 conhecimento que sai a piada específica; sem ele, sobra piada de banco de dados.
 
+Quando vier "eras", é de que décadas saem os discos (fração das audições com ano conhecido).
+Rende piada: quem vive preso em 1977, quem só ouve o que saiu mês passado, quem pula quarenta
+anos entre uma faixa e outra. Só cite décadas que aparecem em "eras".
+
 Atenção à fronteira: os NÚMEROS e os NOMES vêm só dos dados abaixo, nunca da sua memória.
 Já o que você sabe sobre a música desses artistas é bem-vindo e é o que faz a graça.
 
@@ -111,7 +115,7 @@ Exemplos do alvo certo:
 9. playfulClosing é a melhor parte e quase sempre deve existir. Só use null se os dados
    forem pobres demais para render qualquer piada. O resto do texto continua fazendo
    sentido sem ele.
-10. referencedEvidence só aceita: totalPlays, uniqueArtists, uniqueTracks, topArtists, topGenres, risingArtists, discovery, concentration.
+10. referencedEvidence só aceita: totalPlays, uniqueArtists, uniqueTracks, topArtists, topGenres, risingArtists, discovery, concentration, eras.
 
 ## Dados
 
