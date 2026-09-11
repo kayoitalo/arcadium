@@ -1,6 +1,6 @@
 export interface CoverArtResult {
   url: string;
-  source: "cover-art-archive" | "lastfm";
+  source: "cover-art-archive" | "lastfm" | "itunes";
   entityType: "release" | "release-group";
   mbid: string;
 }

@@ -10,14 +10,21 @@ const ALLOWED_HOSTS = new Set([
   "lastfm-img.freetls.fastly.net",
   "lastfm.freetls.fastly.net",
   "coverartarchive.org",
-  "ia800000.us.archive.org",
+  // o Cover Art Archive entrega em archive.org/download/… e redireciona
+  // para um espelho *.archive.org; sem o domínio raiz, toda capa dele caía
+  "archive.org",
   "i.scdn.co",
 ]);
 
 function isAllowed(url: URL): boolean {
   if (url.protocol !== "https:") return false;
   if (ALLOWED_HOSTS.has(url.hostname)) return true;
-  return url.hostname.endsWith(".archive.org") || url.hostname.endsWith(".coverartarchive.org");
+  // *.mzstatic.com é o CDN de artwork da Apple, usado pelas capas do iTunes
+  return (
+    url.hostname.endsWith(".archive.org") ||
+    url.hostname.endsWith(".coverartarchive.org") ||
+    url.hostname.endsWith(".mzstatic.com")
+  );
 }
 
 export async function GET(request: Request) {

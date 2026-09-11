@@ -11,21 +11,16 @@ interface ResilientCoverProps {
   className?: string;
   imageClassName?: string;
   priority?: boolean;
-  /** Em miniatura (abaixo de ~64px) o título não cabe: só a bolacha fica. */
+  /** Em miniatura (abaixo de ~64px) o título não cabe: só o slot fica. */
   compact?: boolean;
-}
-
-function hueFor(value: string): number {
-  let hash = 0;
-  for (const char of value) hash = char.charCodeAt(0) + ((hash << 5) - hash);
-  return Math.abs(hash) % 360;
+  /** Desligue quando a legenda ao lado já traz o título. */
+  caption?: boolean;
 }
 
 /**
- * A maioria dos álbuns não tem capa armazenada, então o estado sem
- * imagem não pode ser um buraco: é uma bolacha prensada em branco, com
- * os sulcos desenhados, o rótulo no centro e o título gravado no pé.
- * A cor vem do nome, então o mesmo álbum tem sempre a mesma bolacha.
+ * A maioria dos álbuns não tem capa armazenada. Sem imagem, o lugar
+ * dela é um slot vazio e honesto — plano, com o título impresso — e
+ * não um disco inventado: só tem volume o que existe de verdade.
  */
 export function ResilientCover({
   src,
@@ -35,32 +30,22 @@ export function ResilientCover({
   imageClassName = "",
   priority = false,
   compact = false,
+  caption = true,
 }: ResilientCoverProps) {
   const proxied = useMemo(() => coverProxyUrl(src), [src]);
   const [status, setStatus] = useState<"loading" | "loaded" | "failed">(proxied ? "loading" : "failed");
-  const hue = useMemo(() => hueFor(label), [label]);
 
   useEffect(() => setStatus(proxied ? "loading" : "failed"), [proxied]);
 
   return (
     <div className={`relative overflow-hidden bg-surface ${className}`}>
-      <div
-        className="absolute inset-0 flex items-end p-3"
-        style={{
-          background: `
-            radial-gradient(circle at 50% 50%,
-              hsl(${hue} 12% 20%) 0 21%,
-              transparent 21.5%),
-            radial-gradient(circle at 50% 50%,
-              hsl(${hue} 6% 6%) 0 2.5%,
-              transparent 3%),
-            repeating-radial-gradient(circle at 50% 50%,
-              hsl(${hue} 10% 13%) 0 3px,
-              hsl(${hue} 12% 9%) 3px 6px),
-            hsl(${hue} 14% 10%)`,
-        }}
-      >
-        {!compact && <span className="data line-clamp-3 leading-relaxed text-white/45">{label}</span>}
+      <div className="absolute inset-0 flex flex-col justify-between border border-rule bg-[#0b0d10] p-3">
+        {!compact && (
+          <>
+            <span className="micro text-text-muted">sem capa</span>
+            {caption && <span className="data line-clamp-3 leading-relaxed text-text-muted">{label}</span>}
+          </>
+        )}
       </div>
 
       <AnimatePresence>

@@ -7,10 +7,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <ChromaProvider>
       <ChromeProvider>
         <div className="min-h-screen bg-background text-text-primary">
-          {/* varredura de tela: dá granulação ao preto sem pesar */}
-          <div className="scanlines" aria-hidden />
           <Masthead />
-          <main className="mx-auto w-full max-w-[1320px] px-5 pb-28 pt-11 sm:px-8">{children}</main>
+          <main className="mx-auto w-full max-w-[1320px] px-5 pb-28 pt-10 sm:px-8">{children}</main>
         </div>
       </ChromeProvider>
     </ChromaProvider>

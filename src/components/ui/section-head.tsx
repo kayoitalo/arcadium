@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 /**
- * O cabeçalho das seções: número em croma, etiqueta em mono e, quando a
+ * O cabeçalho das seções: número em âmbar, etiqueta em mono e, quando a
  * seção tem manchete própria, o título com o fio embaixo.
  */
 export function SectionHead({
@@ -10,14 +10,19 @@ export function SectionHead({
   title,
   aside,
 }: {
-  index: string;
+  index?: string;
   eyebrow: string;
   title?: string;
   aside?: ReactNode;
 }) {
   const label = (
-    <div className="flex items-baseline gap-2.5">
-      <span className="eyebrow text-accent">{index}</span>
+    <div className="flex items-center gap-2.5">
+      {index && (
+        <>
+          <span className="eyebrow text-accent">{index}</span>
+          <span className="h-px w-3 bg-border-strong" />
+        </>
+      )}
       <span className="eyebrow">{eyebrow}</span>
     </div>
   );

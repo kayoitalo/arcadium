@@ -192,12 +192,22 @@ export function Turntable({ albums, selectedIndex, onSelect }: TurntableProps) {
         </motion.div>
       </div>
 
+      {/* o que está tocando, lido como no display do aparelho */}
+      <div className="mt-4 flex items-end justify-between gap-4 border-y border-rule py-3">
+        <div className="min-w-0">
+          <span className="eyebrow">na agulha</span>
+          <p className="mt-1.5 truncate text-sm font-semibold text-text-primary">{current.title}</p>
+          <p className="truncate text-xs text-text-muted">{current.artistName}</p>
+        </div>
+        <span className="data shrink-0 text-text-label">
+          <b className="text-[13px] font-semibold text-text-primary">{current.plays.toLocaleString("pt-BR")}</b>{" "}
+          audições
+        </span>
+      </div>
+
       {upNext.length > 0 && (
         <div className="mt-4">
-          <div className="mb-3 flex items-baseline justify-between gap-3">
-            <span className="eyebrow">na agulha</span>
-            <span className="data text-text-label">a seguir</span>
-          </div>
+          <span className="eyebrow mb-3 block">a seguir</span>
 
           <div className="flex gap-2">
             {upNext.map(({ album, index }) => (
@@ -206,7 +216,7 @@ export function Turntable({ albums, selectedIndex, onSelect }: TurntableProps) {
                 type="button"
                 onClick={() => onSelect(index)}
                 aria-label={`Tocar ${album.title}, de ${album.artistName}`}
-                className="group relative h-[74px] flex-1 cursor-pointer border-0 bg-transparent p-0 transition-transform duration-[460ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-2.5"
+                className="group relative h-[74px] flex-1 cursor-pointer border-0 bg-transparent p-0"
               >
                 {/* a bolacha sai de dentro da capa no hover */}
                 <span
@@ -230,6 +240,7 @@ export function Turntable({ albums, selectedIndex, onSelect }: TurntableProps) {
                     src={album.coverUrl}
                     alt={`Capa de ${album.title}`}
                     label={album.title}
+                    compact
                     className="h-full w-full rounded-sm ring-1 ring-white/[0.06] transition-[filter,box-shadow] duration-300 group-hover:ring-white/20"
                     imageClassName="saturate-[.82] brightness-[.84] transition-[filter] duration-300 group-hover:saturate-100 group-hover:brightness-100"
                   />

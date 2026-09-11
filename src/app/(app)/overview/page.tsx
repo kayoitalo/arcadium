@@ -1,19 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { useChroma } from "@/components/chroma/chroma-provider";
 import { useScreenChrome } from "@/components/layout/chrome";
 import { CoverWall } from "@/components/overview/cover-wall";
-import { Groove } from "@/components/overview/groove";
 import { Movement } from "@/components/overview/movement";
 import { RankList } from "@/components/overview/rank-list";
+import { Spectrum } from "@/components/overview/spectrum";
 import { Turntable } from "@/components/overview/turntable";
-import { CountUp, EASE_OUT_EXPO, InViewFade } from "@/components/ui/motion";
+import { Delta, Meter, Readout } from "@/components/ui/console";
+import { CountUp, InViewFade } from "@/components/ui/motion";
 import { SectionHead } from "@/components/ui/section-head";
-import { Sparkline } from "@/components/ui/sparkline";
+import { Voice } from "@/components/ui/voice";
 import type { OverviewData, PeriodKey } from "@/modules/statistics/application/overview-service";
 import type { ProfileNarrative } from "@/modules/ai-analysis/domain/ai-analysis.types";
 
@@ -48,6 +49,8 @@ export default function OverviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [focused, setFocused] = useState(0);
+  const heroRef = useRef<HTMLElement>(null);
+  const reduced = useReducedMotion();
   const { adoptCover } = useChroma();
 
   useScreenChrome({
@@ -100,6 +103,12 @@ export default function OverviewPage() {
     adoptCover(focusedAlbum?.coverUrl, focusedAlbum?.title ?? null);
   }, [focusedAlbum?.coverUrl, focusedAlbum?.title, adoptCover]);
 
+  /** Escolher no rack põe o disco na agulha — e leva o olho até a vitrola. */
+  const putOnDeck = (index: number) => {
+    setFocused(index);
+    heroRef.current?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+  };
+
   const headline = story?.headline ?? data?.aiStory.headline;
   const narrative = story?.narrative ?? data?.aiStory.narrative;
   const insight = story?.insight ?? data?.aiStory.insight;
@@ -116,7 +125,7 @@ export default function OverviewPage() {
 
   if (error) {
     return (
-      <div className="panel p-6">
+      <div className="border border-status-error/50 bg-well p-6">
         <span className="eyebrow text-status-error">Falha de leitura</span>
         <p className="mt-2 text-sm text-status-error">{error}</p>
       </div>
@@ -133,19 +142,48 @@ export default function OverviewPage() {
           Nada tocou {PERIOD_SUBJECT[period]}.
         </h1>
         <p className="mt-6 max-w-[46ch] text-[15px] leading-relaxed text-text-secondary">
-          Escolha um intervalo maior, ou registre seu usuário do Last.fm na ficha técnica para trazer
-          o histórico.
+          Escolha um intervalo maior, ou registre seu usuário do Last.fm nos ajustes para trazer o
+          histórico.
         </p>
       </section>
     );
   }
 
-  return (
-    <div className="gy-page flex flex-col gap-24 sm:gap-28">
-      {/* ---------- abertura ---------- */}
-      <section className="relative grid items-center gap-x-14 gap-y-12 overflow-x-clip lg:grid-cols-[minmax(0,1.05fr)_minmax(300px,0.75fr)]">
-        <div className="chroma-aura pointer-events-none absolute -inset-x-36 -top-36 -z-10 h-[620px]" />
+  const metrics = [
+    {
+      label: "Artistas",
+      value: summary?.uniqueArtists ?? 0,
+      change: summary?.artistsChangePercent,
+      bar: (data?.concentration.top5ArtistShare ?? 0) / 100,
+      note: `top 5 = ${decimal(data?.concentration.top5ArtistShare ?? 0)}% da escuta`,
+    },
+    {
+      label: "Faixas",
+      value: summary?.uniqueTracks ?? 0,
+      change: summary?.tracksChangePercent,
+      bar: (data?.concentration.top10TrackShare ?? 0) / 100,
+      note: `top 10 = ${decimal(data?.concentration.top10TrackShare ?? 0)}% da escuta`,
+    },
+    {
+      label: "Tempo",
+      value: summary?.listeningMinutes ?? 0,
+      format: formatHours,
+      change: null,
+      bar: (listeningShare ?? 0) / 100,
+      note:
+        listeningShare == null ? "duração estimada" : `${decimal(listeningShare)}% do período com música`,
+      approximate: summary?.durationSource === "ESTIMATE",
+    },
+  ];
 
+  return (
+    <div className="gy-page flex flex-col gap-16 sm:gap-20">
+      {/* ---------- abertura: a manchete do Gemini e a vitrola ---------- */}
+      <section
+        ref={heroRef}
+        className="relative grid items-center gap-x-14 gap-y-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(300px,0.75fr)]"
+        style={{ scrollMarginTop: "calc(var(--chrome-h) + 24px)" }}
+      >
         <div>
           <AnimatePresence mode="wait">
             <motion.div
@@ -153,11 +191,11 @@ export default function OverviewPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
+              transition={{ duration: 0.2 }}
             >
-              <div className="flex items-center gap-3">
-                <span className="h-px w-[34px] bg-accent" />
-                <span className="eyebrow text-accent">{story?.eyebrow ?? PERIOD_SUBJECT[period]}</span>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="eyebrow text-accent">gemini ▸</span>
+                <span className="eyebrow">{story?.eyebrow ?? PERIOD_SUBJECT[period]}</span>
               </div>
 
               <h1 className="display mt-5 max-w-[17ch] text-[clamp(2.6rem,6.6vw,5.9rem)]">
@@ -166,25 +204,24 @@ export default function OverviewPage() {
                     <span className="gy-rise">{headline}</span>
                   </span>
                 ) : (
-                  <span className="block h-[1em] w-[8ch] animate-pulse rounded bg-surface-elevated" />
+                  <span className="block h-[1em] w-[8ch] animate-pulse bg-surface-elevated" />
                 )}
               </h1>
 
               {narrative && (
-                <p className="gy-up mt-7 max-w-[48ch] text-base leading-[1.66] text-text-secondary [animation-delay:260ms]">
+                <p className="gy-up mt-7 max-w-[50ch] text-base leading-[1.66] text-text-secondary [animation-delay:260ms]">
                   {narrative}
                 </p>
               )}
 
               {Boolean(story?.tasteKeywords?.length) && (
-                <div className="mt-7 flex flex-wrap gap-2">
+                <div className="mt-7 flex flex-wrap gap-1.5">
                   {story?.tasteKeywords?.map((keyword, index) => (
                     <span
                       key={keyword}
-                      className="gy-up data inline-flex items-center gap-1.5 rounded-full border border-border/90 px-3 py-1.5 text-text-secondary"
-                      style={{ animationDelay: `${320 + index * 70}ms`, animationDuration: "600ms" }}
+                      className="gy-up tag"
+                      style={{ animationDelay: `${320 + index * 60}ms`, animationDuration: "450ms" }}
                     >
-                      <span className="h-[5px] w-[5px] rounded-full bg-accent" />
                       {keyword}
                     </span>
                   ))}
@@ -198,137 +235,54 @@ export default function OverviewPage() {
       </section>
 
       {/* ---------- números ---------- */}
-      <section className="ruled grid-cols-2 border-y border-border xl:grid-cols-[1.55fr_1fr_1fr_1fr]">
-        <div className="col-span-2 bg-background px-6 py-7 xl:col-span-1">
-          <span className="eyebrow">Audições</span>
-          <div className="mt-3 flex items-end justify-between gap-6">
-            <strong className="numeral text-[clamp(2.6rem,6vw,4.6rem)]">
-              <CountUp value={summary?.totalPlays ?? 0} />
-            </strong>
-            {activity.length > 1 && (
-              <Sparkline
-                values={activity.map((point) => point.plays)}
-                className="h-10 max-w-[210px] flex-1"
-                filled
-              />
-            )}
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            {typeof summary?.playsChangePercent === "number" && (
-              <span
-                className="data rounded-full px-2.5 py-1"
-                style={{
-                  color: summary.playsChangePercent >= 0 ? "var(--chroma)" : "#d1665a",
-                  background:
-                    summary.playsChangePercent >= 0 ? "var(--chroma-soft)" : "rgb(209 102 90 / 0.12)",
-                }}
-              >
-                {summary.playsChangePercent > 0 ? "+" : ""}
-                {summary.playsChangePercent}%
-              </span>
-            )}
-            <span className="data text-text-muted">
-              {summary?.playsChangePercent == null
-                ? "sem período anterior para comparar"
-                : "contra o período anterior"}
-            </span>
-          </div>
-        </div>
+      <section className="ruled grid-cols-2 border border-border xl:grid-cols-4">
+        <Readout label="Audições" footer={<Delta value={summary?.playsChangePercent} />}>
+          <strong className="numeral block text-[clamp(2.4rem,4.4vw,3.5rem)]">
+            <CountUp value={summary?.totalPlays ?? 0} />
+          </strong>
+        </Readout>
 
-        {[
-          {
-            label: "Artistas",
-            value: summary?.uniqueArtists ?? 0,
-            change: summary?.artistsChangePercent,
-            bar: (data?.concentration.top5ArtistShare ?? 0) / 100,
-            note: `top 5 = ${decimal(data?.concentration.top5ArtistShare ?? 0)}% da escuta`,
-          },
-          {
-            label: "Faixas",
-            value: summary?.uniqueTracks ?? 0,
-            change: summary?.tracksChangePercent,
-            bar: (data?.concentration.top10TrackShare ?? 0) / 100,
-            note: `top 10 = ${decimal(data?.concentration.top10TrackShare ?? 0)}% da escuta`,
-          },
-          {
-            label: "Tempo",
-            value: summary?.listeningMinutes ?? 0,
-            format: formatHours,
-            change: null,
-            bar: (listeningShare ?? 0) / 100,
-            note:
-              listeningShare == null
-                ? "duração estimada"
-                : `${decimal(listeningShare)}% do período com música`,
-            approximate: summary?.durationSource === "ESTIMATE",
-          },
-        ].map((metric) => (
-          <div key={metric.label} className="bg-background px-5 py-7">
-            <span className="eyebrow">{metric.label}</span>
-            <strong className="numeral mt-3 block text-[clamp(1.7rem,3vw,2.5rem)]">
-              {metric.approximate && <span className="mr-1 align-middle text-[0.5em] text-text-muted">≈</span>}
+        {metrics.map((metric) => (
+          <Readout
+            key={metric.label}
+            label={metric.label}
+            footer={
+              <>
+                <Meter ratio={metric.bar} label={metric.note} />
+                <span className="data mt-2.5 block text-text-muted">{metric.note}</span>
+                {typeof metric.change === "number" && (
+                  <span className="mt-1.5 block">
+                    <Delta value={metric.change} suffix="que antes" />
+                  </span>
+                )}
+              </>
+            }
+          >
+            <strong className="numeral block text-[clamp(2.4rem,4.4vw,3.5rem)]">
+              {metric.approximate && <span className="mr-1 align-middle text-[0.45em] text-text-muted">≈</span>}
               <CountUp value={metric.value} format={metric.format} />
             </strong>
-
-            <span className="mt-4 block h-[3px] w-full bg-rule">
-              <motion.span
-                className="block h-full bg-accent"
-                initial={{ scaleX: 0 }}
-                whileInView={{ scaleX: Math.max(0.02, Math.min(1, metric.bar)) }}
-                viewport={{ once: true }}
-                transition={{ duration: 1.1, ease: EASE_OUT_EXPO }}
-                style={{ transformOrigin: "left center" }}
-              />
-            </span>
-
-            <span className="data mt-2.5 block text-text-muted">{metric.note}</span>
-            {typeof metric.change === "number" && (
-              <span
-                className={`data mt-1 block ${
-                  metric.change >= 0 ? "text-status-success" : "text-status-error"
-                }`}
-              >
-                {metric.change > 0 ? "+" : ""}
-                {metric.change}% que antes
-              </span>
-            )}
-          </div>
+          </Readout>
         ))}
       </section>
 
-      {/* ---------- o disco ---------- */}
+      {/* ---------- espectro ---------- */}
       <InViewFade>
-        <section className="grid items-center gap-x-16 gap-y-10 lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1fr)]">
-          <div>
-            <SectionHead index="01" eyebrow="O disco" />
-            <h2 className="headline mt-4 max-w-[16ch] text-[clamp(2rem,3.8vw,3.1rem)]">
-              Cada volta é um ano da sua escuta.
-            </h2>
-            <p className="mt-5 max-w-[44ch] text-[15px] leading-[1.66] text-text-secondary">
-              O tempo corre do centro para fora. Cada traço é um dia e o comprimento é o quanto tocou.
-              Passe o cursor para percorrer o sulco.
-            </p>
-
-            <div className="mt-7 flex flex-wrap gap-5">
-              <span className="data inline-flex items-center gap-2 text-text-muted">
-                <span className="h-2.5 w-0.5 bg-accent" />
-                dia com escuta
-              </span>
-              <span className="data inline-flex items-center gap-2 text-text-muted">
-                <span className="h-[3px] w-[3px] rounded-full bg-[#39424c]" />
-                dia em silêncio
-              </span>
-            </div>
-
-            {(insight || data) && (
-              <p className="mt-7 max-w-[42ch] border-l-2 border-accent pl-4 text-sm leading-[1.66] text-text-secondary">
-                {insight ??
-                  `Os cinco primeiros artistas somam ${decimal(data!.concentration.top5ArtistShare)}% de tudo que você ouviu ${PERIOD_SUBJECT[period]}.`}
-              </p>
+        <section>
+          <SectionHead index="01" eyebrow="Espectro" title="Onde o volume subiu" />
+          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+            <Spectrum activity={activity} days={PERIOD_DAYS[period]} />
+            {insight ? (
+              <Voice label="leitura">{insight}</Voice>
+            ) : (
+              data && (
+                <p className="data border border-border bg-well p-4 leading-relaxed text-text-secondary">
+                  Os cinco primeiros artistas somam {decimal(data.concentration.top5ArtistShare)}% de tudo que
+                  você ouviu {PERIOD_SUBJECT[period]}.
+                </p>
+              )
             )}
           </div>
-
-          <Groove activity={activity} totalPlays={summary?.totalPlays ?? 0} />
         </section>
       </InViewFade>
 
@@ -344,10 +298,7 @@ export default function OverviewPage() {
                 <span className="data text-text-muted">
                   {(summary?.uniqueArtists ?? 0).toLocaleString("pt-BR")} artistas no total
                 </span>
-                <span className="data inline-flex items-center gap-1.5 rounded-full border border-border/90 px-2.5 py-1 text-text-secondary">
-                  <span className="h-[5px] w-[5px] rounded-full bg-accent" />
-                  top 5 = {decimal(data?.concentration.top5ArtistShare ?? 0)}%
-                </span>
+                <span className="tag">top 5 = {decimal(data?.concentration.top5ArtistShare ?? 0)}%</span>
               </div>
             }
           />
@@ -366,17 +317,17 @@ export default function OverviewPage() {
         </InViewFade>
       )}
 
-      {/* ---------- a pilha ---------- */}
+      {/* ---------- o rack ---------- */}
       {albums.length > 0 && (
         <InViewFade>
           <section>
             <SectionHead
               index="04"
               eyebrow="Discos do período"
-              title="A pilha do mês"
-              aside={<span className="data pb-1 text-text-muted">escolha um para tingir a tela</span>}
+              title="O rack"
+              aside={<span className="data pb-1 text-text-muted">escolha um para pôr na agulha</span>}
             />
-            <CoverWall albums={albums} selectedIndex={focused} onSelect={setFocused} />
+            <CoverWall albums={albums} selectedIndex={focused} onSelect={putOnDeck} />
           </section>
         </InViewFade>
       )}
@@ -384,14 +335,11 @@ export default function OverviewPage() {
       {/* ---------- fecho ---------- */}
       {closing && (
         <InViewFade>
-          <section className="grid items-center gap-10 border-t border-border pt-11 md:grid-cols-[minmax(0,1fr)_auto]">
-            <div>
-              <span className="eyebrow">Fechando o período</span>
-              <p className="display mt-5 max-w-[26ch] text-[clamp(1.7rem,3.4vw,2.7rem)] text-accent">
-                {closing}
-              </p>
-            </div>
-            <Link href="/discovery" className="pill w-fit">
+          <section className="flex flex-col gap-4">
+            <Voice label="fechando o período" size="lg">
+              {closing}
+            </Voice>
+            <Link href="/discovery" className="key self-end">
               ir para descobertas
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>

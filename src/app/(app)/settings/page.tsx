@@ -4,9 +4,9 @@ import { Suspense, useCallback, useEffect, useState, type PropsWithChildren, typ
 import { useForm } from "react-hook-form";
 import { motion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
-import { AlertCircle, CheckCircle, Download, Link2, RefreshCw, Trash2, Unlink } from "lucide-react";
-import { EASE_OUT_EXPO } from "@/components/ui/motion";
+import { Download, Link2, RefreshCw, Trash2, Unlink } from "lucide-react";
 import { useScreenChrome } from "@/components/layout/chrome";
+import { Readout } from "@/components/ui/console";
 
 interface SyncForm {
   username: string;
@@ -43,52 +43,56 @@ interface EnrichmentCoverage {
   coverPercentage: number;
 }
 
-function Section({
-  code,
-  title,
-  hint,
-  aside,
-  children,
-}: PropsWithChildren<{ code: string; title: string; hint: string; aside?: ReactNode }>) {
-  return (
-    <motion.section
-      className="border-t border-border pt-8"
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-10% 0px" }}
-      transition={{ duration: 0.55, ease: EASE_OUT_EXPO }}
-    >
-      <div className="mb-7 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-        <div>
-          <div className="flex items-baseline gap-2.5">
-            <span className="eyebrow text-accent">{code}</span>
-            <h2 className="headline text-[1.35rem]">{title}</h2>
-          </div>
-          <p className="mt-3 max-w-[54ch] text-[15px] leading-[1.66] text-text-secondary">{hint}</p>
-        </div>
-        {aside}
-      </div>
-      {children}
-    </motion.section>
-  );
-}
+type Signal = "on" | "off" | "error";
 
-/** Estado da ligação, sem cor de alarme: é informação, não aviso. */
-function Chip({ children }: PropsWithChildren) {
+/** Estado de uma conexão: LED âmbar ligado, apagado desligado, vermelho com falha. */
+function Status({ signal, children }: PropsWithChildren<{ signal: Signal }>) {
   return (
-    <span className="data inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 text-text-secondary">
-      <span className="h-[5px] w-[5px] rounded-full bg-accent" />
+    <span className="data flex items-center gap-2 text-text-secondary">
+      <span
+        className="led"
+        data-on={signal === "on"}
+        style={
+          signal === "error"
+            ? { background: "var(--color-status-error)", boxShadow: "0 0 6px rgb(224 96 79 / 0.7)" }
+            : undefined
+        }
+        aria-hidden
+      />
       {children}
     </span>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+/** Um módulo do rack: faixa de título com o estado à direita, corpo embaixo. */
+function Module({
+  code,
+  title,
+  hint,
+  status,
+  children,
+}: PropsWithChildren<{ code: string; title: string; hint: string; status?: ReactNode }>) {
   return (
-    <div>
-      <span className="eyebrow block">{label}</span>
-      <strong className="numeral mt-2.5 block text-2xl text-text-primary">{value}</strong>
-    </div>
+    <motion.section
+      className="border border-border bg-background-secondary"
+      initial={{ opacity: 0 }}
+      whileInView={{ opacity: 1 }}
+      viewport={{ once: true, margin: "-10% 0px" }}
+      transition={{ duration: 0.3 }}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-border px-5 py-3">
+        <div className="flex items-center gap-2.5">
+          <span className="eyebrow text-accent">{code}</span>
+          <span className="h-px w-3 bg-border-strong" />
+          <h2 className="eyebrow text-text-primary">{title}</h2>
+        </div>
+        {status}
+      </div>
+      <div className="p-5 sm:p-6">
+        <p className="mb-6 max-w-[58ch] text-[15px] leading-[1.66] text-text-secondary">{hint}</p>
+        {children}
+      </div>
+    </motion.section>
   );
 }
 
@@ -217,15 +221,13 @@ function SettingsContent() {
   };
 
   const connected = syncStatus?.connection;
+  const syncFailed = Boolean(syncStatus?.latestRun?.errorMessage);
 
   return (
-    <div className="gy-page max-w-3xl space-y-14">
-      <header>
-        <div className="flex items-center gap-3">
-          <span className="h-px w-[34px] bg-accent" />
-          <span className="eyebrow text-accent">Sua conta</span>
-        </div>
-        <h1 className="display mt-5 text-[clamp(2.6rem,5.6vw,4.2rem)]">
+    <div className="gy-page max-w-3xl space-y-8">
+      <header className="mb-4">
+        <span className="eyebrow">Sua conta</span>
+        <h1 className="display mt-4 text-[clamp(2.6rem,5.6vw,4.2rem)]">
           <span className="block overflow-hidden">
             <span className="gy-rise">Ajustes</span>
           </span>
@@ -236,35 +238,31 @@ function SettingsContent() {
       </header>
 
       {message && (
-        <motion.p
-          className="flex items-start gap-2.5 rounded-lg border border-status-success/40 bg-status-success/[0.07] p-4 text-sm text-status-success"
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" />
+        <p role="status" className="data flex items-center gap-2.5 border border-accent/40 bg-well p-4 text-[12px] text-text-primary">
+          <span className="led" data-on="true" aria-hidden />
           {message}
-        </motion.p>
+        </p>
       )}
 
       {error && (
-        <motion.p
-          className="flex items-start gap-2.5 rounded-lg border border-status-error/40 bg-status-error/[0.07] p-4 text-sm text-status-error"
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+        <p role="alert" className="data flex items-center gap-2.5 border border-status-error/50 bg-well p-4 text-[12px] text-status-error">
+          <span className="led" style={{ background: "var(--color-status-error)" }} aria-hidden />
           {error}
-        </motion.p>
+        </p>
       )}
 
-      <Section
+      <Module
         code="01"
         title="Last.fm"
         hint="De onde vem o seu histórico. A busca roda sozinha de hora em hora, mas você pode forçar agora."
-        aside={<Chip>{connected ? connected.username : "não conectado"}</Chip>}
+        status={
+          <Status signal={syncFailed ? "error" : connected ? "on" : "off"}>
+            {connected ? connected.username : "não conectado"}
+          </Status>
+        }
       >
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-          <div>
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-wrap items-end gap-4">
+          <div className="min-w-[220px] flex-1">
             <label htmlFor="lastfm-user" className="eyebrow mb-2 block">
               Seu usuário
             </label>
@@ -272,82 +270,89 @@ function SettingsContent() {
               id="lastfm-user"
               type="text"
               {...register("username", { required: "Informe o usuário" })}
-              placeholder="usuario"
-              className="field-line max-w-sm"
+              placeholder={connected?.username ?? "usuario"}
+              className="field-line"
             />
             {errors.username && <span className="data mt-2 block text-status-error">{errors.username.message}</span>}
           </div>
 
-          <button
-            type="submit"
-            disabled={loading || !isValid}
-            className="pill pill-ink"
-          >
+          <button type="submit" disabled={loading || !isValid} className="key key-ink">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
             {loading ? "buscando…" : "buscar agora"}
           </button>
         </form>
 
         {connected && (
-          <div className="mt-8 grid grid-cols-2 gap-6 border-t border-border-subtle pt-6 sm:grid-cols-3">
-            <Stat label="Última busca" value={connected.lastSyncedAt ? new Date(connected.lastSyncedAt).toLocaleDateString("pt-BR") : "nunca"} />
-            <Stat label="Novas audições" value={(syncStatus?.latestRun?.insertedCount ?? 0).toLocaleString("pt-BR")} />
-            {syncStatus?.latestRun?.errorMessage && (
-              <p className="data col-span-full text-status-error">{syncStatus.latestRun.errorMessage}</p>
-            )}
+          <div className="ruled mt-6 grid-cols-2 border border-border">
+            <Readout label="Última busca" className="px-4 py-4">
+              <strong className="numeral block text-2xl">
+                {connected.lastSyncedAt ? new Date(connected.lastSyncedAt).toLocaleDateString("pt-BR") : "nunca"}
+              </strong>
+            </Readout>
+            <Readout label="Novas audições" className="px-4 py-4">
+              <strong className="numeral block text-2xl">
+                {(syncStatus?.latestRun?.insertedCount ?? 0).toLocaleString("pt-BR")}
+              </strong>
+            </Readout>
           </div>
         )}
-      </Section>
 
-      <Section
+        {syncStatus?.latestRun?.errorMessage && (
+          <p className="data mt-3 text-status-error">{syncStatus.latestRun.errorMessage}</p>
+        )}
+      </Module>
+
+      <Module
         code="02"
         title="Informações dos artistas"
         hint="País, gênero, ano de lançamento e capa dos artistas e álbuns que você mais ouve. Roda aos poucos, em respeito ao limite de 1 requisição por segundo do MusicBrainz."
       >
-        <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={enrichArtists}
-            disabled={loading}
-            className="pill"
-          >
+        <div className="flex flex-wrap gap-1.5">
+          <button type="button" onClick={enrichArtists} disabled={loading} className="key">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
             buscar artistas
           </button>
-          <button
-            type="button"
-            onClick={repairCovers}
-            disabled={loading}
-            className="pill"
-          >
+          <button type="button" onClick={repairCovers} disabled={loading} className="key">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
             procurar capas
           </button>
         </div>
 
         {coverage && (
-          <div className="mt-8 grid grid-cols-2 gap-6 border-t border-border-subtle pt-6 sm:grid-cols-4">
-            <Stat label="Artistas" value={`${coverage.percentage}%`} />
-            <Stat label="Álbuns" value={coverage.totalCanonicalAlbums.toLocaleString("pt-BR")} />
-            <Stat label="Com capa" value={`${coverage.coverPercentage}%`} />
-            <Stat label="Na fila" value={coverage.pendingCoverLookup.toLocaleString("pt-BR")} />
+          <div className="ruled mt-6 grid-cols-2 border border-border sm:grid-cols-4">
+            <Readout label="Artistas" className="px-4 py-4">
+              <strong className="numeral block text-2xl">{coverage.percentage}%</strong>
+            </Readout>
+            <Readout label="Álbuns" className="px-4 py-4">
+              <strong className="numeral block text-2xl">{coverage.totalCanonicalAlbums.toLocaleString("pt-BR")}</strong>
+            </Readout>
+            <Readout label="Com capa" className="px-4 py-4">
+              <strong className="numeral block text-2xl">{coverage.coverPercentage}%</strong>
+            </Readout>
+            <Readout label="Na fila" className="px-4 py-4">
+              <strong className="numeral block text-2xl">{coverage.pendingCoverLookup.toLocaleString("pt-BR")}</strong>
+            </Readout>
           </div>
         )}
-      </Section>
+      </Module>
 
-      <Section
+      <Module
         code="03"
         title="Playlists"
         hint="As descobertas que você separar podem virar uma playlist. Conectado, ela nasce direto na sua conta; sem conectar, você recebe links de busca e um arquivo .m3u."
-        aside={<Chip>{spotify?.connected ? `conectado · ${spotify.displayName}` : "não conectado"}</Chip>}
+        status={
+          <Status signal={spotify?.connected ? "on" : "off"}>
+            {spotify?.connected ? `spotify · ${spotify.displayName}` : "não conectado"}
+          </Status>
+        }
       >
-        <p className="mb-6 max-w-[56ch] text-[15px] leading-[1.66] text-text-secondary">
-          O Spotify é usado só como destino: nada do que está lá volta para as suas estatísticas nem
-          para os textos. A permissão pedida cria playlists e nada mais.
+        <p className="mb-6 max-w-[58ch] text-[13px] leading-[1.66] text-text-muted">
+          O Spotify é usado só como destino: nada do que está lá volta para as suas estatísticas nem para os
+          textos. A permissão pedida cria playlists e nada mais.
         </p>
 
         {spotify && !spotify.configured && (
-          <p className="max-w-[56ch] rounded-lg border border-border bg-surface p-4 text-xs text-text-muted">
+          <p className="data max-w-[58ch] border border-border bg-well p-4 leading-relaxed text-text-muted">
             {spotify.reason}
           </p>
         )}
@@ -365,7 +370,7 @@ function SettingsContent() {
                 return "Abrindo o Spotify…";
               })
             }
-            className="pill pill-ink"
+            className="key key-ink"
           >
             <Link2 className="h-3.5 w-3.5" />
             conectar spotify
@@ -384,25 +389,21 @@ function SettingsContent() {
                 return "Spotify desconectado.";
               })
             }
-            className="pill pill-danger"
+            className="key key-danger"
           >
             <Unlink className="h-3.5 w-3.5" />
             desconectar
           </button>
         )}
-      </Section>
+      </Module>
 
-      <Section
+      <Module
         code="04"
         title="Seus dados"
         hint="Tudo o que está guardado aqui é seu, e sai daqui quando você quiser — em JSON, de uma vez."
       >
-        <div className="flex flex-wrap items-center gap-3">
-          <a
-            href="/api/user/data"
-            download
-            className="pill"
-          >
+        <div className="flex flex-wrap items-center gap-1.5">
+          <a href="/api/user/data" download className="key">
             <Download className="h-3.5 w-3.5" />
             baixar cópia
           </a>
@@ -411,13 +412,13 @@ function SettingsContent() {
             type="button"
             onClick={eraseEverything}
             disabled={loading}
-            className="pill pill-danger border-status-error/50 text-status-error"
+            className="key key-danger border-status-error/50 text-status-error"
           >
             <Trash2 className="h-3.5 w-3.5" />
             apagar tudo
           </button>
         </div>
-      </Section>
+      </Module>
     </div>
   );
 }

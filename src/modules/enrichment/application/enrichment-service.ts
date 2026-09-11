@@ -7,6 +7,11 @@ import type { Prisma } from "@prisma/client";
 import { MusicBrainzAdapter } from "../infrastructure/musicbrainz-adapter";
 import { CoverArtArchiveAdapter } from "../infrastructure/cover-art-archive-adapter";
 import { LastFmCoverAdapter } from "../infrastructure/lastfm-cover-adapter";
+import { ItunesCoverAdapter } from "../infrastructure/itunes-cover-adapter";
+import type { AlbumCoverFallbackProvider, CoverArtResult } from "../domain/cover-art-provider.interface";
+
+/** Um álbum que nenhuma fonte achou volta para a fila depois deste prazo. */
+const COVER_RETRY_DAYS = 30;
 
 export interface EnrichmentSummary {
   totalProcessed: number;
@@ -35,22 +40,19 @@ export class EnrichmentService {
   constructor(
     private adapter = new MusicBrainzAdapter(),
     private coverArt = new CoverArtArchiveAdapter(),
-    private fallbackCoverArt = new LastFmCoverAdapter(),
+    /** Tentadas em ordem quando o Cover Art Archive não tem (ou o álbum nem está no MusicBrainz). */
+    private fallbackCoverArt: AlbumCoverFallbackProvider[] = [new LastFmCoverAdapter(), new ItunesCoverAdapter()],
   ) {}
 
   async getCoverageStats(): Promise<EnrichmentCoverage> {
+    // a capa vale para todo álbum, não só para os que o MusicBrainz conhece
     const [totalArtists, resolvedCount, failedCount, totalCanonicalAlbums, albumsWithCover, pendingCoverLookup] = await Promise.all([
       prisma.artist.count(),
       prisma.artist.count({ where: { metadataStatus: "RESOLVED" } }),
       prisma.artist.count({ where: { metadataStatus: "FAILED" } }),
-      prisma.album.count({ where: { OR: [{ mbid: { not: null } }, { releaseGroupMbid: { not: null } }] } }),
+      prisma.album.count(),
       prisma.album.count({ where: { coverUrl: { not: null } } }),
-      prisma.album.count({
-        where: {
-          coverFetchedAt: null,
-          OR: [{ mbid: { not: null } }, { releaseGroupMbid: { not: null } }],
-        },
-      }),
+      prisma.album.count({ where: { coverFetchedAt: null } }),
     ]);
     const unresolvedCount = totalArtists - (resolvedCount + failedCount);
     const percentage = totalArtists ? Math.round((resolvedCount / totalArtists) * 100) : 0;
@@ -235,8 +237,12 @@ export class EnrichmentService {
   }
 
   async enrichMissingAlbumCovers(batchSize = 10): Promise<{ processed: number; resolved: number; missing: number }> {
+    const retryBefore = new Date(Date.now() - COVER_RETRY_DAYS * 86_400_000);
+    // qualquer álbum ainda não consultado entra: os sem vínculo no MusicBrainz
+    // eram a maioria e nunca chegavam aqui, então nunca ganhavam capa
     const coverWhere: Prisma.AlbumWhereInput = { OR: [
-      { coverFetchedAt: null, OR: [{ mbid: { not: null } }, { releaseGroupMbid: { not: null } }] },
+      { coverFetchedAt: null },
+      { coverUrl: null, coverFetchedAt: { lt: retryBefore } },
       { coverSource: "cover-art-archive", coverUrl: { startsWith: "https://coverartarchive.org/" } },
     ] };
     const recentAlbumIds = await this.getRecentEntityIds("albumId", batchSize * 5);
@@ -267,7 +273,7 @@ export class EnrichmentService {
             console.warn(`[EnrichmentService] Canonical cover unavailable for "${album.name}"; trying Last.fm.`, primaryError);
           }
         }
-        if (!cover) cover = await this.fallbackCoverArt.findAlbumCover(album.artist.name, album.name);
+        if (!cover) cover = await this.findFallbackCover(album.artist.name, album.name);
         await prisma.album.update({
           where: { id: album.id },
           data: {
@@ -285,6 +291,30 @@ export class EnrichmentService {
     }
 
     return { processed: albums.length, resolved, missing };
+  }
+
+  /**
+   * A primeira fonte de reserva que achar vence. Uma fonte fora do ar não
+   * derruba as outras; só se todas falharem o erro sobe, e o álbum fica na
+   * fila em vez de ser marcado como "sem capa" por engano.
+   */
+  private async findFallbackCover(artistName: string, albumName: string): Promise<CoverArtResult | null> {
+    let failures = 0;
+
+    for (const provider of this.fallbackCoverArt) {
+      try {
+        const cover = await provider.findAlbumCover(artistName, albumName);
+        if (cover) return cover;
+      } catch (error) {
+        failures += 1;
+        console.warn(`[EnrichmentService] Fallback cover source failed for "${albumName}".`, error);
+      }
+    }
+
+    if (failures > 0 && failures === this.fallbackCoverArt.length) {
+      throw new Error(`Every fallback cover source failed for "${albumName}".`);
+    }
+    return null;
   }
 
   private async getRecentEntityIds(field: "artistId" | "albumId", take: number): Promise<string[]> {
