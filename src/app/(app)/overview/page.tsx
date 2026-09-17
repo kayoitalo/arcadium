@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
+import { pickFresh } from "@/components/ai/pick-fresh";
 import { usePreviewPlayer } from "@/components/audio/use-preview-player";
 import { useChroma } from "@/components/chroma/chroma-provider";
 import { useScreenChrome } from "@/components/layout/chrome";
@@ -18,7 +19,7 @@ import { CountUp, InViewFade } from "@/components/ui/motion";
 import { SectionHead } from "@/components/ui/section-head";
 import { Voice } from "@/components/ui/voice";
 import type { OverviewData, PeriodKey } from "@/modules/statistics/application/overview-service";
-import type { ProfileNarrative } from "@/modules/ai-analysis/domain/ai-analysis.types";
+import type { PackView, ProfileNarrative } from "@/modules/ai-analysis/domain/ai-analysis.types";
 
 const PERIODS = [
   { key: "7d", label: "7 dias" },
@@ -48,6 +49,7 @@ export default function OverviewPage() {
   const [period, setPeriod] = useState<PeriodKey>("30d");
   const [data, setData] = useState<OverviewData | null>(null);
   const [story, setStory] = useState<ProfileNarrative | null>(null);
+  const [albumLines, setAlbumLines] = useState<PackView["albumLines"]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [focused, setFocused] = useState(0);
@@ -67,6 +69,10 @@ export default function OverviewPage() {
     setLoading(true);
     setError(null);
     setFocused(0);
+    // cada período tem o seu pacote: manter o texto do anterior sobre os
+    // números novos seria dar leitura de mês para a semana
+    setStory(null);
+    setAlbumLines([]);
 
     fetch(`/api/overview?period=${period}`, { signal: controller.signal })
       .then((response) => {
@@ -82,9 +88,15 @@ export default function OverviewPage() {
         if (!controller.signal.aborted) setLoading(false);
       });
 
-    fetch(`/api/ai/narrative?period=${period}`, { signal: controller.signal })
+    // o pacote do período traz várias leituras e os comentários dos discos;
+    // o sorteio é aqui, pra que dois reloads não mostrem o mesmo texto
+    fetch(`/api/ai/pack?period=${period}`, { signal: controller.signal })
       .then((response) => (response.ok ? response.json() : null))
-      .then((payload: ProfileNarrative | null) => setStory(payload))
+      .then((payload: PackView | null) => {
+        if (!payload) return;
+        setStory(pickFresh(payload.readings, `gy:reading:${period}`, (reading) => reading.headline));
+        setAlbumLines(payload.albumLines);
+      })
       .catch(() => undefined);
 
     return () => controller.abort();
@@ -275,6 +287,7 @@ export default function OverviewPage() {
           selectedIndex={focused}
           onSelect={(index) => selectAlbum(index, { play: player.playing })}
           player={player}
+          albumLines={albumLines}
         />
       </section>
 

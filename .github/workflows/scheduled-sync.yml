@@ -51,3 +51,31 @@ jobs:
             echo "A sincronização falhou com status ${HTTP_STATUS}"
             exit 1
           fi
+
+      - name: Renovar os textos da IA
+        # Depois do sync, e só se ele passou: a renovação decide pela escuta
+        # nova. A rota gera no máximo um pacote por execução e pula sozinha
+        # o que ainda está fresco, então rodar de hora em hora não gasta cota.
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          TARGET_URL="${APP_URL%/}/api/ai/refresh"
+          echo "Renovando os textos em ${TARGET_URL}"
+
+          # a resposta do modelo é longa: a rota trabalha até 180s
+          HTTP_STATUS=$(curl -s -o refresh.json -w "%{http_code}" \
+            --max-time 200 \
+            -X POST "${TARGET_URL}" \
+            -H "Authorization: Bearer ${CRON_SECRET}")
+
+          echo "HTTP ${HTTP_STATUS}"
+          cat refresh.json || true
+
+          if [ "${HTTP_STATUS}" -ge 400 ]; then
+            echo "A renovação dos textos falhou com status ${HTTP_STATUS}"
+            echo "O histórico já foi sincronizado: isto aqui é só a IA."
+            exit 1
+          fi

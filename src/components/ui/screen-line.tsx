@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { pickFresh } from "@/components/ai/pick-fresh";
 import { Voice } from "@/components/ui/voice";
 import type { ScreenKey } from "@/modules/ai-analysis/domain/ai-analysis.types";
+import type { PeriodKey } from "@/modules/statistics/application/overview-service";
 
 interface Line {
   screen: ScreenKey;
@@ -10,31 +12,42 @@ interface Line {
 }
 
 /**
- * O comentário do Gemini sobre a tela vem de um lote guardado no banco,
- * gerado no máximo uma vez por dia; a cada visita sorteamos uma frase.
- * Só vai para o bloco do Gemini o que o Gemini escreveu — sem lote, a
+ * O comentário do Gemini sobre a tela vem dos pacotes guardados no banco;
+ * a cada visita sorteamos uma frase, sem repetir a última que a pessoa viu.
+ * Só vai para o bloco do Gemini o que o Gemini escreveu — sem pacote, a
  * explicação padrão da tela aparece como texto comum.
  */
 export function ScreenLine({
   screen,
   label,
   fallback,
+  period,
 }: {
   screen: ScreenKey;
   label: string;
   fallback: string;
+  /** Telas com intervalo escolhido pedem só as frases dele. */
+  period?: PeriodKey;
 }) {
   const [line, setLine] = useState<string | null>(null);
   const [settled, setSettled] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
+    setLine(null);
+    setSettled(false);
 
-    fetch("/api/ai/lines", { signal: controller.signal })
+    const query = new URLSearchParams({ screen });
+    if (period) query.set("period", period);
+
+    fetch(`/api/ai/lines?${query}`, { signal: controller.signal })
       .then((response) => (response.ok ? response.json() : null))
-      .then((payload: { lines?: Line[] } | null) => {
-        const options = (payload?.lines ?? []).filter((entry) => entry.screen === screen);
-        if (options.length > 0) setLine(options[Math.floor(Math.random() * options.length)].line);
+      .then((payload: { lines?: Line[]; source?: string } | null) => {
+        // a reserva já tem lugar próprio na tela: no bloco do Gemini, só o Gemini
+        if (payload?.source !== "ai") return;
+        const options = (payload.lines ?? []).filter((entry) => entry.screen === screen);
+        const choice = pickFresh(options, `gy:line:${screen}:${period ?? "todos"}`, (entry) => entry.line);
+        if (choice) setLine(choice.line);
       })
       .catch(() => undefined)
       .finally(() => {
@@ -42,7 +55,7 @@ export function ScreenLine({
       });
 
     return () => controller.abort();
-  }, [screen]);
+  }, [screen, period]);
 
   if (line) {
     return (
