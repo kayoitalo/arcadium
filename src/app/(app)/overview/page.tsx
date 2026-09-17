@@ -17,7 +17,7 @@ import { Turntable } from "@/components/overview/turntable";
 import { Delta, Meter, Readout } from "@/components/ui/console";
 import { CountUp, InViewFade } from "@/components/ui/motion";
 import { SectionHead } from "@/components/ui/section-head";
-import { Voice } from "@/components/ui/voice";
+import { Voice, VoicePending } from "@/components/ui/voice";
 import type { OverviewData, PeriodKey } from "@/modules/statistics/application/overview-service";
 import type { PackView, ProfileNarrative } from "@/modules/ai-analysis/domain/ai-analysis.types";
 
@@ -35,6 +35,13 @@ const PERIOD_SUBJECT: Record<PeriodKey, string> = {
   all: "desde o começo",
 };
 
+/**
+ * Só depois disso a leitura se anuncia como "sendo escrita". Pacote pronto
+ * volta em milissegundos; avisar antes faria o quadro piscar à toa em toda
+ * troca de período.
+ */
+const PENDING_AFTER_MS = 600;
+
 /** Dias do intervalo — usado para medir quanto dele virou escuta. */
 const PERIOD_DAYS: Record<PeriodKey, number | null> = { "7d": 7, "30d": 30, "1y": 365, all: null };
 
@@ -50,6 +57,10 @@ export default function OverviewPage() {
   const [data, setData] = useState<OverviewData | null>(null);
   const [story, setStory] = useState<ProfileNarrative | null>(null);
   const [albumLines, setAlbumLines] = useState<PackView["albumLines"]>([]);
+  /** "escrevendo" só aparece depois de PENDING_AFTER_MS: pacote pronto responde na hora. */
+  const [writing, setWriting] = useState(false);
+  /** Quem escreveu o que está na tela: só o que veio do modelo usa o quadro dele. */
+  const [packSource, setPackSource] = useState<PackView["source"] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [focused, setFocused] = useState(0);
@@ -73,6 +84,8 @@ export default function OverviewPage() {
     // números novos seria dar leitura de mês para a semana
     setStory(null);
     setAlbumLines([]);
+    setWriting(false);
+    setPackSource(null);
 
     fetch(`/api/overview?period=${period}`, { signal: controller.signal })
       .then((response) => {
@@ -90,16 +103,25 @@ export default function OverviewPage() {
 
     // o pacote do período traz várias leituras e os comentários dos discos;
     // o sorteio é aqui, pra que dois reloads não mostrem o mesmo texto
+    const writingTimer = setTimeout(() => setWriting(true), PENDING_AFTER_MS);
     fetch(`/api/ai/pack?period=${period}`, { signal: controller.signal })
       .then((response) => (response.ok ? response.json() : null))
       .then((payload: PackView | null) => {
         if (!payload) return;
         setStory(pickFresh(payload.readings, `gy:reading:${period}`, (reading) => reading.headline));
         setAlbumLines(payload.albumLines);
+        setPackSource(payload.source);
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        clearTimeout(writingTimer);
+        if (!controller.signal.aborted) setWriting(false);
+      });
 
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      clearTimeout(writingTimer);
+    };
   }, [period]);
 
   // sem corte aqui: quem decide o tamanho do rack é o RACK_SIZE da consulta
@@ -331,13 +353,19 @@ export default function OverviewPage() {
           <SectionHead index="01" eyebrow="Espectro" title="Onde o volume subiu" />
           <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
             <Spectrum activity={activity} days={PERIOD_DAYS[period]} />
-            {insight ? (
+            {writing ? (
+              <VoicePending label="leitura">
+                escrevendo a leitura deste período — a primeira de cada intervalo leva alguns
+                segundos. trocar de período agora cancela o pedido.
+              </VoicePending>
+            ) : packSource === "ai" && insight ? (
               <Voice label="leitura">{insight}</Voice>
             ) : (
               data && (
+                /* texto de reserva sai como texto comum: o quadro é só do que o modelo escreveu */
                 <p className="data border border-border bg-well p-4 leading-relaxed text-text-secondary">
-                  Os cinco primeiros artistas somam {decimal(data.concentration.top5ArtistShare)}% de tudo que
-                  você ouviu {PERIOD_SUBJECT[period]}.
+                  {insight ??
+                    `Os cinco primeiros artistas somam ${decimal(data.concentration.top5ArtistShare)}% de tudo que você ouviu ${PERIOD_SUBJECT[period]}.`}
                 </p>
               )
             )}

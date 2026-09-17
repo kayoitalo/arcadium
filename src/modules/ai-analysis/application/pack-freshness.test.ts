@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MusicProfileInput } from "../domain/ai-analysis.types";
-import { oldEnoughToCheck, packFingerprint, pickSlots, refreshDecision } from "./pack-freshness";
+import { keepScanning, oldEnoughToCheck, packFingerprint, pickSlots, refreshDecision } from "./pack-freshness";
 
 const profile = (overrides: Partial<MusicProfileInput> = {}): MusicProfileInput => ({
   period: "30d",
@@ -60,5 +60,21 @@ describe("pickSlots", () => {
 
   it("falls back to numbers when the profile backs no angle", () => {
     expect(pickSlots([], 2).every((slot) => slot.angle === "numeros")).toBe(true);
+  });
+});
+
+describe("keepScanning", () => {
+  it("ends the round after generating: one pack per run is the deal", () => {
+    expect(keepScanning("generated")).toBe(false);
+  });
+
+  it("ends the round when the budget blocked it: the ceiling is the same for every period", () => {
+    expect(keepScanning("blocked")).toBe(false);
+  });
+
+  it("keeps going past a skip and past a failure", () => {
+    expect(keepScanning("skipped")).toBe(true);
+    // o 30d é o primeiro da fila: parar na falha dele deixaria 7d, 1y e all sem pacote
+    expect(keepScanning("failed")).toBe(true);
   });
 });

@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { motion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
 import { Download, Link2, RefreshCw, Trash2, Unlink } from "lucide-react";
+import { describeRefresh } from "@/components/ai/refresh-report";
 import { useScreenChrome } from "@/components/layout/chrome";
 import { Readout } from "@/components/ui/console";
 
@@ -235,6 +236,19 @@ function SettingsContent() {
       if (!response.ok) throw new Error(payload.error ?? "A busca de informações falhou.");
       setCoverage(payload.data.coverage);
       return `Pronto — ${payload.data.summary.resolved} artistas e ${payload.data.summary.coversResolved} capas a mais.`;
+    });
+
+  /**
+   * O mesmo endpoint do cron. Ele aceita a chamada de dentro da página
+   * (same-origin) justamente para não precisar do segredo no navegador —
+   * e gera no máximo um pacote por clique, como o cron.
+   */
+  const writeTexts = () =>
+    run(async () => {
+      const response = await fetch("/api/ai/refresh", { method: "POST" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? "A geração dos textos falhou.");
+      return describeRefresh(payload.report);
     });
 
   const repairCovers = () =>
@@ -518,6 +532,21 @@ function SettingsContent() {
 
       <Module
         code="06"
+        title="Textos da IA"
+        hint="Os comentários de cada período são escritos de uma vez e reaproveitados por horas — o cron refaz o que envelhecer, logo depois de cada sincronização. Aqui você não espera: cada clique escreve o período que estiver mais atrasado."
+      >
+        <button type="button" onClick={writeTexts} disabled={loading} className="key">
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          escrever agora
+        </button>
+        <p className="data mt-3 text-text-muted">
+          A resposta do modelo é longa: um clique leva de 20 a 60 segundos. Períodos já em dia são
+          pulados sem gastar cota.
+        </p>
+      </Module>
+
+      <Module
+        code="07"
         title="Seus dados"
         hint="Tudo o que está guardado aqui é seu, e sai daqui quando você quiser — em JSON, de uma vez."
       >

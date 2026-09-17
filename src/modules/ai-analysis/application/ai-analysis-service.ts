@@ -5,6 +5,7 @@ import { readBudget } from "./ai-budget";
 import { classifyAiError, errorStatus, logAi, rejectedText } from "./ai-log";
 import { availableAngles } from "./listening-signals";
 import {
+  keepScanning,
   oldEnoughToCheck,
   packFingerprint,
   pickSlots,
@@ -120,7 +121,7 @@ export class AIAnalysisService {
             ? outcome.reason
             : undefined;
       report.push({ period, outcome: outcome.status, detail });
-      if (outcome.status !== "skipped") break;
+      if (!keepScanning(outcome.status)) break;
     }
 
     return report;
