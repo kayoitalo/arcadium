@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { loadArtistGenres } from "@/modules/statistics/application/artist-genres";
 import { decadeDistribution } from "@/modules/statistics/application/decades";
-import { getPeriodRanges, type PeriodKey } from "@/modules/statistics/application/overview-service";
+import { getPeriodRanges, RACK_SIZE, type PeriodKey } from "@/modules/statistics/application/overview-service";
 import type { MusicProfileInput } from "../domain/ai-analysis.types";
 import { findComebacks, findOutliers, findUnlikelyTransition, longestLoop, topTrackByArtist } from "./listening-signals";
 
@@ -144,13 +144,15 @@ export class ProfileBuilder {
       orderBy: { _count: { id: "desc" } },
       take: 1,
     });
-    // os 6 discos mais ouvidos: o primeiro é "o mais ouvido", todos são o rack da Visão geral
+    // os discos mais ouvidos: o primeiro é "o mais ouvido", todos são o rack
+    // da Visão geral. Mesmo RACK_SIZE da tela, de propósito — a IA precisa
+    // ter escrito sobre cada capa que a pessoa vê
     const albumRows = await prisma.listeningEvent.groupBy({
       by: ["rawArtistName", "rawAlbumName"],
       where: { ...currentWhere, NOT: { rawAlbumName: null } },
       _count: { id: true },
       orderBy: { _count: { id: "desc" } },
-      take: 6,
+      take: RACK_SIZE,
     });
     const [topAlbum] = albumRows;
     const rackAlbums = (albumRows as any[])

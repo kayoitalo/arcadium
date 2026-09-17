@@ -64,6 +64,24 @@ export function refreshDecision(
   return ageHours >= cadence.minHours ? "changed" : "too_recent";
 }
 
+export type RoundOutcome = "generated" | "skipped" | "blocked" | "failed";
+
+/**
+ * Depois de tentar um período, a rodada do cron segue para o próximo?
+ *
+ * Gerou: encerra — um pacote por execução é o combinado, e insistir agora
+ * só gastaria cota. Bloqueado pelo teto: encerra também, porque o teto vale
+ * para todos os períodos e os seguintes bateriam nele igual.
+ *
+ * Falhou: SEGUE. Encerrar aqui deixava quem vem depois na fila refém de um
+ * período problemático — e como o `30d` é o primeiro, uma falha teimosa
+ * nele significaria que `7d`, `1y` e `all` nunca seriam gerados. As
+ * tentativas a mais já estão limitadas pelo teto por hora.
+ */
+export function keepScanning(outcome: RoundOutcome): boolean {
+  return outcome === "skipped" || outcome === "failed";
+}
+
 /** Se vale sequer montar o perfil para comparar: antes do mínimo, nem olha. */
 export function oldEnoughToCheck(builtAt: Date | null, period: PeriodKey, now = new Date()): boolean {
   if (!builtAt) return true;

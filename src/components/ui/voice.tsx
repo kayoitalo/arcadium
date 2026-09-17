@@ -8,6 +8,38 @@ import { useInView, useReducedMotion } from "framer-motion";
  * bloco mono, digitada como saída de terminal quando entra na tela.
  * O resto do texto já ocupa o espaço, invisível, então nada pula.
  */
+/**
+ * O mesmo quadro, enquanto o texto ainda está sendo escrito. A primeira
+ * leitura de um período nasce na hora e leva dezenas de segundos: sem este
+ * aviso, "gerando" e "quebrado" são a mesma tela — e quem troca de período
+ * no meio cancela a chamada sem saber que cancelou.
+ *
+ * O LED piscando é o mesmo de Histórico, Descobertas e Evolução.
+ */
+export function VoicePending({
+  label,
+  children: hint,
+  className = "",
+}: {
+  label: string;
+  children: string;
+  className?: string;
+}) {
+  return (
+    <figure
+      className={`m-0 flex flex-col border border-border bg-well ${className}`}
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <figcaption className="flex items-center justify-between gap-3 border-b border-rule px-4 py-2.5">
+        <span className="eyebrow text-accent">{label}</span>
+        <span className="led" data-on="true" style={{ animation: "gy-blink 0.7s steps(1) infinite" }} aria-hidden />
+      </figcaption>
+      <p className="data m-0 px-4 py-4 text-[13px] leading-relaxed text-text-muted">{hint}</p>
+    </figure>
+  );
+}
+
 export function Voice({
   label,
   children: text,

@@ -5,6 +5,7 @@ import { readBudget } from "./ai-budget";
 import { classifyAiError, errorStatus, logAi, rejectedText } from "./ai-log";
 import { availableAngles } from "./listening-signals";
 import {
+  keepScanning,
   oldEnoughToCheck,
   packFingerprint,
   pickSlots,
@@ -34,8 +35,13 @@ import {
  * visita. Renovação guiada pela impressão digital da escuta (pack-freshness),
  * feita pelo cron depois do sync — a visita só lê o que está pronto.
  * A voz é a v10: dois colegas jovens, tratamento escolhido em Ajustes.
+ *
+ * v12: o rack passou de 6 para RACK_SIZE discos. A versão sobe porque um
+ * pacote da v11 só tem comentário para os 6 primeiros — servido contra o
+ * rack novo, deixaria metade das capas muda. Subir invalida o guardado e
+ * força uma geração por período, uma vez só.
  */
-const PACK_PROMPT_VERSION = "v11-pacote";
+const PACK_PROMPT_VERSION = "v12-rack";
 
 /** Leituras completas por pacote. */
 const READINGS_PER_PACK = 4;
@@ -115,7 +121,7 @@ export class AIAnalysisService {
             ? outcome.reason
             : undefined;
       report.push({ period, outcome: outcome.status, detail });
-      if (outcome.status !== "skipped") break;
+      if (!keepScanning(outcome.status)) break;
     }
 
     return report;
