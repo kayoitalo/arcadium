@@ -357,6 +357,15 @@ export class EnrichmentService {
 
     for (const album of albums) {
       try {
+        // vínculo já guardado: vai direto às faixas, sem buscar pelo nome de novo
+        if (album.itunesCollectionId) {
+          const tracks = await this.catalog.lookupTracks(album.itunesCollectionId);
+          await prisma.album.update({ where: { id: album.id }, data: { itunesFetchedAt: new Date() } });
+          summary.matched++;
+          summary.tracksUpdated += await this.applyCatalogTracks(album.id, album.artistId, tracks);
+          continue;
+        }
+
         const found = await this.catalog.searchAlbum(album.artist.name, album.name);
         if (!found) {
           await prisma.album.update({ where: { id: album.id }, data: { itunesFetchedAt: new Date() } });

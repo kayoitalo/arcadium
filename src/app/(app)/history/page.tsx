@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ArrowUpRight, ChevronLeft, ChevronRight, Pause, Play, Search } from "lucide-react";
+import { usePreviewPlayer } from "@/components/audio/use-preview-player";
 import { useScreenChrome } from "@/components/layout/chrome";
 import { Key } from "@/components/ui/console";
 import { LedColumns } from "@/components/ui/led-columns";
@@ -17,6 +18,8 @@ interface HistoryEvent {
   rawTrackName: string;
   rawAlbumName?: string | null;
   coverUrl?: string | null;
+  previewUrl?: string | null;
+  appleMusicUrl?: string | null;
   provider: string;
 }
 
@@ -84,6 +87,10 @@ export default function HistoryPage() {
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // uma prévia por vez para a tela inteira: a linha que tocou por último
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const activeEvent = events.find((event) => event.id === activeId) ?? null;
+  const player = usePreviewPlayer(activeEvent?.previewUrl);
 
   useScreenChrome({ title: "Histórico" });
 
@@ -130,6 +137,17 @@ export default function HistoryPage() {
     }
     return [...grouped.entries()];
   }, [events]);
+
+  /** A mesma linha pausa e retoma; outra linha troca a faixa no mesmo clique. */
+  const playRow = (event: HistoryEvent) => {
+    if (!event.previewUrl) return;
+    if (event.id === activeId) {
+      player.toggle();
+      return;
+    }
+    setActiveId(event.id);
+    player.play(event.previewUrl);
+  };
 
   return (
     <div className="gy-page flex flex-col gap-10">
@@ -211,31 +229,65 @@ export default function HistoryPage() {
               </div>
 
               <ol className="m-0 list-none p-0">
-                {dayEvents.map((event, index) => (
-                  <motion.li
-                    key={event.id}
-                    className="grid grid-cols-[46px_28px_minmax(0,1fr)] items-center gap-3 border-b border-rule px-3 py-2.5 transition-colors duration-150 hover:bg-surface md:grid-cols-[52px_28px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)] md:gap-4"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.25, delay: Math.min(0.3, index * 0.015) }}
-                  >
-                    <span className="data text-text-muted">{TIME_FORMAT.format(new Date(event.playedAt))}</span>
+                {dayEvents.map((event, index) => {
+                  const sounding = event.id === activeId && player.playing;
+                  return (
+                    <motion.li
+                      key={event.id}
+                      className={`grid grid-cols-[46px_28px_minmax(0,1fr)_28px] items-center gap-3 border-b border-rule px-3 py-2.5 transition-colors duration-150 hover:bg-surface md:grid-cols-[52px_28px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_28px] md:gap-4 ${
+                        sounding ? "bg-surface" : ""
+                      }`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.25, delay: Math.min(0.3, index * 0.015) }}
+                    >
+                      <span className={`data ${sounding ? "text-accent" : "text-text-muted"}`}>
+                        {TIME_FORMAT.format(new Date(event.playedAt))}
+                      </span>
 
-                    {/* miniatura só quando a capa existe; o vão mantém a coluna alinhada */}
-                    {event.coverUrl ? (
-                      <ResilientCover src={event.coverUrl} alt="" compact className="h-7 w-7" />
-                    ) : (
-                      <span className="h-7 w-7" aria-hidden />
-                    )}
+                      {/* miniatura só quando a capa existe; o vão mantém a coluna alinhada */}
+                      {event.coverUrl ? (
+                        <ResilientCover src={event.coverUrl} alt="" compact className="h-7 w-7" />
+                      ) : (
+                        <span className="h-7 w-7" aria-hidden />
+                      )}
 
-                    <span className="flex min-w-0 flex-col md:contents">
-                      <b className="truncate text-[14px] font-semibold text-text-primary">{event.rawTrackName}</b>
-                      <span className="truncate text-[13px] text-text-secondary">{event.rawArtistName}</span>
-                    </span>
+                      <span className="flex min-w-0 flex-col md:contents">
+                        <b className="truncate text-[14px] font-semibold text-text-primary">{event.rawTrackName}</b>
+                        <span className="truncate text-[13px] text-text-secondary">{event.rawArtistName}</span>
+                      </span>
 
-                    <span className="data hidden truncate text-text-label md:block">{event.rawAlbumName ?? "—"}</span>
-                  </motion.li>
-                ))}
+                      {/* tocando, o álbum dá lugar ao link da faixa no Apple Music */}
+                      {sounding && event.appleMusicUrl ? (
+                        <a
+                          href={event.appleMusicUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="data hidden items-center gap-1 truncate text-text-label hover:text-text-primary md:inline-flex"
+                        >
+                          abrir no Apple Music
+                          <ArrowUpRight className="h-3 w-3 shrink-0" />
+                        </a>
+                      ) : (
+                        <span className="data hidden truncate text-text-label md:block">{event.rawAlbumName ?? "—"}</span>
+                      )}
+
+                      {event.previewUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => playRow(event)}
+                          data-active={sounding}
+                          aria-label={`${sounding ? "Pausar" : "Tocar"} a prévia de ${event.rawTrackName}`}
+                          className="key h-7 w-7 justify-center p-0"
+                        >
+                          {sounding ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                        </button>
+                      ) : (
+                        <span className="h-7 w-7" aria-hidden />
+                      )}
+                    </motion.li>
+                  );
+                })}
               </ol>
             </section>
           ))}

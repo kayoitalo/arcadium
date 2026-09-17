@@ -66,13 +66,20 @@ export async function GET(request: Request) {
           rawAlbumName: true,
           provider: true,
           album: { select: { coverUrl: true } },
+          track: { select: { previewUrl: true, appleMusicUrl: true } },
         },
       }),
       hourHistogram(user.id, user.timezone, search),
     ]);
 
     return NextResponse.json({
-      events: events.map(({ album, ...event }) => ({ ...event, coverUrl: album?.coverUrl ?? null })),
+      events: events.map(({ album, track, ...event }) => ({
+        ...event,
+        coverUrl: album?.coverUrl ?? null,
+        // prévia e link vêm do catálogo da Apple, quando a faixa já foi casada
+        previewUrl: track?.previewUrl ?? null,
+        appleMusicUrl: track?.appleMusicUrl ?? null,
+      })),
       page,
       totalPages,
       totalItems,

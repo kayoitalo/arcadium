@@ -13,9 +13,9 @@ interface PlayerState {
 const IDLE: PlayerState = { playing: false, progress: 0, loading: false, failed: false };
 
 /**
- * Um único <audio> para a tela inteira: trocar de faixa reaproveita o mesmo
- * elemento em vez de empilhar players. O navegador não deixa tocar sem gesto
- * do usuário, então o primeiro play sempre parte de um clique ou tecla.
+ * Um único <audio> por tela: trocar de faixa reaproveita o mesmo elemento
+ * em vez de empilhar players. O navegador não deixa tocar sem gesto do
+ * usuário, então todo play parte de um clique ou tecla.
  */
 export function usePreviewPlayer(previewUrl: string | null | undefined) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -37,6 +37,9 @@ export function usePreviewPlayer(previewUrl: string | null | undefined) {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
+
+    // play(url) já trocou a faixa dentro do clique: não interromper o que começou
+    if (previewUrl && audio.src === previewUrl) return;
 
     audio.pause();
     setState(previewUrl ? IDLE : { ...IDLE, failed: true });
@@ -78,17 +81,32 @@ export function usePreviewPlayer(previewUrl: string | null | undefined) {
     };
   }, []);
 
+  /**
+   * Toca uma URL agora, dentro do gesto que chamou. Serve para quem troca
+   * de faixa e quer som no mesmo clique — esperar o próximo render para
+   * trocar a fonte faria o navegador recusar o play.
+   */
+  const play = useCallback((url?: string | null) => {
+    const audio = audioRef.current;
+    const target = url ?? previewUrl;
+    if (!audio || !target) return;
+
+    if (audio.src !== target) {
+      audio.src = target;
+      setState({ ...IDLE, loading: true });
+    } else {
+      setState((current) => ({ ...current, loading: true, failed: false }));
+    }
+    void audio.play().catch(() => setState({ ...IDLE, failed: true }));
+  }, [previewUrl]);
+
   const toggle = useCallback(() => {
     const audio = audioRef.current;
     if (!audio || !previewUrl) return;
 
-    if (audio.paused) {
-      setState((current) => ({ ...current, loading: true }));
-      void audio.play().catch(() => setState({ ...IDLE, failed: true }));
-    } else {
-      audio.pause();
-    }
-  }, [previewUrl]);
+    if (audio.paused) play(previewUrl);
+    else audio.pause();
+  }, [previewUrl, play]);
 
   const stop = useCallback(() => {
     const audio = audioRef.current;
@@ -98,5 +116,7 @@ export function usePreviewPlayer(previewUrl: string | null | undefined) {
     setState((current) => ({ ...current, playing: false, progress: 0 }));
   }, []);
 
-  return { ...state, available: Boolean(previewUrl), toggle, stop };
+  return { ...state, available: Boolean(previewUrl), play, toggle, stop };
 }
+
+export type PreviewPlayer = ReturnType<typeof usePreviewPlayer>;

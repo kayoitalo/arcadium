@@ -50,6 +50,14 @@ interface EnrichmentCoverage {
 
 type Signal = "on" | "off" | "error";
 
+type AddressAs = "masculino" | "feminino" | "neutro";
+
+const ADDRESS_OPTIONS: Array<{ value: AddressAs; label: string; sample: string }> = [
+  { value: "masculino", label: "mano", sample: "\"Caraca, mermão, 22 vezes o mesmo disco?\"" },
+  { value: "feminino", label: "mina", sample: "\"Caraca, amiga, 22 vezes o mesmo disco?\"" },
+  { value: "neutro", label: "neutro", sample: "\"Caraca, 22 vezes o mesmo disco?\"" },
+];
+
 /** Estado de uma conexão: LED âmbar ligado, apagado desligado, vermelho com falha. */
 function Status({ signal, children }: PropsWithChildren<{ signal: Signal }>) {
   return (
@@ -109,7 +117,33 @@ function SettingsContent() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const [coverage, setCoverage] = useState<EnrichmentCoverage | null>(null);
   const [spotify, setSpotify] = useState<SpotifyStatus | null>(null);
+  const [addressAs, setAddressAs] = useState<AddressAs | null>(null);
   const searchParams = useSearchParams();
+
+  const loadPreferences = useCallback(async () => {
+    try {
+      const response = await fetch("/api/user/preferences", { cache: "no-store" });
+      if (response.ok) setAddressAs((await response.json()).addressAs);
+    } catch (cause) {
+      console.error("Failed to load preferences", cause);
+    }
+  }, []);
+
+  /** A troca vale para os próximos textos gerados; os já guardados continuam como estão. */
+  const chooseAddress = (next: AddressAs) => {
+    const previous = addressAs;
+    setAddressAs(next);
+    void fetch("/api/user/preferences", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ addressAs: next }),
+    }).then((response) => {
+      if (!response.ok) {
+        setAddressAs(previous);
+        setError("Não foi possível salvar o jeito de conversar.");
+      }
+    });
+  };
 
   const loadSyncStatus = useCallback(async () => {
     try {
@@ -142,7 +176,8 @@ function SettingsContent() {
     void loadSyncStatus();
     void loadCoverage();
     void loadSpotify();
-  }, [loadSyncStatus, loadCoverage, loadSpotify]);
+    void loadPreferences();
+  }, [loadSyncStatus, loadCoverage, loadSpotify, loadPreferences]);
 
   // o callback devolve o resultado na barra de endereço
   useEffect(() => {
@@ -458,6 +493,31 @@ function SettingsContent() {
 
       <Module
         code="05"
+        title="Conversa"
+        hint="Os comentários falam contigo como um parceiro de rolê. Escolhe como eles te tratam — vale a partir da próxima leitura gerada."
+      >
+        <div role="group" aria-label="Como os textos te tratam" className="keys">
+          {ADDRESS_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              data-active={addressAs === option.value}
+              aria-pressed={addressAs === option.value}
+              onClick={() => chooseAddress(option.value)}
+              className="key"
+            >
+              <span className="led" aria-hidden />
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <p className="data mt-3 text-text-muted">
+          {ADDRESS_OPTIONS.find((option) => option.value === addressAs)?.sample ?? ""}
+        </p>
+      </Module>
+
+      <Module
+        code="06"
         title="Seus dados"
         hint="Tudo o que está guardado aqui é seu, e sai daqui quando você quiser — em JSON, de uma vez."
       >

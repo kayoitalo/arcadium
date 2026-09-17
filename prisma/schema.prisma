@@ -11,6 +11,8 @@ model User {
   email       String   @unique
   displayName String?
   timezone    String   @default("America/Sao_Paulo")
+  /// Como os textos tratam a pessoa: "masculino" (mano), "feminino" (mina) ou "neutro"
+  addressAs   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

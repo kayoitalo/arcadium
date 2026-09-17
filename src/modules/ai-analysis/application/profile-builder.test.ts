@@ -8,6 +8,7 @@ vi.mock("@/lib/db/prisma", () => ({
       count: vi.fn(),
       groupBy: vi.fn(),
       findFirst: vi.fn(),
+      findMany: vi.fn(),
     },
     artist: {
       findMany: vi.fn(),
@@ -67,6 +68,14 @@ describe("ProfileBuilder", () => {
       playedAt: new Date(),
     } as any);
 
+    // ano de lançamento de cada audição; uma sem disco conhecido
+    vi.mocked(prisma.listeningEvent.findMany).mockResolvedValue([
+      { album: { releaseYear: 1977 } },
+      { album: { releaseYear: 1979 } },
+      { album: { releaseYear: 2003 } },
+      { album: null },
+    ] as any);
+
     const profile = await builder.buildProfile("user123", "30d");
 
     expect((profile as any).userId).toBeUndefined();
@@ -88,5 +97,27 @@ describe("ProfileBuilder", () => {
     );
     expect(profile.topGenres.map((genre) => genre.name)).not.toContain("Seen Live");
     expect(profile.topGenres.map((genre) => genre.name)).not.toContain("pop");
+
+    // décadas só das audições com ano conhecido, da mais ouvida para a menos
+    expect(profile.eras).toEqual([
+      { decade: "1970s", share: 0.667 },
+      { decade: "2000s", share: 0.333 },
+    ]);
+  });
+
+  it("leaves eras out when too few plays have a known release year", async () => {
+    vi.mocked(prisma.listeningEvent.count).mockResolvedValue(10);
+    (vi.mocked(prisma.listeningEvent.groupBy) as any).mockResolvedValue([]);
+    vi.mocked(prisma.artist.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.album.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.listeningEvent.findMany).mockResolvedValue([
+      { album: { releaseYear: 1994 } },
+      ...Array.from({ length: 9 }, () => ({ album: null })),
+    ] as any);
+
+    const profile = await builder.buildProfile("user123", "all");
+
+    // 10% de anos conhecidos: pouco para a piada virar retrato
+    expect(profile.eras).toEqual([]);
   });
 });

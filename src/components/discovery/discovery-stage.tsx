@@ -2,11 +2,11 @@
 
 import { useEffect } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Bookmark, Check, Pause, Play, SkipForward, ThumbsUp } from "lucide-react";
+import { ArrowUpRight, Bookmark, Check, Pause, Play, SkipForward, ThumbsUp } from "lucide-react";
 import { ResilientCover } from "@/components/ui/resilient-cover";
 import { EASE_OUT_EXPO } from "@/components/ui/motion";
 import { formatGenre } from "@/lib/format/genre";
-import { usePreviewPlayer } from "./use-preview-player";
+import { usePreviewPlayer } from "@/components/audio/use-preview-player";
 
 export interface StageCandidate {
   id: string;
@@ -15,6 +15,8 @@ export interface StageCandidate {
   albumName: string | null;
   coverUrl?: string | null;
   previewUrl?: string | null;
+  /** A faixa no Apple Music, que acompanha a prévia vinda do catálogo deles. */
+  appleMusicUrl?: string | null;
   genre: string | null;
   score: number;
   reason: string | null;
@@ -224,6 +226,18 @@ export function DiscoveryStage({ queue, index, onAction }: StageProps) {
           {clock(player.progress * PREVIEW_SECONDS)} / {clock(PREVIEW_SECONDS)}
         </span>
       </div>
+
+      {current.appleMusicUrl && (
+        <a
+          href={current.appleMusicUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="data mt-2 inline-flex items-center gap-1 self-end text-text-label transition-colors duration-150 hover:text-text-primary"
+        >
+          prévia do Apple Music · abrir a faixa
+          <ArrowUpRight className="h-3 w-3" />
+        </a>
+      )}
 
       <AnimatePresence mode="wait" initial={false}>
         <motion.div

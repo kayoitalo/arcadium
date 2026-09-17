@@ -43,6 +43,17 @@ describe("title matching", () => {
     expect(normalizeTitle("Canción [Remastered]")).toBe("cancion");
   });
 
+  it("drops the edition suffix Last.fm writes after a dash", () => {
+    expect(normalizeTitle("Dreams - 2004 Remaster")).toBe("dreams");
+    expect(normalizeTitle("Numb - Live")).toBe("numb");
+    expect(normalizeTitle("Go Your Own Way - Remastered 2011")).toBe("go your own way");
+    expect(sameTitle("The Chain - 2004 Remaster", "The Chain")).toBe(true);
+  });
+
+  it("keeps a dash that is part of the title", () => {
+    expect(normalizeTitle("Doo Wop - That Thing")).toBe("doo wop that thing");
+  });
+
   it("accepts the same artist written differently", () => {
     expect(sameArtist("Linkin Park", "LINKIN PARK")).toBe(true);
     expect(sameArtist("30 Seconds to Mars", "Thirty Seconds to Mars")).toBe(true);

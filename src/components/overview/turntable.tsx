@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
+import { ArrowUpRight, Pause, Play } from "lucide-react";
+import type { PreviewPlayer } from "@/components/audio/use-preview-player";
 import { ResilientCover } from "@/components/ui/resilient-cover";
 import { EASE_OUT_EXPO, SPRING_SOFT } from "@/components/ui/motion";
 import type { AlbumItem } from "@/modules/statistics/application/overview-service";
@@ -10,6 +12,8 @@ interface TurntableProps {
   albums: AlbumItem[];
   selectedIndex: number;
   onSelect: (index: number) => void;
+  /** O player da tela: a vitrola toca a prévia do disco que está na agulha. */
+  player: PreviewPlayer;
 }
 
 /** Medidas em que a vitrola foi desenhada; abaixo disso ela encolhe inteira. */
@@ -17,12 +21,22 @@ const STAGE_WIDTH = 470;
 const STAGE_HEIGHT = 400;
 
 /**
- * A vitrola. O disco em foco está no prato, com a capa servindo de
- * bolacha central e a mesma capa embaixo, como encarte. Os próximos
- * ficam na pilha "a seguir": passar o cursor puxa o disco de dentro da
- * capa, e clicar troca o que está tocando — e a cor de toda a tela.
+ * Ângulo do braço em torno do pivô: em repouso ele fica fora do disco,
+ * no alto; tocando, desce e a agulha pousa nos sulcos.
  */
-export function Turntable({ albums, selectedIndex, onSelect }: TurntableProps) {
+const ARM_REST_DEG = 42;
+const ARM_PLAYING_DEG = 24;
+
+/** As prévias do catálogo têm 30 segundos: um segmento por segundo. */
+const PREVIEW_SECONDS = 30;
+
+/**
+ * A vitrola. O disco em foco está no prato, com a capa servindo de
+ * bolacha central e a mesma capa embaixo, como encarte. Clicar no prato
+ * toca a prévia da faixa mais ouvida do disco: o braço desce e o disco
+ * acelera. Os próximos ficam na pilha "a seguir".
+ */
+export function Turntable({ albums, selectedIndex, onSelect, player }: TurntableProps) {
   const reduced = useReducedMotion();
   // ref de estado, não useRef: o palco só existe depois que os discos
   // chegam, e um useRef não avisaria o observer de que ele nasceu
@@ -49,13 +63,26 @@ export function Turntable({ albums, selectedIndex, onSelect }: TurntableProps) {
 
   const current = albums[selectedIndex] ?? albums[0];
   const upNext = albums.map((album, index) => ({ album, index })).filter(({ index }) => index !== selectedIndex).slice(0, 4);
+  const playable = Boolean(current.previewUrl);
+  const playing = playable && player.playing;
+  const litSeconds = Math.round(player.progress * PREVIEW_SECONDS);
 
   return (
     <div className="relative mx-auto w-full max-w-[470px]">
       <div
         ref={setStage}
-        className="relative w-full"
+        className={`relative w-full ${playable ? "cursor-pointer" : ""}`}
         style={{ perspective: 1200, height: STAGE_HEIGHT * scale }}
+        role={playable ? "button" : undefined}
+        tabIndex={playable ? 0 : undefined}
+        aria-label={playable ? `${playing ? "Pausar" : "Tocar"} a prévia de ${current.previewTrack}` : undefined}
+        aria-pressed={playable ? playing : undefined}
+        onClick={() => playable && player.toggle()}
+        onKeyDown={(event) => {
+          if (!playable || (event.key !== "Enter" && event.key !== " ")) return;
+          event.preventDefault();
+          player.toggle();
+        }}
         onPointerMove={(event) => {
           if (reduced) return;
           const bounds = stage?.getBoundingClientRect();
@@ -128,7 +155,9 @@ export function Turntable({ albums, selectedIndex, onSelect }: TurntableProps) {
             />
           </div>
 
-          {/* bolacha */}
+          {/* bolacha: gira devagar em exposição; tocando, a camada de dentro
+              acelera. Pausar a camada em vez de removê-la evita o disco
+              saltar de ângulo quando a prévia para. */}
           <div
             className="absolute left-1/2 top-[50px] h-[300px] w-[300px] -translate-x-1/2 rounded-full"
             style={{
@@ -138,38 +167,46 @@ export function Turntable({ albums, selectedIndex, onSelect }: TurntableProps) {
             }}
           >
             <div
-              className="absolute inset-[7px] rounded-full"
-              style={{
-                background:
-                  "repeating-radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.05) 0 1px, transparent 1px 3px)",
-              }}
-            />
-            <div
               className="absolute inset-0 rounded-full"
               style={{
-                background:
-                  "conic-gradient(from 0deg, transparent 0deg, rgb(255 255 255 / 0.07) 28deg, transparent 62deg, transparent 180deg, rgb(255 255 255 / 0.05) 212deg, transparent 250deg)",
+                animation: reduced ? undefined : "gy-spin 1.8s linear infinite",
+                animationPlayState: playing ? "running" : "paused",
               }}
-            />
-
-            {/* o rótulo é a própria capa, recortada em círculo */}
-            <div className="absolute left-1/2 top-1/2 h-[34%] w-[34%] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full shadow-[0_2px_12px_rgb(0_0_0/0.55)]">
-              <ResilientCover
-                src={current.coverUrl}
-                alt={`Capa de ${current.title}`}
-                label={current.title}
-                priority
-                className="h-full w-full"
+            >
+              <div
+                className="absolute inset-[7px] rounded-full"
+                style={{
+                  background:
+                    "repeating-radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.05) 0 1px, transparent 1px 3px)",
+                }}
               />
-              <span className="absolute inset-[14%] rounded-full border border-black/20" />
+              <div
+                className="absolute inset-0 rounded-full"
+                style={{
+                  background:
+                    "conic-gradient(from 0deg, transparent 0deg, rgb(255 255 255 / 0.07) 28deg, transparent 62deg, transparent 180deg, rgb(255 255 255 / 0.05) 212deg, transparent 250deg)",
+                }}
+              />
+
+              {/* o rótulo é a própria capa, recortada em círculo */}
+              <div className="absolute left-1/2 top-1/2 h-[34%] w-[34%] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full shadow-[0_2px_12px_rgb(0_0_0/0.55)]">
+                <ResilientCover
+                  src={current.coverUrl}
+                  alt={`Capa de ${current.title}`}
+                  label={current.title}
+                  priority
+                  className="h-full w-full"
+                />
+                <span className="absolute inset-[14%] rounded-full border border-black/20" />
+              </div>
+              <span className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-background" />
             </div>
-            <span className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-background" />
           </div>
 
           {/* braço */}
           <div
-            className="absolute right-1.5 top-[197px] h-1.5 w-[274px] origin-right"
-            style={{ transform: "rotate(24deg)" }}
+            className="absolute right-1.5 top-[197px] h-1.5 w-[274px] origin-right transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
+            style={{ transform: `rotate(${playing ? ARM_PLAYING_DEG : ARM_REST_DEG}deg)` }}
           >
             <span
               className="absolute -right-[11px] -top-[11px] h-7 w-7 rounded-full"
@@ -193,16 +230,54 @@ export function Turntable({ albums, selectedIndex, onSelect }: TurntableProps) {
       </div>
 
       {/* o que está tocando, lido como no display do aparelho */}
-      <div className="mt-4 flex items-end justify-between gap-4 border-y border-rule py-3">
-        <div className="min-w-0">
-          <span className="eyebrow">na agulha</span>
-          <p className="mt-1.5 truncate text-sm font-semibold text-text-primary">{current.title}</p>
-          <p className="truncate text-xs text-text-muted">{current.artistName}</p>
+      <div className="mt-4 border-y border-rule py-3">
+        <div className="flex items-end justify-between gap-4">
+          <div className="min-w-0">
+            <span className="eyebrow">na agulha</span>
+            <p className="mt-1.5 truncate text-sm font-semibold text-text-primary">{current.title}</p>
+            <p className="truncate text-xs text-text-muted">{current.artistName}</p>
+          </div>
+          <span className="data shrink-0 text-text-label">
+            <b className="text-[13px] font-semibold text-text-primary">{current.plays.toLocaleString("pt-BR")}</b>{" "}
+            audições
+          </span>
         </div>
-        <span className="data shrink-0 text-text-label">
-          <b className="text-[13px] font-semibold text-text-primary">{current.plays.toLocaleString("pt-BR")}</b>{" "}
-          audições
-        </span>
+
+        {playable && (
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={player.toggle}
+              data-active={playing}
+              aria-label={playing ? "Pausar a prévia" : `Tocar a prévia de ${current.previewTrack}`}
+              className="key key-sm shrink-0"
+            >
+              {playing ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+              {playing ? "pausar" : "ouvir"}
+            </button>
+
+            <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <span className="data truncate text-text-secondary">{current.previewTrack}</span>
+              <span className="meter h-1.5" aria-hidden>
+                {Array.from({ length: PREVIEW_SECONDS }, (_, second) => (
+                  <span key={second} data-lit={playing && second < litSeconds} style={{ animation: "none" }} />
+                ))}
+              </span>
+            </span>
+
+            {current.appleMusicUrl && (
+              <a
+                href={current.appleMusicUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="data inline-flex shrink-0 items-center gap-1 text-text-label transition-colors duration-150 hover:text-text-primary"
+              >
+                apple music
+                <ArrowUpRight className="h-3 w-3" />
+              </a>
+            )}
+          </div>
+        )}
       </div>
 
       {upNext.length > 0 && (
@@ -215,7 +290,7 @@ export function Turntable({ albums, selectedIndex, onSelect }: TurntableProps) {
                 key={`${album.id ?? album.title}-${index}`}
                 type="button"
                 onClick={() => onSelect(index)}
-                aria-label={`Tocar ${album.title}, de ${album.artistName}`}
+                aria-label={`Pôr na agulha: ${album.title}, de ${album.artistName}`}
                 className="group relative h-[74px] flex-1 cursor-pointer border-0 bg-transparent p-0"
               >
                 {/* a bolacha sai de dentro da capa no hover */}

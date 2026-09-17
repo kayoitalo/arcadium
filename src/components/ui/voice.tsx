@@ -51,7 +51,7 @@ export function Voice({
   return (
     <figure ref={ref} className={`m-0 flex flex-col border border-border bg-well ${className}`}>
       <figcaption className="flex items-center justify-between gap-3 border-b border-rule px-4 py-2.5">
-        <span className="eyebrow text-accent">gemini ▸ {label}</span>
+        <span className="eyebrow text-accent">{label}</span>
         <span className="led" data-on="true" aria-hidden />
       </figcaption>
       <p

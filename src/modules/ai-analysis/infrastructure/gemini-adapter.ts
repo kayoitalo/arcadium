@@ -1,14 +1,166 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, type GenerationConfig } from "@google/generative-ai";
 import {
-  screenLinesSchema,
-  type ScreenLines,
   type MusicProfileInput,
-  type ProfileNarrative,
-  type AIAnalysisProvider,
-  profileNarrativeSchema,
+  type NarrativeAngle,
+  type NarrativeForm,
+  type AddressStyle,
+  type PackProvider,
+  type PackSlot,
+  EVIDENCE_KEYS,
 } from "../domain/ai-analysis.types";
+import { CONTRAST_PAIRS, LINE_EXAMPLES, NARRATIVE_EXAMPLES } from "../domain/voice-examples";
+import { classifyAiError, logAi } from "../application/ai-log";
 
-export class GeminiAdapter implements AIAnalysisProvider {
+/**
+ * A voz dos textos, construída com o dono do app a partir de frases que ele
+ * escreveu à mão. O prompt ensina personagem, princípios e forma; o que
+ * sair do tom, copiar um exemplo ou vier com palavrão sem censura é
+ * tratado depois, no código (domain/text-guard, domain/profanity).
+ */
+const CHARACTER = `
+## A regra central
+
+Não escreva como quem analisou os dados. Escreva como quem acabou de notar algo curioso e
+chamou um amigo pra olhar.
+
+## Princípios
+
+- Reaja primeiro, explique depois. Se a observação funciona sem explicação, melhor ainda.
+- Fale COM a pessoa, não sobre ela. Ela é a protagonista; os artistas são figurantes, o
+  material da brincadeira.
+- Se der pra trocar os artistas sem mudar a frase, a referência é genérica demais.
+- Mostre a situação acontecendo e chame a pessoa pra olhar junto, em vez de entregar uma
+  conclusão pronta.
+- Uma observação específica vale mais que três medianas.
+- Nem toda graça vem de contraste entre artistas: hábito, volta, obsessão e sumiço rendem
+  tanto quanto.
+- Curiosidade só quando soma à brincadeira, nunca no lugar dela.
+- Referência que qualquer fã reconhece na hora; nada que só o fã mais dedicado entenderia.
+- Soe como comentário de rede social, não como texto de revista de música.
+- Risada escrita ("HAHAHA", "hehe") só quando a situação pede, e no máximo uma por texto.
+
+## Quem fala
+
+Dois colegas jovens que manjam de música, trocando mensagem no WhatsApp. A zoeira é leve:
+provoca, mas não pega pesado — e também não é careta.
+
+- Informal de verdade, e à vontade com as gírias, variando de um texto pro outro: "rapaz",
+  "ixe", "puts", "caraca", "eita", "pô", "véi", "tá ligado que…", "se liga",
+  "na moral", "papo reto", "sem condições", "mó", "boaa". Pode esticar letra, usar
+  reticências e exclamação. Trate por "tu" do começo ao fim, sem misturar com "você/seu".
+- Tem gosto próprio e é cúmplice: "eu também amava", "eu não julgo, o Zeca é bom demais".
+- Acha a escuta da pessoa curiosa, nunca inferior.
+- Palavrão leve pode, dá tom de amigo — mas sempre censurado: FO***SE, PO**A.
+
+## Referências
+
+A graça quase sempre vem de uma referência que o fã reconhece. Varie o tipo; não fique só
+no nome da música ou do álbum:
+
+- um trecho de letra ou uma frase icônica que quem ouviu muito sabe de cor — sozinho, já
+  pode ser a manchete inteira ("LANÇA, MENINA!" pra quem ouviu Rita Lee o mês todo);
+- a fama, a imagem ou a estética do artista;
+- um trejeito, uma dança, a voz;
+- um meme ou apelido associado ao artista;
+- as entrelinhas: aludir à música sem dizer o nome dela.
+
+Quando duas músicas aparecem na mesma frase, costuma render mais dizer o nome de uma e
+continuar com um trecho da letra da outra.
+
+Parta das músicas que a pessoa ouviu ("topTracks", "mostPlayed", "transition", "loop"). Se
+não der piada com elas, vale uma música famosa do artista.
+
+(Os artistas citados nesta seção e nos exemplos estão fora da escuta da pessoa: servem pra
+mostrar o jeito, nunca pra serem reaproveitados.)
+`;
+
+const GROUNDING = `
+## O que você sabe
+
+- Os totais do período. Pode contar a escuta como algo acontecendo, mas sem inventar dia,
+  horário ou número. Sequência real só existe em "transition" e "loop".
+- Uma audição é uma vez que uma música tocou: 16 audições de um artista não são 16 músicas.
+- Números e nomes vêm dos dados, com a grafia exata. Números em algarismos.
+- Datas, números e história de artista ou disco só a partir de "facts". Referência famosa —
+  letra, música, bordão, imagem — pode vir do que você sabe, desde que seja conhecida mesmo.
+
+## Limites
+
+- A graça é com a música e as escolhas de escuta; nunca com aparência, inteligência,
+  dinheiro, corpo, sentimentos ou vida pessoal. "Quantos anos tu tem?" como brincadeira vale;
+  supor o que a pessoa sente, não.
+- Nada sobre morte, doença, abuso, dependência, crime ou tragédia. A cervejinha do Zeca como
+  imagem do artista tudo bem; piada sobre vício, não.
+- Letra de música: trechos curtos (até 6 palavras), no máximo dois por texto, nunca estrofe.
+- Não fale de dados, algoritmo ou inteligência artificial.
+`;
+
+/** O dado de onde a leitura parte. Obrigatório: é o que garante variedade entre leituras. */
+const ANGLES: Record<NarrativeAngle, string> = {
+  transicao: 'a transição improvável ("transition"): a música de "from" e, logo depois, a de "to"',
+  surpresa: 'o ponto fora da curva ("outliers") no meio dos gêneros que dominam o período ("topGenres")',
+  "mais-ouvido": 'o que mais tocou ("mostPlayed"): a música ou o disco',
+  mudanca: 'quem subiu em relação ao período anterior ("risingArtists")',
+  epoca: 'de que décadas vêm os discos ("eras")',
+  volta: 'quem reapareceu depois de muito tempo ("comebacks"; "awayFor" já diz quanto tempo, em palavras)',
+  loop: 'a música que tocou várias vezes seguidas ("loop"; "times" é quantas)',
+  numeros: 'um número que surpreende: as estreias ("discovery"), o quanto os cinco primeiros concentram, ou um artista muito à frente',
+};
+
+/** Como a piada é construída. Sorteada à parte, para a estrutura não virar fórmula. */
+const FORMS: Record<NarrativeForm, string> = {
+  reacao: "uma reação de surpresa ao que tu acabou de notar — pode ser só a referência gritada",
+  pergunta: "uma pergunta cúmplice pra pessoa, do tipo que só um amigo faria",
+  provocacao: "uma cutucada carinhosa no hábito, que comemora e zoa ao mesmo tempo",
+  cena: "uma cena imaginada com os artistas, contada como se estivesse acontecendo agora",
+  comparacao: "uma comparação inesperada que faz a pessoa enxergar o próprio hábito de outro jeito",
+  apelido: "um apelido pra pessoa, tirado de uma referência do artista",
+};
+
+const FORM_LABEL: Record<NarrativeForm, string> = {
+  reacao: "reação",
+  pergunta: "pergunta",
+  provocacao: "provocação",
+  cena: "cena imaginada",
+  comparacao: "comparação",
+  apelido: "apelido",
+};
+
+/** Como tratar quem lê: escolhido pela pessoa em Ajustes. */
+const ADDRESS_BRIEF: Record<AddressStyle, string> = {
+  masculino:
+    'Quem lê é um cara. Vocês são dois parceiros: pode chamar de "mano", "mermão", "brother", "parça", "cara", e zoar do jeito que amigo zoa amigo, implicando com a playlist dele. A zoeira é com a música: sem machismo, sem piada sexual, sem homofobia.',
+  feminino:
+    'Quem lê é uma mina. Vocês são duas parceiras: pode chamar de "amiga", "miga", "mana", "mulher", e zoar do jeito que amiga zoa amiga, implicando com a playlist dela. Não use "mano", "mermão" nem "parça". A zoeira é com a música: nunca com corpo, aparência ou vida amorosa.',
+  neutro:
+    'Trate quem lê sem marcar gênero: nada de "mano", "mermão", "mina", "amigo" ou "amiga". As gírias sem gênero ("ixe", "caraca", "véi", "tá ligado") seguem à vontade.',
+};
+
+function listenerSection(input: MusicProfileInput): string {
+  return `\n## Com quem tu fala\n\n${ADDRESS_BRIEF[input.listener?.addressAs ?? "neutro"]}\n`;
+}
+
+const EXAMPLES = `
+## Exemplos da voz
+
+Estes artistas NÃO estão na escuta da pessoa e servem só pra mostrar o jeito. Nunca
+reaproveite estas piadas, frases ou referências — crie as suas com os artistas dos dados.
+
+${NARRATIVE_EXAMPLES.map((example) => `Forma ${example.form} · ângulo ${example.angle}:\n${JSON.stringify(example.json, null, 2)}`).join("\n\n")}
+
+## O mesmo assunto, do jeito errado e do jeito certo
+
+${CONTRAST_PAIRS.map((pair) => `${pair.mistake}\n  ruim: ${pair.bad}\n  bom:  ${pair.good}`).join("\n\n")}
+
+## Frases curtas no mesmo jeito
+
+${LINE_EXAMPLES.map((example) => `- (${example.context}) ${example.line}`).join("\n")}
+`;
+
+/** Uma resposta com várias leituras e dezenas de frases é longa: ninguém espera por ela na tela. */
+const PACK_TIMEOUT_MS = 120_000;
+
+export class GeminiAdapter implements PackProvider {
   private ai: GoogleGenerativeAI;
   private modelName: string;
   private configured: boolean;
@@ -20,189 +172,99 @@ export class GeminiAdapter implements AIAnalysisProvider {
     this.modelName = modelName || process.env.AI_MODEL || "gemini-3.5-flash";
   }
 
-  async analyzeProfile(input: MusicProfileInput): Promise<ProfileNarrative> {
+  /**
+   * O pacote de um período, numa chamada só: várias leituras, comentários
+   * por disco do rack e frases pras outras telas. O app guarda e sorteia —
+   * cada visita mostra outro texto sem gastar cota. Devolve o JSON cru: a
+   * validação é item a item, no serviço, pra um item ruim não derrubar o resto.
+   */
+  async generatePack(input: MusicProfileInput, slots: PackSlot[]): Promise<{ output: unknown; model: string }> {
     if (!this.configured) {
       throw new Error("GEMINI_API_KEY is not configured.");
     }
 
     const model = this.ai.getGenerativeModel({
       model: this.modelName,
-      // temperatura alta de propósito: os fatos já estão travados pelas regras
-      // e pela validação de schema, então o que resta variar é o texto.
-      generationConfig: { responseMimeType: "application/json", temperature: 0.95, topP: 0.95 },
+      // os fatos estão travados pela base factual e pela validação; o que varia é o texto
+      generationConfig: { responseMimeType: "application/json", temperature: 1.0, topP: 0.95 },
     });
 
+    const slotList = slots
+      .map((slot, index) => `- Leitura ${index + 1}: ângulo — ${ANGLES[slot.angle]}; forma — ${FORM_LABEL[slot.form]}: ${FORMS[slot.form]}.`)
+      .join("\n");
+    const albums = input.rackAlbums ?? [];
+    const albumTask = albums.length
+      ? `Pra cada disco abaixo, escreva 2 comentários curtos (até 140 caracteres), falando com a pessoa que acabou de pôr esse disco pra tocar. Os dois usam referências diferentes do disco ou do artista (trecho de letra, fama, trejeito, entrelinhas).\n${albums
+          .map((album) => `- "${album.album}", de ${album.artist} (${album.plays} audições)`)
+          .join("\n")}`
+      : "Não há discos no rack neste período: devolva a lista vazia.";
+
     const prompt = `
-Você escreve sobre a escuta de UMA pessoa, para ela mesma ler. Ela pediu explicitamente
-para ser zoada. O tom é o do amigo que entende muito de música e não perdoa uma playlist
-ruim: sarcástico, carismático e engraçado. Português do Brasil.
+Você escreve os textos de um app de música sobre a escuta de UMA pessoa. O app guarda tudo o
+que você escrever agora e sorteia um texto diferente a cada visita — então os textos precisam
+ser diferentes ENTRE SI: outro assunto, outra estrutura, outra referência. Repetir uma piada
+entre dois itens é o pior erro deste pacote.
+${CHARACTER}${listenerSection(input)}
+## O pacote
 
-Zoar aqui é afeto. A pessoa escolheu ver isso — ela quer rir do próprio gosto, não receber
-um relatório educado.
+### 1. "readings" — ${slots.length} leituras completas, pra tela inicial
 
-O backend já calculou tudo. Você não calcula nada — você percebe coisas.
+Cada uma parte do ângulo e usa a forma indicada:
+${slotList}
 
-## O que faz um texto RUIM aqui (nunca escreva assim)
+O ângulo é obrigatório: a manchete e a primeira frase partem dele. Não caia em "tu tava
+ouvindo X e de repente Y" se a forma não pedir.
 
-- "Durante este período, você acumulou 994 reproduções distribuídas por 201 artistas."
-- "Neste período, você demonstrou grande diversidade musical e ecletismo."
-- "Sua jornada musical foi marcada pela exploração de novos caminhos."
-- "O período contém 136 audições, com punk rock entre as tags mais frequentes."
+### 2. "albumLines" — comentários sobre os discos do rack
 
-Todos falham pelo mesmo motivo: recitam a tabela. Um número só entra na frase quando ele
-é a piada, a surpresa ou a prova de alguma coisa — nunca como sujeito da oração.
-Proibido abrir com "Durante", "Neste período", "Você acumulou", "Foram X audições" ou
-com um número. Proibidas as muletas "demonstrando", "evidenciando", "refletindo",
-"jornada musical", "diversidade musical", "explorou novos caminhos".
+${albumTask}
 
-## O que faz um texto BOM
+### 3. "screenLines" — frases curtas pras outras telas
 
-Ele encontra a tensão que está nos dados: dois artistas que não deveriam caber na mesma
-pessoa, um gênero que apareceu do nada, um artista que engoliu o período sozinho, uma
-descoberta que não pegou. Nomeie artistas e gêneros reais da lista. Seja concreto.
-
-Exemplos APENAS de estilo e ritmo — os nomes abaixo são inventados e você não pode
-reaproveitá-los; use somente os nomes que vierem nos dados:
-
-{ "headline": "Um artista sequestrou o seu mês",
-  "narrative": "Fulano sozinho responde por quase um terço de tudo. Os outros 40 artistas dividiram o resto, e nenhum deles passou de cinco audições — é menos uma playlist e mais uma obsessão bem documentada.",
-  "insight": "As 12 estreias do período somaram menos audições do que Fulano fez sozinho numa tarde.",
-  "playfulClosing": "A essa altura o algoritmo já desistiu de te sugerir coisa nova." }
-
-{ "headline": "Metal e MPB dividindo o mesmo fone",
-  "narrative": "Beltrano e Sicrana aparecem quase empatados, o que é uma escolha corajosa de sequenciamento. O hardcore subiu, mas o samba não saiu do lugar — os dois convivem sem se olhar.",
-  "insight": "Nenhum dos dois gêneros passa de 15% sozinho: o topo aqui é um empate, não um trono.",
-  "playfulClosing": "Quem pegar esse fone no meio do dia vai precisar de um momento." }
-
-## O que faz a piada funcionar
-
-Use o que você sabe sobre os artistas de verdade — a época deles, a fama que carregam, o
-clichê que os cerca, o público que atraem. Ramones é três acordes e jaqueta de couro.
-Angra é solo de guitarra que não acaba. Bad Bunny é perreo às três da tarde. É desse
-conhecimento que sai a piada específica; sem ele, sobra piada de banco de dados.
-
-Quando vier "eras", é de que décadas saem os discos (fração das audições com ano conhecido).
-Rende piada: quem vive preso em 1977, quem só ouve o que saiu mês passado, quem pula quarenta
-anos entre uma faixa e outra. Só cite décadas que aparecem em "eras".
-
-Atenção à fronteira: os NÚMEROS e os NOMES vêm só dos dados abaixo, nunca da sua memória.
-Já o que você sabe sobre a música desses artistas é bem-vindo e é o que faz a graça.
-
-A piada mora no atrito: a sequência que ninguém aguentaria ouvir de ponta a ponta, o
-artista que virou vício, a descoberta que não vingou, o gênero que sumiu sem aviso.
-Uma imagem concreta vence um adjetivo — "esvaziar qualquer festa" funciona, "gosto
-eclético" não. Nada de piada morna do tipo "seu gosto é uma montanha-russa".
-
-Use a voz de um amigo que zoa, sem passar dos limites sobre o ouvinte claro. Se parece sem sentido demais, demonstre cansaço em tentar entender. Se é sempre uma repetição de artistas, exaustão por monotonia. Se é uma mistura de estilos, confusão e surpresa. Se é um artista que domina, frustração e obsessão. Se é uma descoberta que não pegou, desapontamento e ironia. Sinta-se a vontade para brincar com as descobertas, mantendo-se nas diretrizes.
-
-Exemplos do alvo certo:
-- "Colocar essa fila para tocar no viva-voz seria uma ótima forma de esvaziar qualquer festa."
-- "Você ouviu o mesmo álbum tantas vezes que ele já deveria pagar aluguel."
-- "Três acordes bastaram para dominar o seu mês. Eficiência é isso."
-
-## Regras que não se dobram
-
-1. Responda APENAS com JSON válido, sem markdown e sem texto fora do JSON.
-2. Use somente fatos, números e nomes explicitamente fornecidos. Não invente e não recalcule.
-3. Preserve exatamente a grafia dos nomes de artistas e gêneros.
-4. Não infira emoção, saúde mental, relacionamento, rotina, religião, política ou causas pessoais.
-5. Nada de letras de música, insultos, nem piada sobre morte, doença, abuso, vício, crime ou tragédia.
-6. Pode zoar o ouvinte e o gosto dele à vontade. O alvo é sempre a MÚSICA e as escolhas
-   dela — nunca aparência, inteligência, caráter, dinheiro, corpo ou vida pessoal. A régua
-   é a do amigo no bar, não a do inimigo.
-7. Não mencione banco de dados, algoritmo, prompt, modelo ou inteligência artificial.
-8. Sem emojis. Sem exclamação.
-9. playfulClosing é a melhor parte e quase sempre deve existir. Só use null se os dados
-   forem pobres demais para render qualquer piada. O resto do texto continua fazendo
-   sentido sem ele.
-10. referencedEvidence só aceita: totalPlays, uniqueArtists, uniqueTracks, topArtists, topGenres, risingArtists, discovery, concentration, eras.
-
+4 frases pra cada tela, até 160 caracteres, em formas variadas (${Object.values(FORM_LABEL).join(", ")}),
+cada uma partindo de um dado diferente:
+- "evolution": compara o período com o anterior — quem entrou, quem saiu.
+- "history": um hábito da escuta — o que mais tocou, a música em loop, quem voltou, a
+  transição improvável, a época.
+- "discovery": chama pra explorar, de preferência usando um ponto fora da curva como gancho.
+  Nunca zoa a pessoa por querer coisa nova.
+${EXAMPLES}
+${GROUNDING}
 ## Dados
 
 ${JSON.stringify(input, null, 2)}
 
 ## Formato
 
+Responda APENAS com JSON válido, sem markdown:
+
 {
-  "eyebrow": "rótulo curto do período, até 50 caracteres, sem ponto final",
-  "headline": "uma afirmação sobre o período, não um resumo dele; cite artista ou gênero real; até 120 caracteres",
-  "narrative": "2 ou 3 frases que expliquem a tensão entre os nomes que aparecem no topo",
-  "insight": "uma observação que a tabela de números não diria sozinha",
-  "playfulClosing": "o soco final: uma frase curta, concreta e engraçada sobre ESSA combinação. É o que a pessoa vai querer mostrar para alguém",
-  "tone": "EDITORIAL | RELAXED | PLAYFUL | NOSTALGIC | ANALYTICAL",
-  "referencedEvidence": ["topArtists", "concentration"],
-  "tasteKeywords": ["3 a 5 palavras-chave vindas dos dados"]
+  "readings": [
+    {
+      "slot": 1,
+      "eyebrow": "o nome do período, curto e sem ponto final, como \"últimos 30 dias\"; até 50 caracteres",
+      "headline": "na forma do slot: a referência, uma reação, uma pergunta ou um apelido — um trecho de letra sozinho vale; até 90 caracteres",
+      "narrative": "2 ou 3 frases de conversa, partindo do ângulo do slot",
+      "insight": "outra observação curta, com outro dado, também com graça; até 160 caracteres",
+      "playfulClosing": "a tirada final, cúmplice, do tipo que dá vontade de mostrar pra alguém; até 120 caracteres",
+      "tone": "EDITORIAL | RELAXED | PLAYFUL | NOSTALGIC | ANALYTICAL",
+      "referencedEvidence": ["só destes: ${EVIDENCE_KEYS.join(", ")}"],
+      "tasteKeywords": ["3 a 5 palavras-chave vindas dos dados"]
+    }
+  ],
+  "albumLines": [ { "album": "nome exato do disco", "artist": "nome exato do artista", "line": "..." } ],
+  "screenLines": [ { "screen": "evolution", "line": "..." } ]
 }
-    `;
-
-    try {
-      const result = await this.generateWithRetry(model, prompt);
-      const text = result.response.text();
-
-      const jsonString = text.replace(/```json/g, "").replace(/```/g, "").trim();
-
-      const parsed = JSON.parse(jsonString);
-
-      const validated = profileNarrativeSchema.parse(parsed);
-
-      return validated;
-    } catch (error) {
-      console.error("[GeminiAdapter] Failed to analyze profile:", error);
-      const providerMessage = error instanceof Error ? error.message.replaceAll(process.env.GEMINI_API_KEY || "__missing_key__", "[redacted]").slice(0, 400) : "Unknown provider error";
-      throw new Error(`Failed to generate AI narrative: ${providerMessage}`);
-    }
-  }
-
-  /**
-   * Um lote de frases curtas, uma chamada só. Cada tela pega as suas e
-   * sorteia na hora de exibir — assim o app parece vivo sem gastar cota
-   * a cada visita.
-   */
-  async generateScreenLines(input: MusicProfileInput): Promise<ScreenLines> {
-    if (!this.configured) {
-      throw new Error("GEMINI_API_KEY is not configured.");
-    }
-
-    const model = this.ai.getGenerativeModel({
-      model: this.modelName,
-      generationConfig: { responseMimeType: "application/json", temperature: 1.0, topP: 0.95 },
-    });
-
-    const prompt = `
-Você escreve legendas curtas para as telas de um app que analisa a escuta de UMA pessoa,
-para ela mesma ler. Ela pediu para ser zoada. Sarcástico, carismático, específico.
-Português do Brasil.
-
-Escreva SEIS frases: duas para cada tela abaixo. Cada frase é independente e curta —
-no máximo 140 caracteres, uma só oração de preferência.
-
-- "evolution": a tela que compara os gêneros de agora com os do período anterior.
-- "discovery": a tela de sugestões do que ouvir depois.
-- "history": a lista corrida de tudo o que a pessoa já ouviu.
-
-O que faz funcionar: use os artistas e gêneros REAIS da lista abaixo e o que você sabe
-sobre eles — a época, a fama, o clichê que os cerca. Uma imagem concreta vence um
-adjetivo. Zoar o gosto da pessoa é bem-vindo; o alvo é a música, nunca aparência,
-inteligência, caráter ou vida pessoal.
-
-Proibido: recitar número ("você tem 794 artistas"), muleta genérica ("sua jornada
-musical", "gosto eclético", "montanha-russa de emoções"), emoji, exclamação, e inventar
-qualquer nome ou dado que não esteja abaixo.
-
-Dados:
-${JSON.stringify(input, null, 2)}
-
-Responda apenas com JSON:
-{ "lines": [ { "screen": "evolution", "line": "..." }, ... seis no total ] }
 `;
 
     try {
-      const result = await this.generateWithRetry(model, prompt);
+      const { result, model: answeredBy } = await this.generateWithRetry(model, prompt, 2, PACK_TIMEOUT_MS);
       const text = result.response.text().replace(/```json/g, "").replace(/```/g, "").trim();
-      return screenLinesSchema.parse(JSON.parse(text));
+      return { output: JSON.parse(text), model: answeredBy };
     } catch (error) {
-      console.error("[GeminiAdapter] Failed to generate screen lines:", error);
-      throw error instanceof Error ? error : new Error("Screen lines generation failed");
+      const providerMessage = error instanceof Error ? error.message.replaceAll(process.env.GEMINI_API_KEY || "__missing_key__", "[redacted]").slice(0, 400) : "Unknown provider error";
+      // a causa fica anexada: é dela que o log tira o motivo (cota, sobrecarga, JSON quebrado)
+      throw new Error(`Failed to generate AI pack: ${providerMessage}`, { cause: error });
     }
   }
 
@@ -215,6 +277,32 @@ Responda apenas com JSON:
     model: ReturnType<GoogleGenerativeAI["getGenerativeModel"]>,
     prompt: string,
     attempts = 2,
+    timeoutMs = 45_000,
+  ) {
+    try {
+      return { result: await this.attemptModel(model, prompt, attempts, timeoutMs), model: this.modelName };
+    } catch (error) {
+      // pico de demanda ou cota diária do modelo principal esgotada: o modelo
+      // reserva tem cota própria e costuma responder nos dois casos
+      const status = (error as { status?: number }).status;
+      const overloaded = status === 503 || status === 504 || status === 500 || status === 502 || status === 429;
+      const fallbackName = process.env.AI_FALLBACK_MODEL ?? "gemini-3.5-flash-lite";
+      if (!overloaded || !fallbackName || fallbackName === this.modelName) throw error;
+
+      logAi("ai.fallback", { from: this.modelName, to: fallbackName, status, reason: classifyAiError(error) }, "warn");
+      const fallback = this.ai.getGenerativeModel({
+        model: fallbackName,
+        generationConfig: (model as { generationConfig?: GenerationConfig }).generationConfig,
+      });
+      return { result: await this.attemptModel(fallback, prompt, 1, timeoutMs), model: fallbackName };
+    }
+  }
+
+  private async attemptModel(
+    model: ReturnType<GoogleGenerativeAI["getGenerativeModel"]>,
+    prompt: string,
+    attempts: number,
+    timeoutMs: number,
   ) {
     let lastError: unknown;
 
@@ -225,7 +313,7 @@ Responda apenas com JSON:
         return await Promise.race([
           model.generateContent(prompt),
           new Promise<never>((_, reject) =>
-            setTimeout(() => reject(Object.assign(new Error("Gemini timeout"), { status: 504 })), 45_000),
+            setTimeout(() => reject(Object.assign(new Error("Gemini timeout"), { status: 504 })), timeoutMs),
           ),
         ]);
       } catch (error) {
@@ -236,7 +324,7 @@ Responda apenas com JSON:
         const retryable = status === 503 || status === 500 || status === 502;
         if (!retryable || attempt === attempts - 1) break;
         const backoff = 700 * 2 ** attempt + Math.random() * 300;
-        console.warn(`[GeminiAdapter] ${status} do provedor, nova tentativa em ${Math.round(backoff)}ms`);
+        logAi("ai.retry", { model: (model as { model?: string }).model, status, backoffMs: Math.round(backoff) }, "warn");
         await new Promise((resolve) => setTimeout(resolve, backoff));
       }
     }

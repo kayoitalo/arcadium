@@ -69,8 +69,17 @@ const EDITION_WORDS =
   /\b(deluxe|expanded|edition|remaster(ed)?|anniversary|version|edited|explicit|clean|bonus|tracks?)\b/g;
 
 /**
+ * Sufixo de edição depois de " - ": "Dreams - 2004 Remaster", "Numb -
+ * Live", "Broken Youth - Single". O Last.fm grava assim e o catálogo não,
+ * então sem cortar isso a faixa de um disco remasterizado nunca casa.
+ * Um hífen que não traz palavra de edição ("Doo-Wop - That Thing") fica.
+ */
+const EDITION_SUFFIX =
+  /\s[-–]\s(?=[^-–]*\b(single|ep|remaster(ed)?|live|mono|stereo|edit|version|mix|deluxe|bonus|acoustic)\b).*$/;
+
+/**
  * Reduz um título ao que identifica o disco ou a faixa: sem acento, sem
- * parênteses nem colchetes, sem "- Single" e sem as palavras de edição.
+ * parênteses nem colchetes, sem sufixo de edição e sem as palavras de edição.
  */
 export function normalizeTitle(value: string): string {
   return value
@@ -78,7 +87,7 @@ export function normalizeTitle(value: string): string {
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .replace(/\(.*?\)|\[.*?\]/g, " ")
-    .replace(/\s-\s(single|ep)\b.*$/g, " ")
+    .replace(EDITION_SUFFIX, " ")
     .replace(EDITION_WORDS, " ")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();

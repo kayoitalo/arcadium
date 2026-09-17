@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
+import { usePreviewPlayer } from "@/components/audio/use-preview-player";
 import { useChroma } from "@/components/chroma/chroma-provider";
 import { useScreenChrome } from "@/components/layout/chrome";
 import { CoverWall } from "@/components/overview/cover-wall";
@@ -92,21 +93,42 @@ export default function OverviewPage() {
   const albums = useMemo(() => data?.topAlbums.slice(0, 8) ?? [], [data]);
   const focusedAlbum = albums[focused];
 
-  // o prato precisa liderar com imagem: só uma fração dos álbuns tem capa,
-  // e cair num sem capa deixa a bolacha em branco no lugar de destaque
+  // o prato abre no disco que mais mostra o que a vitrola faz: com capa e
+  // com prévia, senão só com capa. Escolha automática uma vez por leitura;
+  // depois disso quem manda é o clique, mesmo num disco sem capa
+  const autoPick = useRef(true);
   useEffect(() => {
-    if (albums.length === 0 || albums[focused]?.coverUrl) return;
+    autoPick.current = true;
+  }, [data]);
+  useEffect(() => {
+    if (!autoPick.current || albums.length === 0) return;
+    autoPick.current = false;
+    const complete = albums.findIndex((album) => album.coverUrl && album.previewUrl);
     const withCover = albums.findIndex((album) => album.coverUrl);
-    if (withCover >= 0) setFocused(withCover);
-  }, [albums, focused]);
+    const pick = complete >= 0 ? complete : withCover;
+    if (pick >= 0) setFocused(pick);
+  }, [albums]);
 
   useEffect(() => {
     adoptCover(focusedAlbum?.coverUrl, focusedAlbum?.title ?? null);
   }, [focusedAlbum?.coverUrl, focusedAlbum?.title, adoptCover]);
 
+  const player = usePreviewPlayer(focusedAlbum?.previewUrl);
+
+  /**
+   * Trocar o disco da agulha. A prévia sai no mesmo clique (o navegador só
+   * deixa tocar dentro do gesto): vindo do rack ela sempre toca; vindo da
+   * pilha "a seguir", só continua se já havia som.
+   */
+  const selectAlbum = (index: number, { play }: { play: boolean }) => {
+    setFocused(index);
+    const url = albums[index]?.previewUrl;
+    if (url && play) player.play(url);
+  };
+
   /** Escolher no rack põe o disco na agulha — e leva o olho até a vitrola. */
   const putOnDeck = (index: number) => {
-    setFocused(index);
+    selectAlbum(index, { play: true });
     heroRef.current?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
   };
 
@@ -173,9 +195,27 @@ export default function OverviewPage() {
       bar: (listeningShare ?? 0) / 100,
       note:
         listeningShare == null ? "duração estimada" : `${decimal(listeningShare)}% do período com música`,
+      // o "≈" sozinho não diz quanto é medido: a cobertura fica escrita
+      detail:
+        summary && summary.durationSource === "ESTIMATE"
+          ? summary.durationCoverage > 0
+            ? `duração real em ${summary.durationCoverage}% das audições · resto estimado`
+            : "duração estimada: o catálogo ainda não mediu estas faixas"
+          : summary
+            ? "duração real de todas as audições"
+            : undefined,
       approximate: summary?.durationSource === "ESTIMATE",
     },
-  ];
+  ] as Array<{
+    label: string;
+    value: number;
+    change?: number | null;
+    bar: number;
+    note: string;
+    format?: (minutes: number) => string;
+    detail?: string;
+    approximate?: boolean;
+  }>;
 
   return (
     <div className="gy-page flex flex-col gap-16 sm:gap-20">
@@ -194,10 +234,8 @@ export default function OverviewPage() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="eyebrow text-accent">gemini ▸</span>
-                <span className="eyebrow">{story?.eyebrow ?? PERIOD_SUBJECT[period]}</span>
-              </div>
+              {/* o âmbar no rótulo continua marcando que o texto é opinião, não dado */}
+              <span className="eyebrow block text-accent">{story?.eyebrow ?? PERIOD_SUBJECT[period]}</span>
 
               <h1 className="display mt-5 max-w-[17ch] text-[clamp(2.6rem,6.6vw,5.9rem)]">
                 {headline ? (
@@ -232,7 +270,12 @@ export default function OverviewPage() {
           </AnimatePresence>
         </div>
 
-        <Turntable albums={albums} selectedIndex={focused} onSelect={setFocused} />
+        <Turntable
+          albums={albums}
+          selectedIndex={focused}
+          onSelect={(index) => selectAlbum(index, { play: player.playing })}
+          player={player}
+        />
       </section>
 
       {/* ---------- números ---------- */}
@@ -251,6 +294,7 @@ export default function OverviewPage() {
               <>
                 <Meter ratio={metric.bar} label={metric.note} />
                 <span className="data mt-2.5 block text-text-muted">{metric.note}</span>
+                {metric.detail && <span className="data mt-1 block text-text-label">{metric.detail}</span>}
                 {typeof metric.change === "number" && (
                   <span className="mt-1.5 block">
                     <Delta value={metric.change} suffix="que antes" />
@@ -328,7 +372,7 @@ export default function OverviewPage() {
               title="O rack"
               aside={<span className="data pb-1 text-text-muted">escolha um para pôr na agulha</span>}
             />
-            <CoverWall albums={albums} selectedIndex={focused} onSelect={putOnDeck} />
+            <CoverWall albums={albums} selectedIndex={focused} playing={player.playing} onSelect={putOnDeck} />
           </section>
         </InViewFade>
       )}
