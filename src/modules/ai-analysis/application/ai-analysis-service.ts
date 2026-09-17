@@ -22,6 +22,7 @@ import {
   type FactsProvider,
   type MusicProfileInput,
   type PackProvider,
+  type PackView,
   type ProfileNarrative,
   type ReadingPack,
   type ScreenKey,
@@ -53,14 +54,6 @@ const FALLBACK_SCREEN_LINES: Array<{ screen: ScreenKey; line: string }> = [
   { screen: "history", line: "Tudo o que tocou, do mais recente para trás." },
   { screen: "history", line: "Sua escuta em ordem cronológica, dia a dia." },
 ];
-
-/** O que a tela recebe: o pacote pronto pra sortear, ou o texto de reserva. */
-export interface PackView {
-  readings: ProfileNarrative[];
-  albumLines: ReadingPack["albumLines"];
-  builtAt: string | null;
-  source: "ai" | "fallback";
-}
 
 export type RefreshOutcome =
   | { status: "generated"; decision: RefreshDecision; pack: ReadingPack; builtAt: Date }

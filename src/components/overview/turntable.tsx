@@ -3,10 +3,13 @@
 import { useEffect, useState } from "react";
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
 import { ArrowUpRight, Pause, Play } from "lucide-react";
+import { findAlbumLine } from "@/components/ai/album-line";
 import type { PreviewPlayer } from "@/components/audio/use-preview-player";
 import { ResilientCover } from "@/components/ui/resilient-cover";
 import { EASE_OUT_EXPO, SPRING_SOFT } from "@/components/ui/motion";
+import { Voice } from "@/components/ui/voice";
 import type { AlbumItem } from "@/modules/statistics/application/overview-service";
+import type { AlbumLine } from "@/modules/ai-analysis/domain/ai-analysis.types";
 
 interface TurntableProps {
   albums: AlbumItem[];
@@ -14,6 +17,8 @@ interface TurntableProps {
   onSelect: (index: number) => void;
   /** O player da tela: a vitrola toca a prévia do disco que está na agulha. */
   player: PreviewPlayer;
+  /** Comentários do pacote; o disco na agulha mostra o seu, quando existe. */
+  albumLines?: AlbumLine[];
 }
 
 /** Medidas em que a vitrola foi desenhada; abaixo disso ela encolhe inteira. */
@@ -36,7 +41,7 @@ const PREVIEW_SECONDS = 30;
  * toca a prévia da faixa mais ouvida do disco: o braço desce e o disco
  * acelera. Os próximos ficam na pilha "a seguir".
  */
-export function Turntable({ albums, selectedIndex, onSelect, player }: TurntableProps) {
+export function Turntable({ albums, selectedIndex, onSelect, player, albumLines = [] }: TurntableProps) {
   const reduced = useReducedMotion();
   // ref de estado, não useRef: o palco só existe depois que os discos
   // chegam, e um useRef não avisaria o observer de que ele nasceu
@@ -66,6 +71,7 @@ export function Turntable({ albums, selectedIndex, onSelect, player }: Turntable
   const playable = Boolean(current.previewUrl);
   const playing = playable && player.playing;
   const litSeconds = Math.round(player.progress * PREVIEW_SECONDS);
+  const comment = findAlbumLine(albumLines, current);
 
   return (
     <div className="relative mx-auto w-full max-w-[470px]">
@@ -279,6 +285,14 @@ export function Turntable({ albums, selectedIndex, onSelect, player }: Turntable
           </div>
         )}
       </div>
+
+      {/* o que o Gemini achou do disco que está tocando; sem frase pra ele,
+          o display fica só com os dados, sem inventar comentário */}
+      {comment && (
+        <Voice label="sobre o disco" className="mt-4">
+          {comment.line}
+        </Voice>
+      )}
 
       {upNext.length > 0 && (
         <div className="mt-4">

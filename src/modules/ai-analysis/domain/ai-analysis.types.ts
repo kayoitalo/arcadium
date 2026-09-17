@@ -158,6 +158,21 @@ export const readingPackSchema = z.object({
 
 export type ReadingPack = z.infer<typeof readingPackSchema>;
 
+/** Um comentário do modelo sobre um disco do rack. */
+export type AlbumLine = ReadingPack["albumLines"][number];
+
+/**
+ * O que a tela recebe de `/api/ai/pack`: o pacote pronto pra sortear, ou o
+ * texto de reserva. Mora no domínio porque é contrato dos dois lados — o
+ * serviço monta, o componente lê.
+ */
+export interface PackView {
+  readings: ProfileNarrative[];
+  albumLines: AlbumLine[];
+  builtAt: string | null;
+  source: "ai" | "fallback";
+}
+
 export interface PackProvider {
   /** Devolve o JSON cru do modelo: a validação é item a item, no serviço. */
   generatePack(input: MusicProfileInput, slots: PackSlot[]): Promise<{ output: unknown; model: string }>;

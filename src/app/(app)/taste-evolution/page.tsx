@@ -170,6 +170,7 @@ export default function TasteEvolutionPage() {
             <ScreenLine
               screen="evolution"
               label="evolução"
+              period={period}
               fallback="Cada gênero saiu de um ponto e chegou a outro. A distância entre os dois quadrados é a história."
             />
           </div>
