@@ -5,6 +5,17 @@ import { decadeDistribution, type DecadeDistribution } from "./decades";
 export type PeriodKey = "7d" | "30d" | "1y" | "all";
 export interface PeriodRange { start: Date; end: Date }
 
+/**
+ * Discos do rack do período. Vale para a tela e para o perfil que vai à IA:
+ * os dois precisam enxergar a mesma prateleira, senão sobra capa sem
+ * comentário escrito para ela.
+ *
+ * Cada disco custa dois comentários na resposta do modelo, então este
+ * número é o que decide o tamanho do pacote — não a frequência das
+ * chamadas, que é da cadência.
+ */
+export const RACK_SIZE = 12;
+
 export function getPeriodRanges(period: PeriodKey, referenceDate = new Date()): { current: PeriodRange; previous: PeriodRange | null } {
   const end = new Date(referenceDate);
   if (period === "all") return { current: { start: new Date(0), end }, previous: null };
@@ -151,7 +162,7 @@ export class OverviewService {
     const [artistGroups, trackGroups, albumGroups, periodEvents] = await Promise.all([
       prisma.listeningEvent.groupBy({ by: ["rawArtistName"], where: currentWhere, _count: { id: true }, orderBy: { _count: { id: "desc" } } }),
       prisma.listeningEvent.groupBy({ by: ["rawArtistName", "rawTrackName"], where: currentWhere, _count: { id: true }, orderBy: { _count: { id: "desc" } } }),
-      prisma.listeningEvent.groupBy({ by: ["rawArtistName", "rawAlbumName"], where: { ...currentWhere, NOT: { rawAlbumName: null } }, _count: { id: true }, orderBy: { _count: { id: "desc" } }, take: 6 }),
+      prisma.listeningEvent.groupBy({ by: ["rawArtistName", "rawAlbumName"], where: { ...currentWhere, NOT: { rawAlbumName: null } }, _count: { id: true }, orderBy: { _count: { id: "desc" } }, take: RACK_SIZE }),
       prisma.listeningEvent.findMany({
         where: currentWhere,
         select: { playedAt: true, track: { select: { durationMs: true } }, album: { select: { releaseYear: true } } },

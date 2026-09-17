@@ -102,7 +102,8 @@ export default function OverviewPage() {
     return () => controller.abort();
   }, [period]);
 
-  const albums = useMemo(() => data?.topAlbums.slice(0, 8) ?? [], [data]);
+  // sem corte aqui: quem decide o tamanho do rack é o RACK_SIZE da consulta
+  const albums = useMemo(() => data?.topAlbums ?? [], [data]);
   const focusedAlbum = albums[focused];
 
   // o prato abre no disco que mais mostra o que a vitrola faz: com capa e
