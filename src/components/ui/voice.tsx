@@ -45,7 +45,11 @@ export function VoicePending({
         <span className="led" data-on="true" style={{ animation: "gy-blink 0.7s steps(1) infinite" }} aria-hidden />
       </figcaption>
       {/* a tela acesa e ainda sem texto: o aviso já mora no vidro */}
-      <p className={`data m-0 px-4 py-4 text-[13px] leading-relaxed ${glass(screen)} ${screen ? "" : "text-text-muted"}`}>
+      <p
+        className={`data m-0 px-4 py-4 leading-relaxed ${glass(screen)} ${
+          screen ? "text-[14px]" : "text-[13px] text-text-muted"
+        }`}
+      >
         {hint}
       </p>
     </figure>
@@ -108,7 +112,12 @@ export function Voice({
       </figcaption>
       <p
         className={`voice-text m-0 px-4 py-4 ${glass(screen)} ${
-          size === "lg" ? "text-[clamp(1rem,1.7vw,1.25rem)]" : "text-[13px]"
+          size === "lg"
+            ? "text-[clamp(1rem,1.7vw,1.25rem)]"
+            : // a matriz de pontos precisa de corpo maior: em 13px os pontos somem
+              screen
+              ? "text-[15px]"
+              : "text-[13px]"
         }`}
       >
         <span className="sr-only">{text}</span>

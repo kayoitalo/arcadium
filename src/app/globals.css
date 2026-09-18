@@ -268,10 +268,21 @@ h1, h2, h3, h4 {
   color: var(--lcd-ink);
 }
 
-/* .voice-text também pinta cor: seletor composto para a tinta ganhar
-   por especificidade, e não por ordem no arquivo */
-.voice-text.lcd {
+/* A letra da tela é construída por pontos — é o que faltava para o
+   painel parar de parecer papel colorido. Só dentro do vidro: a
+   etiqueta do bisel continua em mono, porque ali é serigrafia no
+   chassi, não pixel aceso.
+
+   Seletor composto de propósito: .voice-text pinta cor e o utilitário
+   de tamanho do Tailwind pinta font-size, os dois com uma classe só.
+   Ganhar por especificidade evita depender da ordem do arquivo. */
+.voice-text.lcd,
+.data.lcd {
+  font-family: var(--font-lcd), var(--font-mono), monospace;
   color: var(--lcd-ink);
+  /* a matriz é mais alta que a mono e dispensa o aperto entre letras */
+  line-height: 1.62;
+  letter-spacing: 0;
 }
 
 /* o cursor é tinta, não é o âmbar da máquina */

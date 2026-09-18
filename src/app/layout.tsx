@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Archivo, Martian_Mono, Unbounded } from "next/font/google";
+import { Archivo, DotGothic16, Martian_Mono, Unbounded } from "next/font/google";
 import "./globals.css";
 
 /**
@@ -14,7 +14,19 @@ const archivo = Archivo({
   variable: "--font-archivo",
 });
 
-/** Etiqueta, hora, percentual — e a voz do Gemini. */
+/**
+ * A letra do LCD, e só dela: construída por pontos, como display de
+ * matriz. Vem de uma família japonesa, então o acento português sai
+ * inteiro — a maioria das fontes de pixel quebra no "ções".
+ */
+const dotGothic = DotGothic16({
+  subsets: ["latin"],
+  weight: "400",
+  display: "swap",
+  variable: "--font-lcd",
+});
+
+/** Etiqueta, hora, percentual — e a voz do Gemini fora da tela. */
 const martian = Martian_Mono({
   subsets: ["latin"],
   weight: ["400", "600"],
@@ -43,7 +55,7 @@ export default function RootLayout({
   // as variáveis das fontes ficam no <html> para os tokens do tema,
   // que vivem em :root, conseguirem resolvê-las
   return (
-    <html lang="pt-BR" className={`dark ${archivo.variable} ${martian.variable} ${unbounded.variable}`}>
+    <html lang="pt-BR" className={`dark ${archivo.variable} ${martian.variable} ${unbounded.variable} ${dotGothic.variable}`}>
       <body className="font-sans min-h-screen bg-background text-text-primary antialiased">{children}</body>
     </html>
   );
