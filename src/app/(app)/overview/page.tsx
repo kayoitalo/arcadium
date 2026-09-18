@@ -344,7 +344,9 @@ export default function OverviewPage() {
       <InViewFade>
         <section>
           <SectionHead index="01" eyebrow="Espectro" title="Onde o volume subiu" />
-          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          {/* items-start: a tela tem a altura do texto dela. Esticada até a
+              altura do espectro, sobrava meio painel pálido vazio */}
+          <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
             <Spectrum activity={activity} days={PERIOD_DAYS[period]} />
             {writing ? (
               <VoicePending label="leitura" screen>

@@ -290,6 +290,37 @@ h1, h2, h3, h4 {
   background: var(--lcd-ink);
 }
 
+/* ---- ligar a tela ------------------------------------------
+   Antes de escrever, o aparelho acende. Apagada a tela é escura
+   e não tem tinta nenhuma; ao ligar ela passa do escuro por um
+   brilho acima do normal e assenta — é o que LCD faz quando a
+   tensão chega antes de estabilizar. Só então a digitação começa.
+
+   background-color direto, e não pela variável: mudança de
+   custom property não é o que a transição persegue.
+   ------------------------------------------------------------ */
+.lcd {
+  transition:
+    background-color 220ms var(--ease-out-expo),
+    color 160ms linear;
+}
+
+.lcd[data-phase="off"] {
+  background-color: #151a13;
+  /* apagada não mostra texto: não é texto escondido, é tela sem tensão */
+  color: transparent;
+}
+
+.lcd[data-phase="warming"] {
+  background-color: #c8d4b3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lcd {
+    transition: none;
+  }
+}
+
 /* ============================================================
    ESTRUTURA
    ============================================================ */

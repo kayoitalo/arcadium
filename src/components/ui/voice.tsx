@@ -16,6 +16,13 @@ import { useInView, useReducedMotion } from "framer-motion";
 const glass = (screen: boolean) => (screen ? "lcd" : "");
 
 /**
+ * Apagada, acendendo, acesa. O estouro de brilho do meio dura pouco: é o
+ * instante entre a tensão chegar e o cristal assentar.
+ */
+type LcdPhase = "off" | "warming" | "on";
+const WARMING_MS = 230;
+
+/**
  * O mesmo quadro, enquanto o texto ainda está sendo escrito. A primeira
  * leitura de um período nasce na hora e leva dezenas de segundos: sem este
  * aviso, "gerando" e "quebrado" são a mesma tela — e quem troca de período
@@ -79,9 +86,23 @@ export function Voice({
   const inView = useInView(ref, { once: true, margin: "-10% 0px" });
   const reduced = useReducedMotion();
   const [count, setCount] = useState(0);
+  const [phase, setPhase] = useState<LcdPhase>(screen ? "off" : "on");
 
+  // a tela acende antes de escrever: escura, estouro de brilho, assenta
   useEffect(() => {
-    if (!inView) return;
+    if (!screen || !inView) return;
+    if (reduced) {
+      setPhase("on");
+      return;
+    }
+    setPhase("warming");
+    const settle = setTimeout(() => setPhase("on"), WARMING_MS);
+    return () => clearTimeout(settle);
+  }, [screen, inView, reduced]);
+
+  // a digitação espera a tela estar de pé: escrever no escuro não se vê
+  useEffect(() => {
+    if (!inView || phase !== "on") return;
     if (reduced) {
       setCount(text.length);
       return;
@@ -100,7 +121,7 @@ export function Voice({
 
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [inView, reduced, text]);
+  }, [inView, phase, reduced, text]);
 
   const typing = count < text.length;
 
@@ -108,9 +129,11 @@ export function Voice({
     <figure ref={ref} className={`m-0 flex flex-col border border-border bg-well ${className}`}>
       <figcaption className="flex items-center justify-between gap-3 border-b border-rule px-4 py-2.5">
         <span className="eyebrow text-accent">{label}</span>
-        <span className="led" data-on="true" aria-hidden />
+        {/* o LED da máquina acende junto com a tela que ele comanda */}
+        <span className="led" data-on={!screen || phase !== "off"} aria-hidden />
       </figcaption>
       <p
+        data-phase={screen ? phase : undefined}
         className={`voice-text m-0 px-4 py-4 ${glass(screen)} ${
           size === "lg"
             ? "text-[clamp(1rem,1.7vw,1.25rem)]"
