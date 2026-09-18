@@ -8,10 +8,10 @@ import { pickFresh } from "@/components/ai/pick-fresh";
 import { usePreviewPlayer } from "@/components/audio/use-preview-player";
 import { useChroma } from "@/components/chroma/chroma-provider";
 import { useScreenChrome } from "@/components/layout/chrome";
-import { CoverWall } from "@/components/overview/cover-wall";
 import { Decades } from "@/components/overview/decades";
 import { Movement } from "@/components/overview/movement";
 import { RankList } from "@/components/overview/rank-list";
+import { RecordCrate } from "@/components/overview/record-crate";
 import { Spectrum } from "@/components/overview/spectrum";
 import { Turntable } from "@/components/overview/turntable";
 import { Delta, Meter, Readout } from "@/components/ui/console";
@@ -305,13 +305,7 @@ export default function OverviewPage() {
           </AnimatePresence>
         </div>
 
-        <Turntable
-          albums={albums}
-          selectedIndex={focused}
-          onSelect={(index) => selectAlbum(index, { play: player.playing })}
-          player={player}
-          albumLines={albumLines}
-        />
+        <Turntable albums={albums} selectedIndex={focused} player={player} albumLines={albumLines} />
       </section>
 
       {/* ---------- números ---------- */}
@@ -414,7 +408,12 @@ export default function OverviewPage() {
               title="O rack"
               aside={<span className="data pb-1 text-text-muted">escolha um para pôr na agulha</span>}
             />
-            <CoverWall albums={albums} selectedIndex={focused} playing={player.playing} onSelect={putOnDeck} />
+            <RecordCrate
+              albums={albums}
+              onDeckIndex={focused}
+              playing={player.playing}
+              onSelect={putOnDeck}
+            />
           </section>
         </InViewFade>
       )}
