@@ -14,7 +14,6 @@ import type { AlbumLine } from "@/modules/ai-analysis/domain/ai-analysis.types";
 interface TurntableProps {
   albums: AlbumItem[];
   selectedIndex: number;
-  onSelect: (index: number) => void;
   /** O player da tela: a vitrola toca a prévia do disco que está na agulha. */
   player: PreviewPlayer;
   /** Comentários do pacote; o disco na agulha mostra o seu, quando existe. */
@@ -27,10 +26,24 @@ const STAGE_HEIGHT = 400;
 
 /**
  * Ângulo do braço em torno do pivô: em repouso ele fica fora do disco,
- * no alto; tocando, desce e a agulha pousa nos sulcos.
+ * no alto; tocando, desce e a agulha pousa no sulco de fora — e caminha
+ * para dentro conforme a prévia corre, como num disco de verdade.
  */
 const ARM_REST_DEG = 42;
 const ARM_PLAYING_DEG = 24;
+const ARM_END_DEG = 15;
+
+/**
+ * Onde a agulha está. O braço só volta ao descanso quando não há prévia
+ * em curso: pausado no meio ele fica onde parou, pelo mesmo motivo que o
+ * disco mantém o ângulo em que estava em vez de saltar.
+ */
+export function armAngle(progress: number, playing: boolean): number {
+  const onRecord = progress > 0 && progress < 1;
+  if (!playing && !onRecord) return ARM_REST_DEG;
+  const travelled = Math.min(1, Math.max(0, progress));
+  return ARM_PLAYING_DEG + (ARM_END_DEG - ARM_PLAYING_DEG) * travelled;
+}
 
 /** As prévias do catálogo têm 30 segundos: um segmento por segundo. */
 const PREVIEW_SECONDS = 30;
@@ -39,9 +52,9 @@ const PREVIEW_SECONDS = 30;
  * A vitrola. O disco em foco está no prato, com a capa servindo de
  * bolacha central e a mesma capa embaixo, como encarte. Clicar no prato
  * toca a prévia da faixa mais ouvida do disco: o braço desce e o disco
- * acelera. Os próximos ficam na pilha "a seguir".
+ * acelera. Escolher outro disco é no caixote, logo abaixo.
  */
-export function Turntable({ albums, selectedIndex, onSelect, player, albumLines = [] }: TurntableProps) {
+export function Turntable({ albums, selectedIndex, player, albumLines = [] }: TurntableProps) {
   const reduced = useReducedMotion();
   // ref de estado, não useRef: o palco só existe depois que os discos
   // chegam, e um useRef não avisaria o observer de que ele nasceu
@@ -67,7 +80,6 @@ export function Turntable({ albums, selectedIndex, onSelect, player, albumLines 
   if (albums.length === 0) return null;
 
   const current = albums[selectedIndex] ?? albums[0];
-  const upNext = albums.map((album, index) => ({ album, index })).filter(({ index }) => index !== selectedIndex).slice(0, 4);
   const playable = Boolean(current.previewUrl);
   const playing = playable && player.playing;
   const litSeconds = Math.round(player.progress * PREVIEW_SECONDS);
@@ -212,7 +224,7 @@ export function Turntable({ albums, selectedIndex, onSelect, player, albumLines 
           {/* braço */}
           <div
             className="absolute right-1.5 top-[197px] h-1.5 w-[274px] origin-right transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
-            style={{ transform: `rotate(${playing ? ARM_PLAYING_DEG : ARM_REST_DEG}deg)` }}
+            style={{ transform: `rotate(${armAngle(player.progress, playing)}deg)` }}
           >
             <span
               className="absolute -right-[11px] -top-[11px] h-7 w-7 rounded-full"
@@ -294,54 +306,6 @@ export function Turntable({ albums, selectedIndex, onSelect, player, albumLines 
         </Voice>
       )}
 
-      {upNext.length > 0 && (
-        <div className="mt-4">
-          <span className="eyebrow mb-3 block">a seguir</span>
-
-          <div className="flex gap-2">
-            {upNext.map(({ album, index }) => (
-              <button
-                key={`${album.id ?? album.title}-${index}`}
-                type="button"
-                onClick={() => onSelect(index)}
-                aria-label={`Pôr na agulha: ${album.title}, de ${album.artistName}`}
-                className="group relative h-[74px] flex-1 cursor-pointer border-0 bg-transparent p-0"
-              >
-                {/* a bolacha sai de dentro da capa no hover */}
-                <span
-                  className="absolute left-[26%] top-[4%] aspect-square h-[92%] rounded-full transition-transform duration-[460ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-6"
-                  style={{
-                    background: "radial-gradient(circle at 50% 50%, #101317 0 18%, #0b0d10 18% 100%)",
-                    boxShadow: "inset 0 0 0 1px rgb(255 255 255 / 0.05)",
-                  }}
-                >
-                  <span
-                    className="absolute inset-[12%] rounded-full"
-                    style={{
-                      background:
-                        "repeating-radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.055) 0 1px, transparent 1px 3px)",
-                    }}
-                  />
-                </span>
-
-                <span className="relative block aspect-square h-full">
-                  <ResilientCover
-                    src={album.coverUrl}
-                    alt={`Capa de ${album.title}`}
-                    label={album.title}
-                    compact
-                    className="h-full w-full rounded-sm ring-1 ring-white/[0.06] transition-[filter,box-shadow] duration-300 group-hover:ring-white/20"
-                    imageClassName="saturate-[.82] brightness-[.84] transition-[filter] duration-300 group-hover:saturate-100 group-hover:brightness-100"
-                  />
-                  <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-1.5 pb-1 pt-4 text-left">
-                    <span className="data block truncate text-[7.5px] text-white/80">{album.title}</span>
-                  </span>
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
