@@ -4,10 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import { useInView, useReducedMotion } from "framer-motion";
 
 /**
- * A voz do Gemini fora da manchete. Dado é limpo; opinião vem neste
- * bloco mono, digitada como saída de terminal quando entra na tela.
- * O resto do texto já ocupa o espaço, invisível, então nada pula.
+ * O quadro é o aparelho: a faixa de cima é o bisel, com a etiqueta e o LED
+ * âmbar; embaixo fica o vidro. Com `screen`, esse vidro vira LCD refletivo —
+ * tinta escura sobre substrato pálido, do jeito que tela de portátil antigo
+ * aparece. Sem ele, o texto fica no fundo escuro do painel.
+ *
+ * Nem todo texto merece virar tela: um retângulo pálido puxa muito o olho
+ * dentro de uma interface quase preta. `screen` é para a leitura principal
+ * e para o comentário do disco, não para toda frase de rodapé.
  */
+const glass = (screen: boolean) => (screen ? "lcd" : "");
+
 /**
  * O mesmo quadro, enquanto o texto ainda está sendo escrito. A primeira
  * leitura de um período nasce na hora e leva dezenas de segundos: sem este
@@ -19,10 +26,12 @@ import { useInView, useReducedMotion } from "framer-motion";
 export function VoicePending({
   label,
   children: hint,
+  screen = false,
   className = "",
 }: {
   label: string;
   children: string;
+  screen?: boolean;
   className?: string;
 }) {
   return (
@@ -35,20 +44,31 @@ export function VoicePending({
         <span className="eyebrow text-accent">{label}</span>
         <span className="led" data-on="true" style={{ animation: "gy-blink 0.7s steps(1) infinite" }} aria-hidden />
       </figcaption>
-      <p className="data m-0 px-4 py-4 text-[13px] leading-relaxed text-text-muted">{hint}</p>
+      {/* a tela acesa e ainda sem texto: o aviso já mora no vidro */}
+      <p className={`data m-0 px-4 py-4 text-[13px] leading-relaxed ${glass(screen)} ${screen ? "" : "text-text-muted"}`}>
+        {hint}
+      </p>
     </figure>
   );
 }
 
+/**
+ * A voz do Gemini fora da manchete. Dado é limpo; opinião vem neste
+ * bloco mono, digitada como saída de terminal quando entra na tela.
+ * O resto do texto já ocupa o espaço, invisível, então nada pula.
+ */
 export function Voice({
   label,
   children: text,
   size = "md",
+  screen = false,
   className = "",
 }: {
   label: string;
   children: string;
   size?: "md" | "lg";
+  /** Renderiza o texto num LCD refletivo, em vez do fundo escuro do painel. */
+  screen?: boolean;
   className?: string;
 }) {
   const ref = useRef<HTMLElement>(null);
@@ -87,7 +107,7 @@ export function Voice({
         <span className="led" data-on="true" aria-hidden />
       </figcaption>
       <p
-        className={`voice-text m-0 px-4 py-4 ${
+        className={`voice-text m-0 px-4 py-4 ${glass(screen)} ${
           size === "lg" ? "text-[clamp(1rem,1.7vw,1.25rem)]" : "text-[13px]"
         }`}
       >

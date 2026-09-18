@@ -151,9 +151,8 @@ export default function OverviewPage() {
   const player = usePreviewPlayer(focusedAlbum?.previewUrl);
 
   /**
-   * Trocar o disco da agulha. A prévia sai no mesmo clique (o navegador só
-   * deixa tocar dentro do gesto): vindo do rack ela sempre toca; vindo da
-   * pilha "a seguir", só continua se já havia som.
+   * Trocar o disco da agulha. A prévia sai no mesmo clique, porque o
+   * navegador só deixa tocar dentro do gesto que pediu.
    */
   const selectAlbum = (index: number, { play }: { play: boolean }) => {
     setFocused(index);
@@ -348,12 +347,12 @@ export default function OverviewPage() {
           <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
             <Spectrum activity={activity} days={PERIOD_DAYS[period]} />
             {writing ? (
-              <VoicePending label="leitura">
+              <VoicePending label="leitura" screen>
                 escrevendo a leitura deste período — a primeira de cada intervalo leva alguns
                 segundos. trocar de período agora cancela o pedido.
               </VoicePending>
             ) : packSource === "ai" && insight ? (
-              <Voice label="leitura">{insight}</Voice>
+              <Voice label="leitura" screen>{insight}</Voice>
             ) : (
               data && (
                 /* texto de reserva sai como texto comum: o quadro é só do que o modelo escreveu */

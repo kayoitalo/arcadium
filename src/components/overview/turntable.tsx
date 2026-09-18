@@ -301,7 +301,7 @@ export function Turntable({ albums, selectedIndex, player, albumLines = [] }: Tu
       {/* o que o Gemini achou do disco que está tocando; sem frase pra ele,
           o display fica só com os dados, sem inventar comentário */}
       {comment && (
-        <Voice label="sobre o disco" className="mt-4">
+        <Voice label="sobre o disco" screen className="mt-4">
           {comment.line}
         </Voice>
       )}
