@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { shiftColor, shiftMark, shiftTone } from "@/lib/format/shift";
 
 /**
  * As peças do console. Todas planas: o estado aparece pela luz do LED,
@@ -71,11 +72,11 @@ export function Delta({ value, suffix = "contra o período anterior" }: { value?
     return <span className="data text-text-muted">sem período anterior para comparar</span>;
   }
 
-  const up = value >= 0;
+  const tone = shiftTone(value);
   return (
     <span className="data inline-flex flex-wrap items-center gap-x-2 gap-y-1">
-      <span style={{ color: up ? "var(--machine)" : "var(--color-status-error)" }}>
-        {up ? "▲" : "▼"} {Math.abs(value).toLocaleString("pt-BR")}%
+      <span style={{ color: shiftColor(tone) }}>
+        {shiftMark(tone)} {Math.abs(value).toLocaleString("pt-BR")}%
       </span>
       <span className="text-text-muted">{suffix}</span>
     </span>

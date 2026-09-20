@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ResilientCover } from "@/components/ui/resilient-cover";
 import { SectionHead } from "@/components/ui/section-head";
 import { formatGenre } from "@/lib/format/genre";
+import { shiftColor, shiftMark, shiftTone } from "@/lib/format/shift";
 import { EASE_OUT_EXPO } from "@/components/ui/motion";
 import type { DiscoveryItem, TasteShiftItem } from "@/modules/statistics/application/overview-service";
 
@@ -60,7 +61,8 @@ export function Movement({
             {items.map(({ item, up }, index) => {
               const delta = item.currentShare - item.previousShare;
               const width = (Math.abs(delta) / scale) * 50;
-              const color = up ? "var(--machine)" : "var(--color-status-error)";
+              const tone = shiftTone(delta);
+              const color = shiftColor(tone);
 
               return (
                 <motion.li
@@ -86,7 +88,7 @@ export function Movement({
                   </span>
 
                   <span className="data text-right" style={{ color }}>
-                    {delta > 0 ? "▲" : "▼"} {decimal(Number(Math.abs(delta).toFixed(1)))}pp
+                    {shiftMark(tone)} {decimal(Number(Math.abs(delta).toFixed(1)))}pp
                   </span>
                 </motion.li>
               );

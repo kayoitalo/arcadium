@@ -11,10 +11,12 @@
    4. Clique é seco, objeto é físico: duas velocidades.
    5. Nada decorativo: tudo é dado, controle ou disco.
 
-   Duas cores com papéis separados: âmbar é a máquina (LED,
-   ativo, foco) e existe em toda tela; --chroma-* é o disco,
+   Cada cor tem um serviço, e só um. Âmbar é a máquina (LED,
+   ativo, foco) e existe em toda tela. --chroma-* é o disco,
    extraída da capa pelo ChromaProvider, e só aparece em volta
-   do que está tocando.
+   do que está tocando. --shift-* é polaridade: de que lado da
+   linha um gênero está, com cinza no meio para o que não mudou.
+   Vermelho é erro, e nada mais — gênero encolher não é erro.
    ============================================================ */
 
 @theme {
@@ -98,6 +100,15 @@
   --machine: #ffb000;
   --machine-soft: rgb(255 176 0 / 0.08);
   --machine-line: rgb(255 176 0 / 0.45);
+
+  /* polaridade: de que lado da linha o gênero está. Dois hues e um cinza
+     no meio, nenhum emprestado de outro cargo — o âmbar é a máquina e o
+     vermelho é erro, e gênero encolher não é erro, é informação neutra.
+     O âmbar ainda por cima é claro demais para virar barra: foi desenhado
+     para ser LED de 5px. */
+  --shift-up: #3987e5;
+  --shift-flat: #8b959e;
+  --shift-down: #d55181;
 
   --background: #08090b;
   --surface: #0e1013;

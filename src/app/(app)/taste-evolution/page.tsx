@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { ScreenLine } from "@/components/ui/screen-line";
 import { formatGenre } from "@/lib/format/genre";
+import { shiftColor, shiftMark, shiftTone } from "@/lib/format/shift";
 import { useScreenChrome } from "@/components/layout/chrome";
 import { Readout } from "@/components/ui/console";
 import { EASE_OUT_EXPO, InViewFade } from "@/components/ui/motion";
@@ -24,20 +25,19 @@ const decimal = (value: number) => value.toString().replace(".", ",");
 function ShiftRow({
   item,
   scale,
-  rising,
   index,
 }: {
   item: TasteShiftItem;
   scale: number;
-  rising: boolean;
   index: number;
 }) {
   const from = Math.min(100, (item.previousShare / scale) * 100);
   const to = Math.min(100, (item.currentShare / scale) * 100);
   const left = Math.min(from, to);
   const width = Math.abs(to - from);
-  const color = rising ? "var(--machine)" : "var(--color-status-error)";
   const delta = Number((item.currentShare - item.previousShare).toFixed(1));
+  const tone = shiftTone(delta);
+  const color = shiftColor(tone);
 
   return (
     <motion.li
@@ -73,7 +73,8 @@ function ShiftRow({
           style={{
             left: `${to}%`,
             background: color,
-            boxShadow: rising ? "0 0 8px rgb(255 176 0 / 0.6)" : undefined,
+            // o halo marca o lado que cresceu, e só ele
+            boxShadow: tone === "up" ? "0 0 8px rgb(57 135 229 / 0.55)" : undefined,
           }}
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
@@ -86,7 +87,7 @@ function ShiftRow({
         {decimal(item.previousShare)}% <span className="text-border-strong">→</span>
         <b style={{ color }}>{decimal(item.currentShare)}%</b>
         <span className="border px-1.5 py-0.5" style={{ color, borderColor: "currentColor" }}>
-          {delta > 0 ? "▲" : "▼"} {decimal(Math.abs(delta))}pp
+          {shiftMark(tone)} {decimal(Math.abs(delta))}pp
         </span>
       </span>
     </motion.li>
@@ -140,19 +141,19 @@ export default function TasteEvolutionPage() {
       label: "Maior salto",
       value: biggest ? formatGenre(biggest.genre) : "—",
       note: biggest ? `${decimal(biggest.previousShare)}% → ${decimal(biggest.currentShare)}%` : "sem dado no período",
-      className: "text-accent",
+      tone: "up" as const,
     },
     {
       label: "Em alta",
       value: String(rising.length),
       note: rising.length === 1 ? "gênero ganhou espaço" : "gêneros ganharam espaço",
-      className: "text-text-primary",
+      tone: "up" as const,
     },
     {
       label: "Em queda",
       value: String(declining.length),
       note: declining.length === 1 ? "gênero perdeu espaço" : "gêneros perderam espaço",
-      className: "text-status-error",
+      tone: "down" as const,
     },
   ];
 
@@ -185,7 +186,9 @@ export default function TasteEvolutionPage() {
                 className="px-4 py-5"
                 footer={<span className="data text-text-muted">{stat.note}</span>}
               >
-                <strong className={`numeral block truncate text-[26px] ${stat.className}`}>{stat.value}</strong>
+                <strong className="numeral block truncate text-[26px]" style={{ color: shiftColor(stat.tone) }}>
+                  {stat.value}
+                </strong>
               </Readout>
             ))}
           </div>
@@ -238,7 +241,7 @@ export default function TasteEvolutionPage() {
                 </div>
                 <ul className="m-0 list-none p-0">
                   {rising.map((item, index) => (
-                    <ShiftRow key={item.genre} item={item} scale={scale} rising index={index} />
+                    <ShiftRow key={item.genre} item={item} scale={scale} index={index} />
                   ))}
                 </ul>
               </section>
@@ -261,7 +264,7 @@ export default function TasteEvolutionPage() {
                 </div>
                 <ul className="m-0 list-none p-0">
                   {declining.map((item, index) => (
-                    <ShiftRow key={item.genre} item={item} scale={scale} rising={false} index={index} />
+                    <ShiftRow key={item.genre} item={item} scale={scale} index={index} />
                   ))}
                 </ul>
               </section>
