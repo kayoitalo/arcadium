@@ -52,7 +52,7 @@ export function Movement({
   return (
     <section className="ruled border border-border md:grid-cols-[1.25fr_1fr]">
       <div className="bg-background p-6 sm:p-7">
-        <SectionHead index="03" eyebrow="Movimento de gosto" title="O que subiu, o que caiu" />
+        <SectionHead index="04" eyebrow="Movimento de gosto" title="O que subiu, o que caiu" />
 
         {items.length === 0 ? (
           <p className="data mt-6 text-text-muted">Nenhum gênero mudou de tamanho neste período.</p>

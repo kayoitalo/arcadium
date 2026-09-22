@@ -106,9 +106,12 @@
      vermelho é erro, e gênero encolher não é erro, é informação neutra.
      O âmbar ainda por cima é claro demais para virar barra: foi desenhado
      para ser LED de 5px. */
-  --shift-up: #3987e5;
+  /* Os valores vieram do gabinete: ciano e magenta de tubo, saturados o
+     bastante para brilhar sobre preto. O par anterior (#3987e5 / #d55181)
+     era azul e rosa de relatório — lia como planilha, não como máquina. */
+  --shift-up: #2ee6e6;
   --shift-flat: #8b959e;
-  --shift-down: #d55181;
+  --shift-down: #ff3d8b;
 
   --background: #08090b;
   --surface: #0e1013;

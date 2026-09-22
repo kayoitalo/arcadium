@@ -1,23 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
+import { findAlbumLine } from "@/components/ai/album-line";
 import { pickFresh } from "@/components/ai/pick-fresh";
-import { usePreviewPlayer } from "@/components/audio/use-preview-player";
+import { Jukebox } from "@/components/arcadium/jukebox";
+import { Pulse } from "@/components/arcadium/pulse";
+import { Reveal } from "@/components/arcadium/reveal";
+import { Scoreboard, type ScoreEntry } from "@/components/arcadium/scoreboard";
+import { ScreenPanel } from "@/components/arcadium/screen-panel";
+import { Showcase } from "@/components/arcadium/showcase";
+import { AMBER, CYAN, GREEN, MAGENTA } from "@/components/arcadium/tokens";
+import { useArcadeAudio } from "@/components/audio/use-arcade-audio";
 import { useChroma } from "@/components/chroma/chroma-provider";
 import { useScreenChrome } from "@/components/layout/chrome";
 import { Decades } from "@/components/overview/decades";
 import { Movement } from "@/components/overview/movement";
 import { RankList } from "@/components/overview/rank-list";
-import { RecordCrate } from "@/components/overview/record-crate";
 import { Spectrum } from "@/components/overview/spectrum";
-import { Turntable } from "@/components/overview/turntable";
-import { Delta, Meter, Readout } from "@/components/ui/console";
-import { CountUp, InViewFade } from "@/components/ui/motion";
+import { ResilientCover } from "@/components/ui/resilient-cover";
+import { Delta } from "@/components/ui/console";
 import { SectionHead } from "@/components/ui/section-head";
-import { Voice, VoicePending } from "@/components/ui/voice";
 import type { OverviewData, PeriodKey } from "@/modules/statistics/application/overview-service";
 import type { PackView, ProfileNarrative } from "@/modules/ai-analysis/domain/ai-analysis.types";
 
@@ -47,7 +52,7 @@ const PERIOD_DAYS: Record<PeriodKey, number | null> = { "7d": 7, "30d": 30, "1y"
 
 function formatHours(minutes: number): string {
   const hours = Math.round(minutes / 60);
-  return hours >= 1 ? `${hours.toLocaleString("pt-BR")}h` : `${minutes}min`;
+  return hours >= 1 ? `${hours.toLocaleString("pt-BR")}h` : `${Math.round(minutes)}min`;
 }
 
 const decimal = (value: number) => value.toString().replace(".", ",");
@@ -57,16 +62,18 @@ export default function OverviewPage() {
   const [data, setData] = useState<OverviewData | null>(null);
   const [story, setStory] = useState<ProfileNarrative | null>(null);
   const [albumLines, setAlbumLines] = useState<PackView["albumLines"]>([]);
-  /** "escrevendo" só aparece depois de PENDING_AFTER_MS: pacote pronto responde na hora. */
+  /** "escrevendo" só aparece depois de PENDING_AFTER_MS. */
   const [writing, setWriting] = useState(false);
-  /** Quem escreveu o que está na tela: só o que veio do modelo usa o quadro dele. */
+  /** Quem escreveu o que está na tela: só o modelo usa a tela dele. */
   const [packSource, setPackSource] = useState<PackView["source"] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [focused, setFocused] = useState(0);
+  /** O disco que está no deck — pode não ser o que está em foco no mostruário. */
+  const [onDeck, setOnDeck] = useState<number | null>(null);
   const heroRef = useRef<HTMLElement>(null);
-  const reduced = useReducedMotion();
   const { adoptCover } = useChroma();
+  const audio = useArcadeAudio();
 
   useScreenChrome({
     title: "Visão geral",
@@ -124,16 +131,19 @@ export default function OverviewPage() {
     };
   }, [period]);
 
-  // sem corte aqui: quem decide o tamanho do rack é o RACK_SIZE da consulta
+  // quem decide o tamanho do mostruário é o RACK_SIZE da consulta
   const albums = useMemo(() => data?.topAlbums ?? [], [data]);
   const focusedAlbum = albums[focused];
+  const deckAlbum = onDeck === null ? null : (albums[onDeck] ?? null);
 
-  // o prato abre no disco que mais mostra o que a vitrola faz: com capa e
-  // com prévia, senão só com capa. Escolha automática uma vez por leitura;
-  // depois disso quem manda é o clique, mesmo num disco sem capa
+  // o mostruário abre no disco que mais mostra o que a máquina faz: com
+  // capa e com prévia, senão só com capa
   const autoPick = useRef(true);
   useEffect(() => {
     autoPick.current = true;
+    setOnDeck(null);
+    audio.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
   useEffect(() => {
     if (!autoPick.current || albums.length === 0) return;
@@ -144,27 +154,37 @@ export default function OverviewPage() {
     if (pick >= 0) setFocused(pick);
   }, [albums]);
 
+  /** A cor da tela é sempre a da capa em foco: o disco tinge a sala. */
   useEffect(() => {
     adoptCover(focusedAlbum?.coverUrl, focusedAlbum?.title ?? null);
   }, [focusedAlbum?.coverUrl, focusedAlbum?.title, adoptCover]);
 
-  const player = usePreviewPlayer(focusedAlbum?.previewUrl);
-
   /**
-   * Trocar o disco da agulha. A prévia sai no mesmo clique, porque o
-   * navegador só deixa tocar dentro do gesto que pediu.
+   * Pôr na agulha carrega o disco e para por aí — som só sai no play. O
+   * clique já serve de gesto pro navegador liberar o áudio, então o play
+   * seguinte sai na hora.
    */
-  const selectAlbum = (index: number, { play }: { play: boolean }) => {
-    setFocused(index);
-    const url = albums[index]?.previewUrl;
-    if (url && play) player.play(url);
-  };
+  const putOnDeck = useCallback(
+    (index: number) => {
+      setFocused(index);
+      setOnDeck(index);
+      audio.cue(albums[index]?.previewUrl);
+    },
+    [albums, audio],
+  );
 
-  /** Escolher no rack põe o disco na agulha — e leva o olho até a vitrola. */
-  const putOnDeck = (index: number) => {
-    selectAlbum(index, { play: true });
-    heroRef.current?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
-  };
+  /** O "próximo" respeita o que estava acontecendo: tocando segue tocando. */
+  const nextOnDeck = useCallback(() => {
+    const playable = albums.map((album, index) => ({ album, index })).filter((entry) => entry.album.previewUrl);
+    if (playable.length === 0) return;
+    const at = playable.findIndex((entry) => entry.index === onDeck);
+    const target = playable[(at + 1) % playable.length];
+    const wasPlaying = audio.playing;
+    setFocused(target.index);
+    setOnDeck(target.index);
+    if (wasPlaying) audio.play(target.album.previewUrl);
+    else audio.cue(target.album.previewUrl);
+  }, [albums, onDeck, audio]);
 
   const headline = story?.headline ?? data?.aiStory.headline;
   const narrative = story?.narrative ?? data?.aiStory.narrative;
@@ -206,27 +226,39 @@ export default function OverviewPage() {
     );
   }
 
-  const metrics = [
+  const scores: ScoreEntry[] = [
     {
+      tag: "1up",
+      label: "Audições",
+      value: summary?.totalPlays ?? 0,
+      tint: AMBER,
+      footer: <Delta value={summary?.playsChangePercent} />,
+    },
+    {
+      tag: "2up",
       label: "Artistas",
       value: summary?.uniqueArtists ?? 0,
-      change: summary?.artistsChangePercent,
-      bar: (data?.concentration.top5ArtistShare ?? 0) / 100,
+      tint: CYAN,
+      ratio: (data?.concentration.top5ArtistShare ?? 0) / 100,
       note: `top 5 = ${decimal(data?.concentration.top5ArtistShare ?? 0)}% da escuta`,
+      footer: <Delta value={summary?.artistsChangePercent} suffix="que antes" />,
     },
     {
+      tag: "3up",
       label: "Faixas",
       value: summary?.uniqueTracks ?? 0,
-      change: summary?.tracksChangePercent,
-      bar: (data?.concentration.top10TrackShare ?? 0) / 100,
+      tint: MAGENTA,
+      ratio: (data?.concentration.top10TrackShare ?? 0) / 100,
       note: `top 10 = ${decimal(data?.concentration.top10TrackShare ?? 0)}% da escuta`,
+      footer: <Delta value={summary?.tracksChangePercent} suffix="que antes" />,
     },
     {
+      tag: "hi",
       label: "Tempo",
       value: summary?.listeningMinutes ?? 0,
+      tint: GREEN,
       format: formatHours,
-      change: null,
-      bar: (listeningShare ?? 0) / 100,
+      ratio: (listeningShare ?? 0) / 100,
       note:
         listeningShare == null ? "duração estimada" : `${decimal(listeningShare)}% do período com música`,
       // o "≈" sozinho não diz quanto é medido: a cobertura fica escrita
@@ -240,124 +272,162 @@ export default function OverviewPage() {
             : undefined,
       approximate: summary?.durationSource === "ESTIMATE",
     },
-  ] as Array<{
-    label: string;
-    value: number;
-    change?: number | null;
-    bar: number;
-    note: string;
-    format?: (minutes: number) => string;
-    detail?: string;
-    approximate?: boolean;
-  }>;
+  ];
+
+  const deckLine = deckAlbum ? findAlbumLine(albumLines, deckAlbum)?.line : undefined;
 
   return (
-    <div className="gy-page flex flex-col gap-16 sm:gap-20">
-      {/* ---------- abertura: a manchete do Gemini e a vitrola ---------- */}
+    <div className="flex flex-col gap-16 sm:gap-20">
+      {/* ---------- abertura: a manchete do modelo e o disco em foco ---------- */}
       <section
         ref={heroRef}
-        className="relative grid items-center gap-x-14 gap-y-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(300px,0.75fr)]"
+        className="gy-page relative"
         style={{ scrollMarginTop: "calc(var(--chrome-h) + 24px)" }}
       >
-        <div>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`${period}-${headline ?? "loading"}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              {/* o âmbar no rótulo continua marcando que o texto é opinião, não dado */}
-              <span className="eyebrow block text-accent">{story?.eyebrow ?? PERIOD_SUBJECT[period]}</span>
+        <div className="relative grid items-center gap-x-14 gap-y-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(300px,0.8fr)]">
+          <div>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`${period}-${headline ?? "loading"}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                {/* o âmbar no rótulo continua marcando que o texto é opinião, não dado */}
+                <span className="eyebrow block text-accent">{story?.eyebrow ?? PERIOD_SUBJECT[period]}</span>
 
-              <h1 className="display mt-5 max-w-[17ch] text-[clamp(2.6rem,6.6vw,5.9rem)]">
-                {headline ? (
-                  <span className="block overflow-hidden">
-                    <span className="gy-rise">{headline}</span>
-                  </span>
-                ) : (
-                  <span className="block h-[1em] w-[8ch] animate-pulse bg-surface-elevated" />
-                )}
-              </h1>
-
-              {narrative && (
-                <p className="gy-up mt-7 max-w-[50ch] text-base leading-[1.66] text-text-secondary [animation-delay:260ms]">
-                  {narrative}
-                </p>
-              )}
-
-              {Boolean(story?.tasteKeywords?.length) && (
-                <div className="mt-7 flex flex-wrap gap-1.5">
-                  {story?.tasteKeywords?.map((keyword, index) => (
-                    <span
-                      key={keyword}
-                      className="gy-up tag"
-                      style={{ animationDelay: `${320 + index * 60}ms`, animationDuration: "450ms" }}
-                    >
-                      {keyword}
+                <h1 className="display mt-5 max-w-[17ch] text-[clamp(2.4rem,6vw,5.2rem)]">
+                  {headline ? (
+                    <span className="block overflow-hidden">
+                      <span className="gy-rise">{headline}</span>
                     </span>
-                  ))}
-                </div>
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
+                  ) : (
+                    <span className="block h-[1em] w-[8ch] animate-pulse bg-surface-elevated" />
+                  )}
+                </h1>
 
-        <Turntable albums={albums} selectedIndex={focused} player={player} albumLines={albumLines} />
-      </section>
-
-      {/* ---------- números ---------- */}
-      <section className="ruled grid-cols-2 border border-border xl:grid-cols-4">
-        <Readout label="Audições" footer={<Delta value={summary?.playsChangePercent} />}>
-          <strong className="numeral block text-[clamp(2.4rem,4.4vw,3.5rem)]">
-            <CountUp value={summary?.totalPlays ?? 0} />
-          </strong>
-        </Readout>
-
-        {metrics.map((metric) => (
-          <Readout
-            key={metric.label}
-            label={metric.label}
-            footer={
-              <>
-                <Meter ratio={metric.bar} label={metric.note} />
-                <span className="data mt-2.5 block text-text-muted">{metric.note}</span>
-                {metric.detail && <span className="data mt-1 block text-text-label">{metric.detail}</span>}
-                {typeof metric.change === "number" && (
-                  <span className="mt-1.5 block">
-                    <Delta value={metric.change} suffix="que antes" />
-                  </span>
+                {narrative && (
+                  <p className="gy-up mt-7 max-w-[50ch] text-base leading-[1.66] text-text-secondary [animation-delay:260ms]">
+                    {narrative}
+                  </p>
                 )}
-              </>
-            }
-          >
-            <strong className="numeral block text-[clamp(2.4rem,4.4vw,3.5rem)]">
-              {metric.approximate && <span className="mr-1 align-middle text-[0.45em] text-text-muted">≈</span>}
-              <CountUp value={metric.value} format={metric.format} />
-            </strong>
-          </Readout>
-        ))}
+
+                {Boolean(story?.tasteKeywords?.length) && (
+                  <div className="mt-7 flex flex-wrap gap-1.5">
+                    {story?.tasteKeywords?.map((keyword, index) => (
+                      <span
+                        key={keyword}
+                        className="gy-up tag"
+                        style={{ animationDelay: `${320 + index * 60}ms`, animationDuration: "450ms" }}
+                      >
+                        {keyword}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          {/* o disco em foco, do tamanho que ele merece, com o pulso atrás */}
+          <div className="relative mx-auto w-full max-w-[420px]">
+            <Pulse audio={audio} size={620} />
+
+            {/* o letreiro fica atrás da capa, que passa na frente e tapa o
+                meio dele. Sai do eixo do texto de propósito: sobre a
+                manchete ele virava ruído em vez de fundo */}
+            <p
+              aria-hidden
+              className="display pointer-events-none absolute left-1/2 top-[42%] w-[190%] -translate-x-1/2 -translate-y-1/2 select-none text-center text-[clamp(3rem,11vw,9rem)] leading-[0.82] text-[#1a2029]"
+            >
+              ARCADIUM
+            </p>
+
+            <div className="relative aspect-square w-full shadow-lift">
+              <ResilientCover
+                src={focusedAlbum?.coverUrl}
+                alt={focusedAlbum?.title ?? "capa"}
+                label={focusedAlbum?.title ?? ""}
+                className="h-full w-full"
+                caption={false}
+                priority
+              />
+            </div>
+            <div className="relative mt-5 text-center">
+              <p className="eyebrow text-accent">em foco</p>
+              <p className="display mt-2 text-[clamp(1.2rem,2vw,1.7rem)] leading-[1.06]">
+                {focusedAlbum?.title ?? "—"}
+              </p>
+              <p className="mt-1 font-mono text-[11px] text-text-muted">
+                {focusedAlbum?.artistName ?? ""}
+                {focusedAlbum ? ` · ${focusedAlbum.plays} audições` : ""}
+              </p>
+              {focusedAlbum && (
+                <button
+                  type="button"
+                  onClick={() => putOnDeck(focused)}
+                  disabled={!focusedAlbum.previewUrl}
+                  className="key key-sm mt-4 disabled:opacity-40"
+                >
+                  {focusedAlbum.previewUrl ? "pôr na agulha" : "sem prévia no catálogo"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* ---------- espectro ---------- */}
-      <InViewFade>
+      {/* ---------- placar ---------- */}
+      <Reveal className="gy-page">
+        <Scoreboard
+          entries={scores}
+          aside={
+            <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-text-muted">
+              {(data?.syncStatus.totalStoredEvents ?? 0).toLocaleString("pt-BR")} registros na máquina
+            </span>
+          }
+        />
+      </Reveal>
+
+      {/* ---------- mostruário ---------- */}
+      {albums.length > 0 && (
+        <Reveal>
+          <section>
+            <div className="gy-page">
+              <SectionHead index="01" eyebrow="Discos do período" title="O mostruário" />
+            </div>
+            <div className="mt-10 overflow-hidden">
+              <Showcase
+                albums={albums}
+                focused={focused}
+                onFocus={setFocused}
+                onPick={putOnDeck}
+                loadedTitle={deckAlbum?.title}
+                bass={audio.bass}
+              />
+            </div>
+          </section>
+        </Reveal>
+      )}
+
+      {/* ---------- espectro do período ---------- */}
+      <Reveal className="gy-page">
         <section>
-          <SectionHead index="01" eyebrow="Espectro" title="Onde o volume subiu" />
-          {/* items-start: a tela tem a altura do texto dela. Esticada até a
-              altura do espectro, sobrava meio painel pálido vazio */}
+          <SectionHead index="02" eyebrow="Espectro" title="Onde o volume subiu" />
+          {/* items-start: a tela tem a altura do texto dela */}
           <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
             <Spectrum activity={activity} days={PERIOD_DAYS[period]} />
             {writing ? (
-              <VoicePending label="leitura" screen>
-                escrevendo a leitura deste período — a primeira de cada intervalo leva alguns
-                segundos. trocar de período agora cancela o pedido.
-              </VoicePending>
+              <ScreenPanel label="leitura" state="writing">
+                escrevendo a leitura deste período — a primeira de cada intervalo leva alguns segundos.
+                trocar de período agora cancela o pedido.
+              </ScreenPanel>
             ) : packSource === "ai" && insight ? (
-              <Voice label="leitura" screen>{insight}</Voice>
+              <ScreenPanel label="leitura">{insight}</ScreenPanel>
             ) : (
               data && (
-                /* texto de reserva sai como texto comum: o quadro é só do que o modelo escreveu */
+                /* texto de reserva sai como texto comum: a tela é só do que o modelo escreveu */
                 <p className="data border border-border bg-well p-4 leading-relaxed text-text-secondary">
                   {insight ??
                     `Os cinco primeiros artistas somam ${decimal(data.concentration.top5ArtistShare)}% de tudo que você ouviu ${PERIOD_SUBJECT[period]}.`}
@@ -366,13 +436,13 @@ export default function OverviewPage() {
             )}
           </div>
         </section>
-      </InViewFade>
+      </Reveal>
 
       {/* ---------- ranking ---------- */}
-      <InViewFade>
+      <Reveal className="gy-page">
         <section>
           <SectionHead
-            index="02"
+            index="03"
             eyebrow="Mais ouvidos"
             title="Quem carregou o período"
             aside={
@@ -386,42 +456,22 @@ export default function OverviewPage() {
           />
           <RankList artists={data?.topArtists.slice(0, 8) ?? []} periodKey={period} />
         </section>
-      </InViewFade>
+      </Reveal>
 
       {/* ---------- movimento e estreias ---------- */}
       {data && (data.tasteShift.rising.length > 0 || data.discoveries.length > 0) && (
-        <InViewFade>
+        <Reveal className="gy-page">
           <Movement
             rising={data.tasteShift.rising}
             declining={data.tasteShift.declining}
             discoveries={data.discoveries}
           />
-        </InViewFade>
-      )}
-
-      {/* ---------- o rack ---------- */}
-      {albums.length > 0 && (
-        <InViewFade>
-          <section>
-            <SectionHead
-              index="04"
-              eyebrow="Discos do período"
-              title="O rack"
-              aside={<span className="data pb-1 text-text-muted">escolha um para pôr na agulha</span>}
-            />
-            <RecordCrate
-              albums={albums}
-              onDeckIndex={focused}
-              playing={player.playing}
-              onSelect={putOnDeck}
-            />
-          </section>
-        </InViewFade>
+        </Reveal>
       )}
 
       {/* ---------- décadas ---------- */}
       {data && data.decades.items.length > 0 && (
-        <InViewFade>
+        <Reveal className="gy-page">
           <section>
             <SectionHead
               index="05"
@@ -435,23 +485,26 @@ export default function OverviewPage() {
               <Decades distribution={data.decades} />
             </div>
           </section>
-        </InViewFade>
+        </Reveal>
       )}
 
       {/* ---------- fecho ---------- */}
       {closing && (
-        <InViewFade>
-          <section className="flex flex-col gap-4">
-            <Voice label="fechando o período" size="lg">
+        <Reveal className="gy-page">
+          <section className="flex flex-col gap-4 pb-32">
+            <ScreenPanel label="fechando o período" size="lg">
               {closing}
-            </Voice>
+            </ScreenPanel>
             <Link href="/discovery" className="key self-end">
               ir para descobertas
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </section>
-        </InViewFade>
+        </Reveal>
       )}
+
+      {/* ---------- a jukebox, sempre no canto ---------- */}
+      <Jukebox album={deckAlbum} audio={audio} onNext={nextOnDeck} line={deckLine} />
     </div>
   );
 }
