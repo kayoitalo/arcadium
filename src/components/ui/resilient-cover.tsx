@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { coverProxyUrl } from "@/lib/chroma/chroma";
 
 interface ResilientCoverProps {
@@ -33,9 +33,23 @@ export function ResilientCover({
   caption = true,
 }: ResilientCoverProps) {
   const proxied = useMemo(() => coverProxyUrl(src), [src]);
+  const node = useRef<HTMLImageElement>(null);
   const [status, setStatus] = useState<"loading" | "loaded" | "failed">(proxied ? "loading" : "failed");
 
-  useEffect(() => setStatus(proxied ? "loading" : "failed"), [proxied]);
+  /**
+   * Capa que já está no cache termina de carregar antes do React anexar o
+   * onLoad, e aí o evento nunca chega: a imagem ficaria invisível para
+   * sempre, com o slot "sem capa" aparecendo no lugar de uma capa que
+   * existe. Por isso a montagem também pergunta ao elemento se ele já
+   * terminou.
+   */
+  useEffect(() => {
+    if (!proxied) {
+      setStatus("failed");
+      return;
+    }
+    setStatus(node.current?.complete && node.current.naturalWidth > 0 ? "loaded" : "loading");
+  }, [proxied]);
 
   return (
     <div className={`relative overflow-hidden bg-surface ${className}`}>
@@ -52,6 +66,7 @@ export function ResilientCover({
         {proxied && status !== "failed" && (
           <motion.img
             key={proxied}
+            ref={node}
             src={proxied}
             alt={alt}
             loading={priority ? "eager" : "lazy"}
