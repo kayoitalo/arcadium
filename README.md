@@ -1,111 +1,86 @@
-# Grooveyard
+# Arcadium
 
-> **O cemitério dos seus discos — estatísticas de escuta, evolução de gosto e descobertas**
-> 
-> A portfolio-quality, modular Next.js application that transforms listening history into a digital music magazine visual experience with deterministic discovery, AI interpretation, MusicBrainz metadata enrichment, and Spotify playlist export.
+> **Um amigo obcecado por música lendo o seu histórico.**
+>
+> A personal listening companion. It reads your Last.fm history, finds the patterns you missed — comebacks, loops, unlikely transitions, eras — and talks about them like a friend who keeps sending you voice notes about music. It also digs up new artists that make sense for you specifically.
 
----
+The interpretive texts are the heart of the product. Charts, rankings and numbers exist to back them up.
 
-## ✦ Key Architectural Principles
-
-1. **Deterministic Analytics**: All counts, rankings, period comparisons (7d, 30d, 1y, All Time), and concentration scores are calculated locally by SQL & TypeScript—never invented by AI.
-2. **AI as Narrative Interpretation**: Google Gemini provides natural language context and taste evolution commentary based strictly on validated analytical evidence.
-3. **Strict Provider Independence & Policy Compliance**:
-   - **Last.fm**: Ingestion source (`user.getRecentTracks`).
-   - **Neon PostgreSQL**: Canonical database source of truth.
-   - **MusicBrainz**: Asynchronous metadata enrichment (MBID, country of origin, artist type, tags) with 1 req/sec rate limiting.
-   - **Spotify**: Isolated export destination (`playlist-modify-private`). Spotify content is **never** used for profiling or AI prompts.
-4. **Resilient Fallback Design**: Complete functionality remains 100% operational even when offline, unauthenticated, or when external providers are unavailable.
+The visual identity is being redefined, so this README deliberately does not describe the interface.
 
 ---
 
-## 🛠 Tech Stack (Latest 2026 Core Dependencies)
+## ✦ Principles
 
-- **Framework**: [Next.js 16.2](https://nextjs.org/) (Turbopack & `useTypeScriptCli`)
-- **UI & React**: [React 19](https://react.dev/)
-- **Language**: [TypeScript 7.0](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) (`@import "tailwindcss"` & CSS-first `@theme` design tokens)
-- **Database ORM**: [Prisma 7.9](https://www.prisma.io/) with `@prisma/adapter-pg` driver adapter
-- **Database Engine**: [Neon PostgreSQL](https://neon.tech/)
-- **Testing**: [Vitest 4.1](https://vitest.dev/) (Unit & Integration tests)
-- **Data Validation**: [Zod 4.4](https://zod.dev/)
+1. **The backend calculates facts.** Counts, rankings, shares, comparisons (7d, 30d, 1y, all time) and recommendation scores come from deterministic SQL and TypeScript.
+2. **AI interprets, it never calculates.** Gemini writes the readings from evidence the app has already measured. It does not invent counts, IDs or candidate tracks, and every screen has a deterministic fallback when the model is unavailable.
+3. **PostgreSQL is the source of truth.** Providers supply input or enrichment; every screen reads from the local database.
+4. **Providers stay replaceable.** HTTP and payload details live behind small interfaces in each module's `infrastructure/` folder.
+5. **Privacy by design.** The model only receives aggregates and signals — never tokens, e-mail or usernames. Provider tokens are encrypted at rest.
+6. **No overengineering.** A modular monolith in one Next.js repo: no microservices, queues or vector stores until a real need shows up.
 
 ---
 
-## 🎨 Visual Design System
+## 🔌 Providers
 
-The interface is a listening room: cool graphite, one live color, and the record itself as the main object.
-
-- **Chrome**: two fixed rows — wordmark + underlined nav, then a context bar carrying the screen name, the period selector (it stays reachable after scrolling) and a `TINGIDO POR ● {album}` indicator.
-- **Spot color**: the accent is not fixed. `ChromaProvider` extracts it from the album cover in focus and writes it to `--chroma-*`, so the whole screen — rules, bars, ring, needle — is tinted by whatever is playing.
-- **Color palette**: ground `#08090b`, panel `#0a0c0e`, inner rule `#1b2129`, border `#232a32`, text `#f2f4f3` / `#aab2b9` / `#79838c`, oxide red `#d1665a` for losses. A 1px scanline overlay gives the black some grain.
-- **Typography**: `Archivo` variable (width axis, condensed to 78 in headlines and figures, opened to 112 on the hovered artist), `Instrument Sans` for prose, `Martian Mono` for labels and measured values, `Unbounded` for the wordmark only.
-- **Turntable hero**: platter, spinning record with the cover as its center label, sleeve behind, tonearm resting on the groove, and an `NA AGULHA / A SEGUIR` deck where hovering pulls the record out of its sleeve.
-- **Charts from real data only**: sparkline from daily plays, listening-hour histogram aggregated in Postgres in the user's timezone, genre dumbbells (before → after on one shared scale), and the yearly spiral groove.
-
-## ⚡ API Endpoints
-
-- `POST /api/sync`: Resumable incremental scrobble ingestion with SHA-256 deduplication and optional `CRON_SECRET` protection.
-- `GET /api/overview`: Period analytical metrics (7d, 30d, 1y, all-time), concentration ratios, taste evolution metrics, and dynamic AI narrative.
-- `POST /api/enrichment`: Rate-limited batch metadata enrichment via MusicBrainz API.
-- `POST /api/spotify/export`: Track resolution & Spotify private playlist creation (with `.m3u` / `.csv` file fallback).
-- `GET /api/user/data`: Downloadable JSON data export (GDPR compliance).
-- `DELETE /api/user/data`: Account data purge & history reset.
+| Provider | Role |
+|---|---|
+| **Last.fm** | Listening history (`user.getRecentTracks`), similar artists for discovery, short artist/album facts for the readings |
+| **MusicBrainz** + **Cover Art Archive** | Artist metadata, tags and album covers (1 req/s) |
+| **iTunes Search API** | Covers, 30 s previews, exact track durations, release year and genre — no key needed |
+| **Gemini** | Reading packs: several readings per period plus a comment for each record |
+| **Spotify** *(optional)* | Export of approved discoveries to a private playlist, with `.m3u` fallback. Spotify data is never used for profiling or prompts |
 
 ---
 
-## 🚀 Local Development Setup
+## 🛠 Stack
 
-### 1. Prerequisites
-- Node.js >= 20.x
-- `pnpm` (v11+)
+Next.js 16 (Turbopack) · React 19 · TypeScript 7 · Tailwind CSS v4 · Prisma 7 with `@prisma/adapter-pg` on PostgreSQL (Neon) · Zod 4 · framer-motion · Vitest 4
 
-### 2. Install Dependencies
+---
+
+## ⚡ API
+
+| Route | Methods | What it does |
+|---|---|---|
+| `/api/sync` | `GET` `POST` | Sync status; resumable incremental scrobble ingestion with deduplication |
+| `/api/overview` | `GET` | Period metrics, concentration, taste shift, decades, discoveries |
+| `/api/history` | `GET` | Paginated listening history |
+| `/api/enrichment` | `GET` `POST` | Enrichment coverage; rate-limited metadata and catalog enrichment |
+| `/api/recommendations` | `GET` `POST` | Discovery sessions |
+| `/api/recommendations/[sessionId]/feedback` | `POST` | Feedback on a suggestion |
+| `/api/ai/pack` | `GET` | The reading pack for a period (generated on demand) |
+| `/api/ai/lines` | `GET` | Short lines for the secondary screens |
+| `/api/ai/refresh` | `POST` | Regenerates packs within the AI budget |
+| `/api/cover` | `GET` | Cover image proxy |
+| `/api/spotify/connect` · `/callback` · `/export` | various | Spotify OAuth and playlist export |
+| `/api/user/data` | `GET` `DELETE` | JSON export of all data; full purge |
+| `/api/user/preferences` | `GET` `PUT` | How the readings address you |
+
+---
+
+## 🚀 Local development
+
+Requires Node.js 20+ and pnpm 11+.
+
 ```bash
 pnpm install
-```
-
-### 3. Environment Configuration
-Create a `.env` file in the root directory:
-```dotenv
-DATABASE_URL="postgresql://neondb_owner:...@ep-fragrant-firefly...neon.tech/neondb?sslmode=require"
-LASTFM_API_KEY="your_lastfm_api_key"
-CRON_SECRET="your_background_cron_secret"
-```
-
-### 4. Database Setup & Prisma Generation
-```bash
-npx prisma db push
-npx prisma generate
-```
-
-### 5. Run Unit Tests
-```bash
+cp .env.example .env   # fill in DATABASE_URL, LASTFM_API_KEY and GEMINI_API_KEY
+pnpm db:deploy         # apply the Prisma migrations
 pnpm test
+pnpm dev               # http://localhost:3000
 ```
-
-### 6. Start Development Server
-```bash
-pnpm dev
-```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 🔒 Security & Background Scheduling
+## 🔒 Security & scheduling
 
-`POST /api/sync` serves two callers: the scheduler, which sends `CRON_SECRET`, and the "buscar agora" button, which runs in the browser and carries no secret — a browser request is authorized when it is same-origin (`Sec-Fetch-Site: same-origin` with a matching `Origin`), which a third-party page cannot forge.
+`POST /api/sync` serves two callers: the scheduler, which sends `CRON_SECRET`, and the "buscar agora" button, which runs in the browser and carries no secret. A browser request is authorized when it is same-origin (`Sec-Fetch-Site: same-origin` with a matching `Origin`), which a third-party page cannot forge.
 
-Background synchronization is scheduled via **GitHub Actions** (`.github/workflows/scheduled-sync.yml`) running hourly:
-```bash
-curl -X POST https://your-app.vercel.app/api/sync \
-  -H "Authorization: Bearer ${CRON_SECRET}" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "your_lastfm_username"}'
-```
+Background sync runs hourly via GitHub Actions (`.github/workflows/scheduled-sync.yml`), using the `APP_URL`, `CRON_SECRET` and `LASTFM_USERNAME` repository secrets.
 
 ---
 
 ## 📜 License
 
-MIT License. Designed and built with engineering rigor for personal music intelligence.
+MIT License.

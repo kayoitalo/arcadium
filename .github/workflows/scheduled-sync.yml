@@ -30,7 +30,7 @@ jobs:
           if [ -n "${missing}" ]; then
             echo "Secrets ausentes:${missing}"
             echo "Cadastre em Settings > Secrets and variables > Actions."
-            echo "APP_URL deve ser a origem da aplicação, ex.: https://grooveyard.vercel.app"
+            echo "APP_URL deve ser a origem da aplicação, ex.: https://seu-app.vercel.app"
             exit 1
           fi
 

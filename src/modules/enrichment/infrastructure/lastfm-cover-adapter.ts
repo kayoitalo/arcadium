@@ -24,7 +24,7 @@ function pickLargest(images: z.infer<typeof imageListSchema>): string | null {
 }
 
 export class LastFmCoverAdapter implements AlbumCoverFallbackProvider, TrackCoverProvider {
-  constructor(private apiKey = process.env.LASTFM_API_KEY || "", private userAgent = process.env.LASTFM_USER_AGENT || "Grooveyard/0.1") {}
+  constructor(private apiKey = process.env.LASTFM_API_KEY || "", private userAgent = process.env.LASTFM_USER_AGENT || "Arcadium/0.1") {}
 
   async findAlbumCover(artistName: string, albumName: string): Promise<CoverArtResult | null> {
     if (!this.apiKey || !artistName.trim() || !albumName.trim()) return null;

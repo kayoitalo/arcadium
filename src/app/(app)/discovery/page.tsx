@@ -362,7 +362,7 @@ export default function DiscoveryPage() {
                             const url = URL.createObjectURL(blob);
                             const anchor = document.createElement("a");
                             anchor.href = url;
-                            anchor.download = `${exportResult.playlistTitle ?? "grooveyard"}.m3u`;
+                            anchor.download = `${exportResult.playlistTitle ?? "arcadium"}.m3u`;
                             anchor.click();
                             URL.revokeObjectURL(url);
                           }}

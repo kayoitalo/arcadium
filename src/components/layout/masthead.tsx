@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GrooveMarkCompact } from "@/components/brand/groove-mark";
 import { useChroma } from "@/components/chroma/chroma-provider";
 import { useChrome } from "@/components/layout/chrome";
 import { SECTIONS, sectionFor } from "@/components/layout/sections";
@@ -33,16 +32,11 @@ export function Masthead() {
       <div className="mx-auto flex max-w-[1320px] items-center gap-6 px-5 py-2.5 sm:px-8">
         <Link
           href="/overview"
-          className="flex shrink-0 items-center gap-2.5"
-          aria-label="Grooveyard, ir para a visão geral"
+          className="shrink-0 text-[15px] tracking-tight"
+          style={{ fontFamily: "var(--font-brand)", fontWeight: 700 }}
+          aria-label="Arcadium, ir para a visão geral"
         >
-          <GrooveMarkCompact className="h-[22px] w-[22px] text-accent" />
-          <span
-            className="hidden text-[15px] tracking-tight sm:inline"
-            style={{ fontFamily: "var(--font-brand)", fontWeight: 700 }}
-          >
-            Grooveyard
-          </span>
+          Arcadium
         </Link>
 
         <nav ref={navRef} aria-label="Navegação principal" className="keys ml-auto min-w-0 overflow-x-auto">

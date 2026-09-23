@@ -151,19 +151,13 @@ export default function OverviewPage() {
   const player = usePreviewPlayer(focusedAlbum?.previewUrl);
 
   /**
-   * Trocar o disco da agulha. A prévia sai no mesmo clique (o navegador só
-   * deixa tocar dentro do gesto): vindo do rack ela sempre toca; vindo da
-   * pilha "a seguir", só continua se já havia som.
+   * Escolher no rack põe o disco na agulha — e leva o olho até a vitrola.
+   * A prévia sai no mesmo clique: o navegador só deixa tocar dentro do gesto.
    */
-  const selectAlbum = (index: number, { play }: { play: boolean }) => {
+  const putOnDeck = (index: number) => {
     setFocused(index);
     const url = albums[index]?.previewUrl;
-    if (url && play) player.play(url);
-  };
-
-  /** Escolher no rack põe o disco na agulha — e leva o olho até a vitrola. */
-  const putOnDeck = (index: number) => {
-    selectAlbum(index, { play: true });
+    if (url) player.play(url);
     heroRef.current?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
   };
 

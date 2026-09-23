@@ -68,7 +68,7 @@ export class LastFmSimilarArtistProvider implements SimilarArtistProvider {
 
   constructor(apiKey?: string, userAgent?: string) {
     this.apiKey = apiKey ?? process.env.LASTFM_API_KEY ?? "";
-    this.userAgent = userAgent ?? process.env.LASTFM_USER_AGENT ?? "Grooveyard/0.1";
+    this.userAgent = userAgent ?? process.env.LASTFM_USER_AGENT ?? "Arcadium/0.1";
   }
 
   isConfigured(): boolean {

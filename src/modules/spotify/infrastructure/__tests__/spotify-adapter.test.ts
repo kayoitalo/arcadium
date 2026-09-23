@@ -51,7 +51,7 @@ describe("SpotifyAdapter", () => {
   it("creates a private playlist via Spotify API", async () => {
     const mockPlaylistResponse = {
       id: "playlist-12345",
-      name: "Grooveyard Test Playlist",
+      name: "Arcadium Test Playlist",
       external_urls: {
         spotify: "https://open.spotify.com/playlist/playlist-12345",
       },
@@ -65,7 +65,7 @@ describe("SpotifyAdapter", () => {
     const result = await adapter.createPlaylist(
       "valid-access-token",
       "user-123",
-      "Grooveyard Test Playlist",
+      "Arcadium Test Playlist",
       "Test description"
     );
 

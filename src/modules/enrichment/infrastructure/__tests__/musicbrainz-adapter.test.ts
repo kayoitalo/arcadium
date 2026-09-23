@@ -6,7 +6,7 @@ describe("MusicBrainzAdapter", () => {
 
   beforeEach(() => {
     // tempos curtos: a suíte não pode esperar o intervalo real de 1 req/s
-    adapter = new MusicBrainzAdapter("GrooveyardTest/1.0", { minDelayMs: 0, backoffBaseMs: 1 });
+    adapter = new MusicBrainzAdapter("ArcadiumTest/1.0", { minDelayMs: 0, backoffBaseMs: 1 });
     vi.stubGlobal("fetch", vi.fn());
   });
 

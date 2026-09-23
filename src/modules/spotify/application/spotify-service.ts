@@ -32,8 +32,8 @@ export class SpotifyService {
     customTitle?: string
   ): Promise<ExportResponse> {
     const monthYear = new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" });
-    const playlistTitle = customTitle || `Grooveyard — Descobertas (${monthYear})`;
-    const description = "Seleção de descobertas gerada pelo Grooveyard.";
+    const playlistTitle = customTitle || `Arcadium — Descobertas (${monthYear})`;
+    const description = "Seleção de descobertas gerada pelo Arcadium.";
 
     if (tracks.length === 0) {
       return {

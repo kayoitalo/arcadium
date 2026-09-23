@@ -22,7 +22,7 @@ const martian = Martian_Mono({
   variable: "--font-martian",
 });
 
-/** Só o logotipo usa esta. O "oo" de Grooveyard vira dois discos. */
+/** Só o logotipo usa esta. */
 const unbounded = Unbounded({
   subsets: ["latin"],
   weight: ["600", "700"],
@@ -31,8 +31,8 @@ const unbounded = Unbounded({
 });
 
 export const metadata: Metadata = {
-  title: "Grooveyard",
-  description: "O cemitério dos seus discos: tudo o que você ouviu, medido e desenhado.",
+  title: "Arcadium",
+  description: "Um amigo obcecado por música lendo o seu histórico.",
 };
 
 export default function RootLayout({
