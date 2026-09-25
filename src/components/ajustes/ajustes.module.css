@@ -1,0 +1,216 @@
+/* ============================================================
+   Ajustes: os bastidores, em texto. Uma coluna só, seções separadas
+   por fio, números em repouso e as ações como respostas.
+   ============================================================ */
+
+.page {
+  max-width: 820px;
+  padding-bottom: 14vh;
+}
+
+.status {
+  position: sticky;
+  top: var(--bar-h, 56px);
+  z-index: 5;
+  margin: 0 0 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--fio);
+  background: var(--papel);
+  font-size: 14px;
+  color: var(--tinta);
+}
+
+.status[data-kind="erro"] {
+  color: var(--erro);
+}
+
+.section {
+  display: grid;
+  gap: 14px;
+  padding: clamp(28px, 5vh, 44px) 0;
+  border-top: 1px solid var(--fio);
+}
+
+.title {
+  margin: 0;
+  font-size: 15px;
+  font-variation-settings: "wdth" 90, "wght" 720;
+  color: var(--tinta);
+}
+
+.state {
+  font-size: 13px;
+  font-variation-settings: "wdth" 100, "wght" 420;
+  color: var(--tinta-3);
+}
+
+.state[data-kind="erro"] {
+  color: var(--erro);
+}
+
+.hint {
+  margin: 0;
+  max-width: 60ch;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--tinta-2);
+}
+
+.small {
+  margin: 0;
+  max-width: 60ch;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--tinta-3);
+}
+
+/* números em repouso: o valor em cima, o que ele é embaixo */
+.figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px clamp(24px, 4vw, 48px);
+  margin: 6px 0 0;
+}
+
+.figures div {
+  display: grid;
+  gap: 2px;
+}
+
+.figures dt {
+  order: 2;
+  font-size: 12px;
+  color: var(--tinta-3);
+}
+
+.figures dd {
+  order: 1;
+  margin: 0;
+  font-size: clamp(1.3rem, 1.1rem + 0.6vw, 1.7rem);
+  font-variant-numeric: tabular-nums;
+  font-variation-settings: "wdth" 80, "wght" 760;
+  color: var(--tinta);
+}
+
+.form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 20px;
+}
+
+.field {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+  min-width: 220px;
+}
+
+.field span {
+  font-size: 12px;
+  color: var(--tinta-3);
+}
+
+.field input {
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1.5px solid var(--fio-2);
+  outline: none;
+  background: none;
+  color: var(--tinta);
+  font: inherit;
+  font-size: 17px;
+  transition: border-color 160ms;
+}
+
+.field input:focus {
+  border-bottom-color: var(--tinta);
+}
+
+.field input::placeholder {
+  color: var(--tinta-3);
+}
+
+.fieldError {
+  font-size: 12px;
+  color: var(--erro);
+}
+
+/* o jeito de falar: palavras que se trocam, a escolhida sublinhada */
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.choices button {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--tinta-3);
+  font: inherit;
+  font-size: 17px;
+  font-variation-settings: "wdth" 90, "wght" 640;
+  text-decoration: underline 1.5px transparent;
+  text-underline-offset: 6px;
+  cursor: pointer;
+  transition:
+    color 160ms,
+    text-decoration-color 160ms;
+}
+
+.choices button:hover {
+  color: var(--tinta-2);
+}
+
+.choices button[aria-pressed="true"] {
+  color: var(--tinta);
+  text-decoration-color: currentColor;
+}
+
+.sample {
+  margin: 4px 0 0;
+  font-size: clamp(1.1rem, 0.95rem + 0.6vw, 1.45rem);
+  font-variation-settings: "wdth" 80, "wght" 720;
+  line-height: 1.2;
+  color: var(--tinta);
+}
+
+.danger {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 18px;
+  border: 1.5px solid rgb(224 96 79 / 0.45);
+  border-radius: 999px;
+  background: none;
+  color: var(--erro);
+  font: inherit;
+  font-size: 15px;
+  font-variation-settings: "wdth" 92, "wght" 600;
+  cursor: pointer;
+}
+
+.danger:hover:not(:disabled) {
+  border-color: var(--erro);
+}
+
+.danger:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+/* aqui as respostas moram dentro da seção: o espaço já vem da grade */
+.section nav[aria-label] {
+  padding-top: 0;
+}

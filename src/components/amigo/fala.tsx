@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, type ReactNode, type Ref, type RefObject } from "react";
 import { coverProxyUrl } from "@/lib/cover";
-import { splitTail } from "./measure";
+import { markPieces } from "./measure";
 import { Trace } from "./trace";
 import type { Pen } from "./use-pen";
 import styles from "./amigo.module.css";
@@ -26,10 +26,12 @@ export function Fala({
   marked = false,
   headlineRef,
   markRef,
+  mark,
   level = 2,
   className = "",
 }: {
-  window?: string | null;
+  /** A janela de tempo, dita por ele; pode trazer a escolha de outra janela. */
+  window?: ReactNode;
   headline: string;
   narrative?: string | null;
   insight?: string | null;
@@ -42,20 +44,22 @@ export function Fala({
   marked?: boolean;
   headlineRef?: Ref<HTMLHeadingElement>;
   markRef?: Ref<HTMLSpanElement>;
+  /** O que a prova sustenta, em ordem de preferência: o grifo vai no primeiro que a frase cita. */
+  mark?: string[];
   level?: 1 | 2;
   className?: string;
 }) {
-  const { plain, tail } = splitTail(headline);
+  const pieces = markPieces(headline, mark);
   const Heading = level === 1 ? "h1" : "h2";
   return (
     <div className={`${styles.fala} ${className}`} data-active={active} data-dismissed={dismissed}>
       {when && <p className={styles.window}>{when}</p>}
       <Heading ref={headlineRef} className={styles.headline}>
-        {plain}
-        {plain && " "}
+        {pieces.before}
         <span ref={markRef} className={styles.mark} data-marked={marked}>
-          {tail}
+          {pieces.marked}
         </span>
+        {pieces.after}
       </Heading>
       {dismissed && reply ? (
         <p className={styles.reply}>{reply}</p>
@@ -99,6 +103,7 @@ export function Resposta({
   hint,
   href,
   download,
+  submit = false,
   children,
 }: {
   onClick?: () => void;
@@ -108,6 +113,8 @@ export function Resposta({
   hint?: string;
   href?: string;
   download?: boolean;
+  /** Envia o formulário em volta. */
+  submit?: boolean;
   children: ReactNode;
 }) {
   const body = (
@@ -123,6 +130,14 @@ export function Resposta({
       </a>
     );
   }
+  // fora do Arcadium (Spotify, Apple Music): outra aba, a conversa fica onde estava
+  if (href && /^https?:/.test(href)) {
+    return (
+      <a className={styles.reaction} href={href} target="_blank" rel="noreferrer">
+        {body}
+      </a>
+    );
+  }
   if (href) {
     return (
       <Link className={styles.reaction} href={href}>
@@ -131,7 +146,13 @@ export function Resposta({
     );
   }
   return (
-    <button type="button" className={styles.reaction} onClick={onClick} disabled={disabled} aria-pressed={pressed}>
+    <button
+      type={submit ? "submit" : "button"}
+      className={styles.reaction}
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={pressed}
+    >
       {body}
     </button>
   );
@@ -154,12 +175,15 @@ export function Capa({
   innerRef,
   className = "",
   eager = false,
+  label = true,
 }: {
   cover: CoverData;
   playing?: boolean;
   innerRef?: Ref<HTMLDivElement>;
   className?: string;
   eager?: boolean;
+  /** Sem imagem, escreve o título no vão; miniatura pequena demais fica só com o vão. */
+  label?: boolean;
 }) {
   const src = coverProxyUrl(cover.url);
   const [state, setState] = useState<"loading" | "loaded" | "failed">(src ? "loading" : "failed");
@@ -171,7 +195,7 @@ export function Capa({
 
   return (
     <div ref={innerRef} className={`${styles.cover} ${className}`} data-playing={playing}>
-      {state === "failed" && <span className={styles.coverEmpty}>{cover.title}</span>}
+      {state === "failed" && label && <span className={styles.coverEmpty}>{cover.title}</span>}
       {src && state !== "failed" && (
         // eslint-disable-next-line @next/next/no-img-element
         <img

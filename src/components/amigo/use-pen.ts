@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { sameGeometry } from "./measure";
 import type { TraceGesture, TracePlan, WaveSpec } from "./trace";
 
@@ -51,6 +51,11 @@ export function usePen(
   drawRef.current = draw;
   const poseRef = useRef(pose);
   poseRef.current = pose;
+  // o palco pode nascer depois (a tela carrega antes de ter o que desenhar): quem observa precisa saber
+  const [stage, setStage] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    if (stageRef.current !== stage) setStage(stageRef.current);
+  });
 
   const measure = useCallback(
     (instant: boolean) => {
@@ -68,15 +73,15 @@ export function usePen(
     [stageRef],
   );
 
-  // a pose muda, a cena assenta, a medida manda o traço
+  // a pose muda (ou o palco chega), a cena assenta, a medida manda o traço
   useEffect(() => {
+    if (!stage) return;
     const timer = window.setTimeout(() => measure(false), planRef.current ? settle : first);
     return () => window.clearTimeout(timer);
-  }, [pose, measure, settle, first]);
+  }, [pose, measure, settle, first, stage]);
 
   // tela mudou de tamanho, ou a fonte chegou: mesma pose, medida nova, sem animar
   useEffect(() => {
-    const stage = stageRef.current;
     if (!stage) return;
     let timer = 0;
     const remeasure = () => {
@@ -93,7 +98,7 @@ export function usePen(
       observer.disconnect();
       window.clearTimeout(timer);
     };
-  }, [measure, stageRef]);
+  }, [measure, stage]);
 
   const onGesture = useCallback((id: string, moment: "start" | "end") => {
     const add = (current: Set<string>) => (current.has(id) ? current : new Set(current).add(id));

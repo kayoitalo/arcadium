@@ -1,0 +1,97 @@
+/* O mapa: um quadrado que controla os dois eixos. Quieto, sem cor —
+   é controle seu, não fala dele. */
+
+.pad {
+  position: relative;
+  aspect-ratio: 1;
+  width: 100%;
+  max-width: 420px;
+  border: 1px solid var(--fio-2);
+  background:
+    repeating-linear-gradient(90deg, var(--fio) 0 1px, transparent 1px 12.5%),
+    repeating-linear-gradient(0deg, var(--fio) 0 1px, transparent 1px 12.5%);
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
+.pad:focus-visible {
+  outline: 2px solid var(--tinta);
+  outline-offset: 4px;
+}
+
+.line {
+  position: absolute;
+  pointer-events: none;
+  background: var(--tinta-3);
+}
+
+.line[data-axis="x"] {
+  inset-block: 0;
+  width: 1px;
+}
+
+.line[data-axis="y"] {
+  inset-inline: 0;
+  height: 1px;
+}
+
+.aim {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  translate: -50% -50%;
+  border: 1.5px solid var(--tinta);
+  pointer-events: none;
+}
+
+.aim::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  background: var(--tinta);
+}
+
+.dot {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  translate: -50% -50%;
+  background: var(--tinta-3);
+  pointer-events: none;
+}
+
+.dot[data-done="true"] {
+  background: var(--fio-2);
+}
+
+.dot[data-current="true"] {
+  width: 9px;
+  height: 9px;
+  background: var(--tinta);
+}
+
+.corner {
+  position: absolute;
+  left: 8px;
+  font-size: 11px;
+  color: var(--tinta-3);
+  pointer-events: none;
+}
+
+.axis {
+  display: flex;
+  justify-content: space-between;
+  max-width: 420px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--tinta-3);
+}
+
+.readout {
+  max-width: 420px;
+  margin: 14px 0 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta-2);
+}

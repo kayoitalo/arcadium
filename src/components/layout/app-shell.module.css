@@ -2,6 +2,8 @@
    ou período global — cada tela diz a janela dela, do jeito do amigo. */
 
 .shell {
+  /* até onde a barra cobre de fato (o resto dela é degradê): o que gruda no topo gruda aqui */
+  --bar-h: 56px;
   min-height: 100dvh;
 }
 
@@ -67,6 +69,10 @@
 }
 
 @media (max-width: 760px) {
+  .shell {
+    --bar-h: 92px;
+  }
+
   .bar {
     flex-wrap: wrap;
     row-gap: 8px;

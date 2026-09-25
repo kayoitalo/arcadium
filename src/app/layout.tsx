@@ -1,33 +1,17 @@
 import type { Metadata } from "next";
-import { Archivo, Martian_Mono, Unbounded } from "next/font/google";
+import { Archivo } from "next/font/google";
 import "./globals.css";
 
 /**
- * Archivo é variável em largura: condensa até 78 nas manchetes e nos
- * números, fica em 100 no texto corrido e abre até 112 no nome do
- * artista em foco. Uma família só para tudo que não é medida.
+ * Uma família só. A Archivo é variável em largura: condensa até 70 no
+ * grito dele e nas manchetes, fica em 100 na conversa e abre até 125 no
+ * nome da casa.
  */
 const archivo = Archivo({
   subsets: ["latin"],
   axes: ["wdth"],
   display: "swap",
   variable: "--font-archivo",
-});
-
-/** Etiqueta, hora, percentual — e a voz do Gemini. */
-const martian = Martian_Mono({
-  subsets: ["latin"],
-  weight: ["400", "600"],
-  display: "swap",
-  variable: "--font-martian",
-});
-
-/** Só o logotipo usa esta. */
-const unbounded = Unbounded({
-  subsets: ["latin"],
-  weight: ["600", "700"],
-  display: "swap",
-  variable: "--font-unbounded",
 });
 
 export const metadata: Metadata = {
@@ -40,11 +24,10 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // as variáveis das fontes ficam no <html> para os tokens do tema,
-  // que vivem em :root, conseguirem resolvê-las
+  // a variável da fonte fica no <html> para os tokens do tema, que vivem em :root, conseguirem resolvê-la
   return (
-    <html lang="pt-BR" className={`dark ${archivo.variable} ${martian.variable} ${unbounded.variable}`}>
-      <body className="font-sans min-h-screen bg-background text-text-primary antialiased">{children}</body>
+    <html lang="pt-BR" className={archivo.variable}>
+      <body className="font-sans antialiased">{children}</body>
     </html>
   );
 }

@@ -10,7 +10,7 @@ import { usePen, type PenDrawing, type PenNote } from "@/components/amigo/use-pe
 import { usePulse } from "@/components/amigo/use-pulse";
 import { useSound, type SoundStep } from "@/components/amigo/use-sound";
 import type { ConversationMoment, Evidence } from "@/modules/conversation/domain/conversation.types";
-import { ProvaDecadas, ProvaLista, ProvaTransicao } from "./provas";
+import { decadeLabel, ProvaDecadas, ProvaLista, ProvaTransicao } from "./provas";
 import styles from "./conversa.module.css";
 
 /*
@@ -64,6 +64,20 @@ function stepsOf(evidence: Evidence | null | undefined): SoundStep[] {
   }
   if (evidence.kind === "ranking") return evidence.previewUrl ? [{ url: evidence.previewUrl }] : [];
   return [];
+}
+
+/** O que a prova sustenta, como a frase nomearia: se a manchete citar, o grifo vai ali. */
+function marksOf(evidence: Evidence | null | undefined): string[] | undefined {
+  if (!evidence) return undefined;
+  if (evidence.kind === "transition") {
+    // o "de repente" é a chegada: a segunda vem antes
+    return [evidence.to.track, evidence.from.track, evidence.to.artist, evidence.from.artist];
+  }
+  if (evidence.kind === "ranking") {
+    const row = evidence.rows[evidence.focusIndex];
+    return [row.label, row.sub].filter(Boolean);
+  }
+  return evidence.focus.flatMap((decade) => [decadeLabel(decade), `${decade}s`]);
 }
 
 /** A régua dele em cima de uma barra do dado: a própria barra, na cor dele. */
@@ -364,6 +378,7 @@ export function Conversa({ moments: all }: { moments: ConversationMoment[] }) {
               marked={pen.started.has(`${index}:grifo`)}
               headlineRef={refs("headline")}
               markRef={refs("mark")}
+              mark={marksOf(evidence)}
             />
 
             {/* riscado o assunto, a prova continua ali, apagada: o dado não deixou de ser verdade */}

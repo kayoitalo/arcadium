@@ -73,6 +73,40 @@ export function splitTail(text: string): { plain: string; tail: string } {
   return { plain: words.slice(0, words.length - marks).join(" "), tail: words.slice(words.length - marks).join(" ") };
 }
 
+const fold = (value: string) => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+const isWordChar = (char: string | undefined) => char !== undefined && /[\p{L}\p{N}]/u.test(char);
+
+/**
+ * Onde, na frase, está o que a prova sustenta: o primeiro dos nomes que
+ * aparece inteiro, do jeito que está escrito (caixa e acento da frase).
+ * É ali que ele grifa — a luz vai no que o dado prova, não no fim da frase.
+ */
+export function findMark(text: string, candidates: string[]): { start: number; end: number } | null {
+  for (const candidate of candidates) {
+    const target = fold(candidate.replace(/\s*[([].*?[)\]]/g, "").trim());
+    if (target.length < 3) continue;
+    for (let start = 0; start < text.length; start += 1) {
+      if (isWordChar(text[start - 1]) || fold(text[start]) !== target[0]) continue;
+      for (let end = start + 1; end <= text.length; end += 1) {
+        const piece = fold(text.slice(start, end));
+        if (piece.length > target.length) break;
+        if (piece === target && !isWordChar(text[end])) return { start, end };
+      }
+    }
+  }
+  return null;
+}
+
+/** A frase em três pedaços: antes, o grifado e depois. Sem nome da prova na frase, ele grifa o fim. */
+export function markPieces(text: string, candidates?: string[]): { before: string; marked: string; after: string } {
+  const found = candidates ? findMark(text, candidates) : null;
+  if (found) {
+    return { before: text.slice(0, found.start), marked: text.slice(found.start, found.end), after: text.slice(found.end) };
+  }
+  const { plain, tail } = splitTail(text);
+  return { before: plain ? `${plain} ` : "", marked: tail, after: "" };
+}
+
 /** Nome curto para caber numa anotação: sem "(The Remaster)", sem "(feat. …)". */
 export function shorten(text: string, max = 18): string {
   const bare = text.replace(/\s*[([].*?[)\]]/g, "").trim() || text;

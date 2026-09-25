@@ -46,7 +46,27 @@ describe("overview statistics", () => {
       [{ name: "A", plays: 30, tags: ["rock"] }, { name: "B", plays: 20, tags: ["jazz"] }],
       [{ name: "A", plays: 10, tags: ["rock"] }, { name: "B", plays: 40, tags: ["jazz"] }],
     );
-    expect(result.rising).toEqual([{ genre: "rock", changePercent: 200, currentShare: 60, previousShare: 20 }]);
-    expect(result.declining).toEqual([{ genre: "jazz", changePercent: -50, currentShare: 40, previousShare: 80 }]);
+    expect(result.rising).toEqual([{ genre: "rock", delta: 40, currentShare: 60, previousShare: 20 }]);
+    expect(result.declining).toEqual([{ genre: "jazz", delta: -40, currentShare: 40, previousShare: 80 }]);
+  });
+
+  it("mede a fatia, não a contagem: ouvir mais de tudo não muda nada", () => {
+    const result = calculateTasteShift(
+      [{ name: "A", plays: 60, tags: ["rock"] }, { name: "B", plays: 40, tags: ["jazz"] }],
+      [{ name: "A", plays: 30, tags: ["rock"] }, { name: "B", plays: 20, tags: ["jazz"] }],
+    );
+    expect(result).toEqual({ rising: [], declining: [] });
+  });
+
+  it("ordena pela distância em pontos, com gênero que chegou ou sumiu", () => {
+    const result = calculateTasteShift(
+      [{ name: "A", plays: 50, tags: ["rap"] }, { name: "B", plays: 49, tags: ["rock"] }, { name: "C", plays: 1, tags: ["emo"] }],
+      [{ name: "B", plays: 90, tags: ["rock"] }, { name: "D", plays: 10, tags: ["jazz"] }],
+    );
+    expect(result.rising.map((item) => item.genre)).toEqual(["rap", "emo"]);
+    expect(result.declining.map((item) => [item.genre, item.delta])).toEqual([
+      ["rock", -41],
+      ["jazz", -10],
+    ]);
   });
 });

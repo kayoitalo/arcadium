@@ -1,0 +1,317 @@
+/* ============================================================
+   Tudo que tocou: ele fala do teu horário em cima, com as horas do
+   dia como prova; embaixo, o registro, dia por dia. A faixa que toca
+   ganha a corda dele por baixo, vibrando com o som.
+   ============================================================ */
+
+.stage {
+  position: relative;
+  isolation: isolate;
+}
+
+.top {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  column-gap: clamp(28px, 6vw, 112px);
+  align-items: end;
+  padding: 7vh 0 6vh;
+}
+
+/* ---------- as horas do dia ---------- */
+
+.hours {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  min-width: 0;
+}
+
+.bars {
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  gap: clamp(2px, 0.4vw, 5px);
+  height: clamp(120px, 20vh, 190px);
+}
+
+.col {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-width: 0;
+}
+
+.bar {
+  display: block;
+  width: 100%;
+  min-height: 2px;
+  background: var(--fio-2);
+}
+
+/* a hora que ele cita: a anotação mora em cima da barra, reta */
+.peakNote {
+  position: absolute;
+  bottom: calc(var(--h) + 10px);
+  left: 50%;
+  translate: -50% 0;
+  font-size: 12px;
+  font-variation-settings: "wdth" 82, "wght" 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--marca);
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 380ms var(--glide);
+}
+
+.col[data-lit="true"] .peakNote {
+  clip-path: inset(0 0 0 0);
+}
+
+.axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta-3);
+}
+
+.quiet {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--tinta-3);
+}
+
+/* ---------- a busca ---------- */
+
+.search {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1.5px solid var(--fio-2);
+  transition: border-color 160ms;
+}
+
+.search:focus-within {
+  border-bottom-color: var(--tinta);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  color: var(--tinta);
+  font: inherit;
+  font-size: clamp(1.1rem, 1rem + 0.5vw, 1.45rem);
+  font-variation-settings: "wdth" 86, "wght" 620;
+}
+
+.search input::placeholder {
+  color: var(--tinta-3);
+}
+
+.search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.clear {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--tinta-3);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.clear:hover {
+  color: var(--tinta);
+}
+
+/* ---------- o registro ---------- */
+
+.log {
+  position: relative;
+  z-index: 1;
+  transition: opacity 200ms ease;
+}
+
+.log[aria-busy="true"] {
+  opacity: 0.45;
+}
+
+.dayHead {
+  position: sticky;
+  top: var(--bar-h, 56px);
+  z-index: 4;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 26px 0 10px;
+  border-bottom: 1px solid var(--fio);
+  background: var(--papel);
+}
+
+.dayName {
+  margin: 0;
+  font-size: 15px;
+  font-variation-settings: "wdth" 90, "wght" 720;
+  color: var(--tinta);
+}
+
+.dayCount {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta-3);
+}
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 48px 40px minmax(0, 1.3fr) minmax(0, 1fr) 38px;
+  align-items: center;
+  column-gap: clamp(10px, 1.4vw, 18px);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--fio);
+}
+
+.time {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta-3);
+}
+
+.row[data-playing="true"] .time {
+  color: var(--tinta);
+}
+
+.thumb {
+  width: 40px;
+}
+
+.what {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.track,
+.artist,
+.album {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.track {
+  font-size: 15px;
+  font-variation-settings: "wdth" 88, "wght" 620;
+  color: var(--tinta);
+}
+
+.artist {
+  font-size: 13px;
+  color: var(--tinta-2);
+}
+
+.album {
+  font-size: 12px;
+  color: var(--tinta-3);
+}
+
+.play {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1.5px solid rgb(242 239 231 / 0.18);
+  border-radius: 999px;
+  background: none;
+  color: var(--tinta-2);
+  cursor: pointer;
+  transition:
+    border-color 160ms,
+    color 160ms,
+    scale 420ms var(--spring);
+}
+
+.play:hover {
+  border-color: rgb(242 239 231 / 0.4);
+  color: var(--tinta);
+}
+
+.play[aria-pressed="true"] {
+  border-color: var(--tinta);
+  color: var(--tinta);
+}
+
+.play:active {
+  scale: 0.92;
+  transition-duration: 160ms, 160ms, 60ms;
+}
+
+.play svg {
+  width: 13px;
+  height: 13px;
+}
+
+.empty {
+  padding: 48px 0;
+  font-size: 15px;
+  color: var(--tinta-2);
+}
+
+/* ---------- páginas ---------- */
+
+.pages {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 28px 0 12vh;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta-3);
+}
+
+.pages nav {
+  padding: 0;
+}
+
+@media (max-width: 760px) {
+  .top {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 36px;
+    padding: 5vh 0 4vh;
+  }
+
+  .row {
+    grid-template-columns: 42px 34px minmax(0, 1fr) 38px;
+  }
+
+  .thumb {
+    width: 34px;
+  }
+
+  .album {
+    display: none;
+  }
+
+  .pages {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+}

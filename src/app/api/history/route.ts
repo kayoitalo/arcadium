@@ -37,7 +37,7 @@ export async function GET(request: Request) {
 
     const user = await prisma.user.findFirst();
     if (!user) {
-      return NextResponse.json({ events: [], totalPages: 0, totalItems: 0, page, hourHistogram: [] });
+      return NextResponse.json({ events: [], totalPages: 0, totalItems: 0, page, hourHistogram: [], since: null });
     }
 
     const where: Prisma.ListeningEventWhereInput = { userId: user.id };
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
     const totalItems = await prisma.listeningEvent.count({ where });
     const totalPages = Math.ceil(totalItems / limit);
 
-    const [events, hours] = await Promise.all([
+    const [events, hours, first] = await Promise.all([
       prisma.listeningEvent.findMany({
         where,
         orderBy: { playedAt: "desc" },
@@ -70,6 +70,8 @@ export async function GET(request: Request) {
         },
       }),
       hourHistogram(user.id, user.timezone, search),
+      // desde quando ele te conhece: a primeira audição que o histórico tem
+      prisma.listeningEvent.findFirst({ where: { userId: user.id }, orderBy: { playedAt: "asc" }, select: { playedAt: true } }),
     ]);
 
     return NextResponse.json({
@@ -84,6 +86,9 @@ export async function GET(request: Request) {
       totalPages,
       totalItems,
       hourHistogram: hours,
+      since: first?.playedAt ?? null,
+      // o fuso das horas do gráfico: a lista agrupa e mostra no mesmo
+      timezone: user.timezone,
     });
   } catch (error: any) {
     console.error("History API error:", error);

@@ -16,11 +16,14 @@ export function Aviso({
   window: when,
   headline,
   narrative,
+  compact = false,
   children,
 }: {
-  window?: string;
+  window?: ReactNode;
   headline: string;
   narrative?: string;
+  /** No topo de uma tela de controles: a fala ocupa só o que precisa, e não é aviso de estado. */
+  compact?: boolean;
   /** As respostas possíveis, logo abaixo da fala. */
   children?: ReactNode;
 }) {
@@ -40,7 +43,12 @@ export function Aviso({
   const pen = usePen(stageRef, draw, headline, { first: 240 });
 
   return (
-    <div ref={stageRef} className={styles.aviso} role="status">
+    <div
+      ref={stageRef}
+      className={styles.aviso}
+      data-compact={compact || undefined}
+      role={compact ? undefined : "status"}
+    >
       <Fala
         level={1}
         window={when}
