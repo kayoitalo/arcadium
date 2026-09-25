@@ -27,6 +27,10 @@ export interface WaveSpec {
   /** A linha em repouso: onde a corda está presa e por onde ela passa. */
   base: Point[];
   amp: number;
+  /** A corda só vibra para longe deste ponto: em volta da capa, o centro dela. */
+  outwardFrom?: Point;
+  /** A linha já está desenhada ali (o arco do salto): a corda começa a vibrar no lugar. */
+  inPlace?: boolean;
 }
 
 export interface TracePlan {
@@ -56,22 +60,28 @@ const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const easeIn = (t: number) => t * t * t;
 
-function dash(segment: Segment, progress: number): { array: string; offset: string } {
+/**
+ * Quanto do pedaço aparece neste instante. `visible` existe porque traço de
+ * comprimento zero com ponta redonda ainda pinta um ponto: abaixo de meio
+ * pixel, o caminho some de vez.
+ */
+function dash(segment: Segment, progress: number): { array: string; offset: string; visible: number } {
   const { length, kind } = segment;
   const total = length + 2;
   if (kind === "erase") {
     const cut = easeIn(progress) * length;
-    return { array: `${Math.max(0, length - cut)} ${total}`, offset: `${-cut}` };
+    const rest = Math.max(0, length - cut);
+    return { array: `${rest} ${total}`, offset: `${-cut}`, visible: rest };
   }
   if (kind === "travel") {
     const tail = Math.min(140, length * 0.55);
     const run = easeInOut(progress) * (length + tail);
     const head = clamp(run, 0, length);
     const back = clamp(run - tail, 0, length);
-    return { array: `${head - back} ${total}`, offset: `${-back}` };
+    return { array: `${head - back} ${total}`, offset: `${-back}`, visible: head - back };
   }
   const drawn = easeOut(progress) * length;
-  return { array: `${drawn} ${total}`, offset: "0" };
+  return { array: `${drawn} ${total}`, offset: "0", visible: drawn };
 }
 
 /** O primeiro quadro, antes do relógio: tinta que sai começa inteira, o resto começa sem nada. */
@@ -80,6 +90,8 @@ function initialDash(segment: Segment): string | undefined {
   if (segment.duration === 0 && segment.kind !== "travel") return undefined;
   return `0 ${segment.length + 2}`;
 }
+
+const startsHidden = (segment: Segment) => initialDash(segment)?.startsWith("0 ") ?? false;
 
 export function Trace({
   plan,
@@ -116,9 +128,20 @@ export function Trace({
     const previous = segmentsRef.current;
     const queue: Segment[] = [];
 
+    // o que já está na tela e continua no plano novo fica onde está: sem
+    // apagar e redesenhar o mesmo grifo só porque a música começou a tocar
+    const wanted = new Set(
+      plan.gestures.flatMap((gesture) => gesture.strokes.filter((stroke) => stroke.length > 1).map(toPath)),
+    );
+    const waveBase = plan.wave && plan.wave.base.length > 1 ? toPath(plan.wave.base) : null;
+    const onScreen = new Map(previous.filter((segment) => segment.kind === "ink").map((segment) => [segment.d, segment]));
+    const previousWave = previous.find((segment) => segment.kind === "wave");
+
     if (!instant) {
       for (const segment of previous) {
-        if (segment.kind === "ink" || segment.kind === "wave") {
+        const stays =
+          (segment.kind === "ink" && wanted.has(segment.d)) || (segment.kind === "wave" && segment.d === waveBase);
+        if ((segment.kind === "ink" || segment.kind === "wave") && !stays) {
           queue.push({ ...segment, id: `${segment.id}~out`, kind: "erase", start: 0, duration: ERASE_MS });
         }
       }
@@ -141,6 +164,28 @@ export function Trace({
       gesture.strokes.forEach((stroke, index) => {
         if (stroke.length < 2) return;
         const id = `${plan.key}:${gesture.id}:${index}`;
+        const d = toPath(stroke);
+        const closesGesture = index === gesture.strokes.length - 1;
+        const kept = onScreen.get(d);
+        // a corda que para de tocar assenta no traço de onde saiu: o arco
+        // volta a ser arco com seta, sem a caneta refazer o caminho
+        const settles = !instant && previousWave !== undefined && d.startsWith(previousWave.d);
+        if (kept || settles) {
+          queue.push({
+            id: kept?.id ?? id,
+            layer: gesture.layer,
+            kind: "ink",
+            d,
+            length: polyLength(stroke),
+            width: gesture.width,
+            start: 0,
+            duration: 0,
+            gestureId: gesture.id,
+            closesGesture,
+          });
+          at = stroke[stroke.length - 1];
+          return;
+        }
         travelTo(stroke[0], id);
         const length = polyLength(stroke);
         const duration = instant ? 0 : clamp(length / (gesture.layer === "under" ? 2 : 1.9), 200, 640);
@@ -148,13 +193,13 @@ export function Trace({
           id,
           layer: gesture.layer,
           kind: "ink",
-          d: toPath(stroke),
+          d,
           length,
           width: gesture.width,
           start: cursor,
           duration,
           gestureId: gesture.id,
-          closesGesture: index === gesture.strokes.length - 1,
+          closesGesture,
         });
         cursor += duration + (instant ? 0 : 50);
         at = stroke[stroke.length - 1];
@@ -162,14 +207,17 @@ export function Trace({
     }
 
     live.current = null;
-    if (plan.wave && plan.wave.base.length > 1) {
+    if (plan.wave && waveBase) {
       const { base } = plan.wave;
-      const id = `${plan.key}:wave`;
-      travelTo(base[0], id);
+      const keptWave = previousWave && previousWave.d === waveBase ? previousWave : null;
+      const id = keptWave?.id ?? `${plan.key}:wave`;
+      const inPlace = instant || Boolean(plan.wave.inPlace) || keptWave !== null;
+      if (!inPlace) travelTo(base[0], id);
       const length = polyLength(base);
-      const duration = instant ? 0 : clamp(length / 1.9, 220, 620);
-      queue.push({ id, layer: "over", kind: "wave", d: toPath(base), length, width: penWidth, start: cursor, duration });
-      live.current = { spec: plan.wave, readyAt: cursor + duration };
+      const duration = inPlace ? 0 : clamp(length / 1.9, 220, 620);
+      queue.push({ id, layer: "over", kind: "wave", d: waveBase, length, width: penWidth, start: inPlace ? 0 : cursor, duration });
+      // corda que já vibrava não recomeça a rampa
+      live.current = { spec: plan.wave, readyAt: keptWave ? -1000 : inPlace ? 0 : cursor + duration };
       at = base[base.length - 1];
     }
 
@@ -198,17 +246,19 @@ export function Trace({
         if (segment.kind === "wave" && live.current && elapsed >= live.current.readyAt) {
           // corda viva: o ganho entra em rampa para a corda não estalar
           const gain = clamp((elapsed - live.current.readyAt) / 420, 0, 1);
-          const { base, amp } = live.current.spec;
-          node.setAttribute("d", toPath(wave(base, amp, readRef.current(), gain)));
+          const { base, amp, outwardFrom } = live.current.spec;
+          node.setAttribute("d", toPath(wave(base, amp, readRef.current(), gain, outwardFrom)));
           node.removeAttribute("stroke-dasharray");
           node.removeAttribute("stroke-dashoffset");
+          node.style.visibility = "visible";
           busy = true;
           continue;
         }
 
-        const { array, offset } = dash(segment, progress);
+        const { array, offset, visible } = dash(segment, progress);
         node.setAttribute("stroke-dasharray", array);
         node.setAttribute("stroke-dashoffset", offset);
+        node.style.visibility = visible > 0.5 ? "visible" : "hidden";
 
         if (segment.kind === "ink" && segment.gestureId) {
           const startKey = `${segment.gestureId}:start`;
@@ -253,6 +303,7 @@ export function Trace({
             d={segment.d}
             strokeWidth={segment.width}
             strokeDasharray={initialDash(segment)}
+            style={startsHidden(segment) ? { visibility: "hidden" } : undefined}
             data-kind={segment.kind}
           />
         ))}

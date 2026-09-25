@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { formatGenre } from "@/lib/format/genre";
 import { AIAnalysisService } from "@/modules/ai-analysis/application/ai-analysis-service";
-import type { NarrativeAngle, ProfileNarrative } from "@/modules/ai-analysis/domain/ai-analysis.types";
+import type { PackView, ProfileNarrative } from "@/modules/ai-analysis/domain/ai-analysis.types";
 import { ItunesPreviewAdapter } from "@/modules/recommendations/infrastructure/itunes-preview-adapter";
 import { loadArtistGenres } from "@/modules/statistics/application/artist-genres";
 import { getPeriodRanges, type PeriodKey } from "@/modules/statistics/application/overview-service";
@@ -59,15 +59,20 @@ export interface StudyMoment {
   evidence: StudyEvidence;
 }
 
+type EvidenceKind = StudyEvidence["kind"];
+
 /**
- * O roteiro: o amigo escolhe o que contar, de qualquer janela. Ficam só
- * as leituras cuja prova bate com o banco — as de "voltou depois de 3
- * anos" saíram porque o buraco no histórico inventa essas voltas.
+ * O roteiro: o amigo escolhe o que contar, de qualquer janela. Cada vaga
+ * pede um tipo de prova e diz em que janelas procurar, na ordem; os
+ * pacotes se renovam sozinhos, então o roteiro não pode prender um ângulo
+ * a um período. Ficam só as leituras cuja prova bate com o banco — as de
+ * "voltou depois de 3 anos" nem entram, porque o buraco no histórico
+ * inventa essas voltas.
  */
-const SCRIPT: Array<{ period: PeriodKey; angle: NarrativeAngle }> = [
-  { period: "30d", angle: "transicao" },
-  { period: "1y", angle: "mais-ouvido" },
-  { period: "all", angle: "mais-ouvido" },
+const SCRIPT: Array<{ kind: EvidenceKind; periods: PeriodKey[] }> = [
+  { kind: "transition", periods: ["30d", "7d", "1y", "all"] },
+  { kind: "mostPlayed", periods: ["30d", "7d", "1y"] },
+  { kind: "mostPlayed", periods: ["all", "1y"] },
 ];
 
 const ROWS = 5;
@@ -150,12 +155,21 @@ async function transitionEvidence(
     select: { rawArtistName: true, rawTrackName: true, playedAt: true, albumId: true, trackId: true },
   });
 
+  // cada lado da transição vale 2 se a frase cita a faixa e 1 se cita só o
+  // artista; os dois lados precisam estar na frase, e ganha o par mais citado
   const text = `${reading.headline} ${reading.narrative} ${reading.insight}`;
+  const side = (event: (typeof events)[number]) =>
+    mentions(text, event.rawTrackName) ? 2 : mentions(text, event.rawArtistName) ? 1 : 0;
   let pair: [(typeof events)[number], (typeof events)[number]] | null = null;
-  for (let index = events.length - 1; index > 0 && !pair; index -= 1) {
+  let best = 0;
+  for (let index = events.length - 1; index > 0; index -= 1) {
     const [a, b] = [events[index - 1], events[index]];
-    if (a.rawArtistName !== b.rawArtistName && mentions(text, a.rawTrackName) && mentions(text, b.rawTrackName)) {
+    if (a.rawArtistName === b.rawArtistName) continue;
+    const [left, right] = [side(a), side(b)];
+    if (left > 0 && right > 0 && left + right > best) {
       pair = [a, b];
+      best = left + right;
+      if (best === 4) break;
     }
   }
   if (!pair) return null;
@@ -278,10 +292,17 @@ async function mostPlayedEvidence(
   };
 }
 
-async function evidenceFor(userId: string, period: PeriodKey, reading: ProfileNarrative, timeZone: string) {
+/** A prova do tipo que a vaga pede, se a leitura citar esse tipo de sinal. */
+async function evidenceFor(
+  kind: EvidenceKind,
+  userId: string,
+  period: PeriodKey,
+  reading: ProfileNarrative,
+  timeZone: string,
+) {
   const cited = reading.referencedEvidence ?? [];
-  if (cited.includes("transition")) return transitionEvidence(userId, period, reading, timeZone);
-  if (cited.includes("mostPlayed")) return mostPlayedEvidence(userId, period, reading);
+  if (kind === "transition" && cited.includes("transition")) return transitionEvidence(userId, period, reading, timeZone);
+  if (kind === "mostPlayed" && cited.includes("mostPlayed")) return mostPlayedEvidence(userId, period, reading);
   return null;
 }
 
@@ -289,31 +310,40 @@ export async function loadStudyMoments(): Promise<StudyMoment[]> {
   const user = await prisma.user.findFirst({ select: { id: true, timezone: true } });
   if (!user) return [];
 
+  // sem `schedule`: o estudo lê o pacote que existe e nunca pede um novo em
+  // segundo plano — renovar gasta a cota diária do Gemini
   const service = new AIAnalysisService();
-  const moments = await Promise.all(
-    SCRIPT.map(async ({ period, angle }) => {
-      const pack = await service.getPack(user.id, period);
-      if (pack.source !== "ai") return null;
+  const packs = new Map<PeriodKey, Promise<PackView>>();
+  const packOf = (period: PeriodKey) => {
+    if (!packs.has(period)) packs.set(period, service.getPack(user.id, period));
+    return packs.get(period)!;
+  };
 
-      // o ângulo do roteiro primeiro; se o pacote foi renovado e ele sumiu,
-      // qualquer leitura do período cuja prova se deixe achar
-      const ordered = [...pack.readings].sort((a, b) => Number(b.angle === angle) - Number(a.angle === angle));
-      for (const reading of ordered) {
-        const evidence = await evidenceFor(user.id, period, reading, user.timezone);
+  const moments: StudyMoment[] = [];
+  const used = new Set<string>();
+  for (const slot of SCRIPT) {
+    search: for (const period of slot.periods) {
+      const pack = await packOf(period);
+      if (pack.source !== "ai") continue;
+      for (const reading of pack.readings) {
+        const key = `${period}:${reading.headline}`;
+        if (used.has(key)) continue;
+        const evidence = await evidenceFor(slot.kind, user.id, period, reading, user.timezone);
         if (!evidence) continue;
-        return {
-          key: `${period}:${reading.headline}`,
+        used.add(key);
+        moments.push({
+          key,
           window: await windowLabel(user.id, period),
           headline: reading.headline,
           narrative: reading.narrative,
           insight: reading.insight,
           closing: reading.playfulClosing ?? null,
           evidence,
-        } satisfies StudyMoment;
+        });
+        break search;
       }
-      return null;
-    }),
-  );
+    }
+  }
 
-  return moments.filter((moment): moment is StudyMoment => moment !== null);
+  return moments;
 }

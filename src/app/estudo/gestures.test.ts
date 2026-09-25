@@ -37,17 +37,35 @@ describe("o traço do amigo", () => {
     expect(points[points.length - 2]).toEqual(arc[arc.length - 1]);
   });
 
-  it("vibra presa nas pontas e, sem som, fica sobre a linha", () => {
+  describe("a corda", () => {
     const base = [
       { x: 0, y: 100 },
       { x: 600, y: 100 },
     ];
-    const silent = wave(base, 40, null);
-    expect(silent.every((point) => Math.abs(point.y - 100) < 1e-9)).toBe(true);
+    // um grave: meio ciclo cabe na janela que a corda percorre
+    const bass = Uint8Array.from({ length: 1024 }, (_, index) => 128 + Math.round(90 * Math.sin((index / 512) * Math.PI)));
+    // chiado puro: amostra sim, amostra não
+    const hiss = Uint8Array.from({ length: 1024 }, (_, index) => (index % 2 ? 255 : 0));
 
-    const loud = wave(base, 40, Uint8Array.from({ length: 64 }, (_, index) => (index % 2 ? 255 : 0)));
-    expect(loud[0].y).toBeCloseTo(100);
-    expect(loud[loud.length - 1].y).toBeCloseTo(100);
-    expect(polyLength(loud)).toBeGreaterThan(polyLength(silent));
+    it("fica sobre a linha sem som e vibra presa nas pontas com som", () => {
+      const silent = wave(base, 40, null);
+      expect(silent.every((point) => Math.abs(point.y - 100) < 1e-9)).toBe(true);
+
+      const loud = wave(base, 40, bass);
+      expect(loud[0].y).toBeCloseTo(100);
+      expect(loud[loud.length - 1].y).toBeCloseTo(100);
+      expect(Math.max(...loud.map((point) => Math.abs(point.y - 100)))).toBeGreaterThan(20);
+    });
+
+    it("ondula com o grave e ignora o chiado, que viraria risco em cima do texto", () => {
+      expect(polyLength(wave(base, 40, hiss))).toBeLessThan(polyLength(base) * 1.02);
+    });
+
+    it("em volta da capa só incha para fora, nunca para dentro dela", () => {
+      const center = { x: 300, y: 400 };
+      const outward = wave(base, 40, bass, 1, center);
+      // a linha está acima do centro: para fora é para cima
+      expect(outward.every((point) => point.y <= 100 + 1e-9)).toBe(true);
+    });
   });
 });

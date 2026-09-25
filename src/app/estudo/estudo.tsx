@@ -62,6 +62,21 @@ function linesOf(element: Element, origin: DOMRect): Box[] {
     .map((rect) => ({ left: rect.left - origin.left, top: rect.top - origin.top, width: rect.width, height: rect.height }));
 }
 
+/**
+ * A moldura em volta de uma capa. A capa está inclinada, então a caixa que
+ * a tela devolve é maior que ela: a moldura usa o tamanho de verdade da capa
+ * e a mesma inclinação, com expoente alto para abraçar os cantos.
+ */
+function coverFrame(element: HTMLElement, origin: DOMRect, seed: string, pad: number): { points: Point[]; center: Point } {
+  const rect = element.getBoundingClientRect();
+  const center = { x: rect.left - origin.left + rect.width / 2, y: rect.top - origin.top + rect.height / 2 };
+  const width = element.offsetWidth;
+  const height = element.offsetHeight;
+  const degrees = Number.parseFloat(getComputedStyle(element).rotate) || 0;
+  const box = { left: center.x - width / 2, top: center.y - height / 2, width, height };
+  return { points: circle(box, seed, pad, { exponent: 5, rotation: (degrees * Math.PI) / 180 }), center };
+}
+
 /** Até onde a manchete vai de fato: a caixa do título é mais larga que a frase. */
 function textExtent(element: Element, origin: DOMRect): Box {
   const slots = Array.from(element.querySelectorAll("[data-slot]"));
@@ -146,11 +161,14 @@ function Words({
   markRef,
   marked,
   reduced,
+  onLanded,
 }: {
   text: string;
   markRef: RefObject<HTMLSpanElement | null>;
   marked: boolean;
   reduced: boolean;
+  /** A última palavra pousou: só agora o grifo sabe onde a frase ficou. */
+  onLanded: () => void;
 }) {
   const words = text.split(/\s+/).filter(Boolean);
   // o grifo pega o fim da frase; palavra de uma ou duas letras não vale grifo sozinha
@@ -167,6 +185,9 @@ function Words({
         initial={reduced ? false : "in"}
         animate="rest"
         exit={reduced ? undefined : "out"}
+        onAnimationComplete={(definition) => {
+          if (definition === "rest" && order === words.length - 1) onLanded();
+        }}
       >
         {word}
       </motion.span>
@@ -251,13 +272,29 @@ export function Estudo({ moments }: { moments: StudyMoment[] }) {
   const signal = useRef<ArrayLike<number> | null>(null);
   const lastPose = useRef<{ index: number; phase: Phase } | null>(null);
   const planRef = useRef<TracePlan | null>(null);
+  const notesRef = useRef<Note[]>([]);
   const dismissTimer = useRef<number | null>(null);
   const { play, stop, read, playing, step } = audio;
 
   const end = index >= moments.length;
   const moment = end ? null : moments[index];
   const evidence = moment?.evidence ?? null;
-  const pose = `${index}:${phase}:${dismissing ? "risco" : ""}:${playing ? "som" : ""}`;
+  const steps = useMemo<AudioStep[]>(() => {
+    if (!evidence) return [];
+    if (evidence.kind === "transition") {
+      return [
+        ...(evidence.from.previewUrl ? [{ url: evidence.from.previewUrl, seconds: 6.5 }] : []),
+        ...(evidence.to.previewUrl ? [{ url: evidence.to.previewUrl }] : []),
+      ];
+    }
+    return evidence.previewUrl ? [{ url: evidence.previewUrl }] : [];
+  }, [evidence]);
+  // na transição, a primeira faixa toca na capa de origem e o corte leva à outra
+  const playingSide: "from" | "to" | null = playing ? (step === 0 && steps.length > 1 ? "from" : "to") : null;
+
+  // na fala de uma transição a corda troca de capa no corte seco: o passo entra na pose
+  const sound = !playing ? "" : evidence?.kind === "transition" && phase === "fala" ? `som${step}` : "som";
+  const pose = `${index}:${phase}:${dismissing ? "risco" : ""}:${sound}`;
 
   useFlip(stageRef, `${index}:${phase}`, reduced);
 
@@ -275,10 +312,7 @@ export function Estudo({ moments }: { moments: StudyMoment[] }) {
 
       // a semente é do assunto, não da pose: o arco que vira corda é o mesmo arco
       const seed = (gesture: string) => `${index}:${gesture}`;
-      const underline = (box: Box, gap: number): Point[] => [
-        { x: box.left, y: box.top + box.height + gap },
-        { x: box.left + box.width, y: box.top + box.height + gap },
-      ];
+      const small = origin.width < 760;
 
       if (dismissing && headlineRef.current) {
         gestures.push({
@@ -287,24 +321,25 @@ export function Estudo({ moments }: { moments: StudyMoment[] }) {
           strokes: [scribble(textExtent(headlineRef.current, origin), seed("risco"))],
           width: pen * 1.2,
         });
-      } else if (playing) {
-        if (phase === "prova" && fromRef.current && toRef.current) {
-          const from = boxOf(fromRef.current, origin);
-          const { arc } = jump(from, boxOf(toRef.current, origin), seed("salto"));
-          wave = { base: arc, amp: Math.min(58, from.height * 0.32) };
-        } else if (phase === "prova" && focusRef.current) {
-          wave = { base: underline(boxOf(focusRef.current, origin), 16), amp: 18 };
-        } else if (headlineRef.current) {
-          wave = { base: underline(textExtent(headlineRef.current, origin), 22), amp: 30 };
-        }
       } else if ((phase === "fala" || end) && markRef.current) {
         const lines = linesOf(markRef.current, origin);
         if (lines.length > 0) {
           gestures.push({ id: "grifo", layer: "under", strokes: highlight(lines, seed("grifo")), width: lines[0].height * 0.64 });
         }
       } else if (evidence?.kind === "transition" && fromRef.current && toRef.current) {
-        const { points, apex } = jump(boxOf(fromRef.current, origin), boxOf(toRef.current, origin), seed("salto"));
-        gestures.push({ id: "salto", layer: "over", strokes: [points], width: pen });
+        const from = boxOf(fromRef.current, origin);
+        const { points, arc, apex } = jump(from, boxOf(toRef.current, origin), seed("salto"));
+        // com som, o próprio arco é a corda: vibra ali mesmo, entre as duas faixas,
+        // e só para baixo — para cima ela atropelaria o "PAM." no alto do salto
+        if (playing) {
+          wave = {
+            base: arc,
+            amp: Math.min(52, from.height * 0.28),
+            inPlace: true,
+            outwardFrom: { x: apex.x, y: apex.y - 1000 },
+          };
+        }
+        else gestures.push({ id: "salto", layer: "over", strokes: [points], width: pen });
         nextNotes.push({ id: "salto", text: "PAM.", x: apex.x, y: apex.y - 12, size: "lg" });
       } else if (evidence?.kind === "mostPlayed" && focusRef.current) {
         const row = boxOf(focusRef.current, origin);
@@ -325,22 +360,52 @@ export function Estudo({ moments }: { moments: StudyMoment[] }) {
         );
       }
 
+      // com som, e fora do arco da transição, a corda abraça a capa que está
+      // tocando: em volta de uma imagem não há texto para ela atropelar
+      if (playing && !dismissing && !wave) {
+        const cover =
+          evidence?.kind === "transition" ? (playingSide === "from" ? fromRef.current : toRef.current) : soloRef.current;
+        if (cover) {
+          const frame = coverFrame(cover, origin, seed(`corda:${playingSide ?? "solo"}`), small ? 10 : 18);
+          wave = { base: frame.points, amp: small ? 8 : 13, outwardFrom: frame.center };
+        }
+      }
+
       const candidate: TracePlan = { key: pose, gestures, wave, instant };
+      const previous = planRef.current;
       // remedida da mesma pose (fonte que chegou, tela que mudou) só vale se
       // algo andou de lugar: senão ela atropelaria o traço no meio do gesto
-      if (instant && planRef.current?.key === pose && sameGeometry(planRef.current, candidate)) return;
+      if (instant && previous?.key === pose && sameGeometry(previous, candidate)) return;
       if (!instant) {
-        setMarked(false);
-        setShown(new Set());
+        // o que continua na tela continua escrito: o grifo não pisca e a
+        // anotação não repete o grito só porque a música começou
+        const stays = (id: string) => {
+          const before = previous?.gestures.find((gesture) => gesture.id === id);
+          const after = gestures.find((gesture) => gesture.id === id);
+          return Boolean(before && after && JSON.stringify(before.strokes) === JSON.stringify(after.strokes));
+        };
+        const noteStays = (note: Note) =>
+          notesRef.current.some((old) => old.id === note.id && Math.abs(old.x - note.x) < 2 && Math.abs(old.y - note.y) < 2);
+        if (!stays("grifo")) setMarked(false);
+        const keep = new Set(nextNotes.filter(noteStays).map((note) => note.id));
+        setShown((current) => new Set([...current].filter((id) => keep.has(id))));
       }
+      notesRef.current = nextNotes;
       setNotes(nextNotes);
       planRef.current = candidate;
       setPlan(candidate);
     },
-    [dismissing, end, evidence, index, phase, playing, pose],
+    [dismissing, end, evidence, index, phase, playing, playingSide, pose],
   );
   const measureRef = useRef(measure);
   measureRef.current = measure;
+
+  // quando a manchete nova termina de pousar, o traço confere onde ela ficou.
+  // Se nada andou, o gesto que já está na tela continua (o motor não redesenha
+  // traço idêntico); se a medida anterior pegou a frase velha, ele corrige.
+  const landed = useCallback(() => {
+    if (planRef.current) measureRef.current(false);
+  }, []);
 
   // a cena muda, espera assentar, mede e manda o traço
   useEffect(() => {
@@ -388,17 +453,6 @@ export function Estudo({ moments }: { moments: StudyMoment[] }) {
   }, []);
 
   // ---------- som ----------
-
-  const steps = useMemo<AudioStep[]>(() => {
-    if (!evidence) return [];
-    if (evidence.kind === "transition") {
-      return [
-        ...(evidence.from.previewUrl ? [{ url: evidence.from.previewUrl, seconds: 6.5 }] : []),
-        ...(evidence.to.previewUrl ? [{ url: evidence.to.previewUrl }] : []),
-      ];
-    }
-    return evidence.previewUrl ? [{ url: evidence.previewUrl }] : [];
-  }, [evidence]);
 
   // o pulso: um quadro lê o sinal uma vez e serve a capa e a corda
   useEffect(() => {
@@ -501,7 +555,6 @@ export function Estudo({ moments }: { moments: StudyMoment[] }) {
   }
 
   const talk = moment ?? END;
-  const playingSide = playing ? (step === 0 && steps.length > 1 ? "from" : "to") : null;
 
   return (
     <main ref={stageRef} className={styles.stage} data-phase={end ? "fala" : phase} data-end={end}>
@@ -535,7 +588,7 @@ export function Estudo({ moments }: { moments: StudyMoment[] }) {
 
           <AnimatePresence mode="wait">
             <motion.h1 key={`h${index}`} ref={headlineRef} className={styles.headline} data-flip={`h${index}`}>
-              <Words text={talk.headline} markRef={markRef} marked={marked} reduced={reduced} />
+              <Words text={talk.headline} markRef={markRef} marked={marked} reduced={reduced} onLanded={landed} />
             </motion.h1>
           </AnimatePresence>
 
@@ -646,7 +699,8 @@ export function Estudo({ moments }: { moments: StudyMoment[] }) {
         .filter((note) => shown.has(note.id))
         .map((note) => (
           <p
-            key={`${plan?.key}:${note.id}`}
+            // a chave é o lugar, não a pose: a anotação que não se mexeu não grita de novo
+            key={`${index}:${note.id}:${Math.round(note.x)}:${Math.round(note.y)}`}
             className={styles.note}
             data-size={note.size}
             data-align={note.align}

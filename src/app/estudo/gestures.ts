@@ -89,20 +89,28 @@ export function highlight(lines: Box[], seed: string): Point[][] {
  * lista — a mão não faz elipse, que cortaria os cantos por cima do texto:
  * faz um oval de cantos cheios. O expoente da superelipse sai da proporção
  * do alvo: 2 é elipse, 4 já abraça um retângulo comprido.
+ *
+ * `shape` serve às capas: um quadrado inclinado pede expoente alto (senão
+ * os cantos da capa furam o círculo) e a mesma inclinação da capa.
  */
-export function circle(box: Box, seed: string, pad = 14): Point[] {
+export function circle(
+  box: Box,
+  seed: string,
+  pad = 14,
+  shape: { exponent?: number; rotation?: number } = {},
+): Point[] {
   const random = seeded(seed);
   const cx = box.left + box.width / 2;
   const cy = box.top + box.height / 2;
   const rx = box.width / 2 + pad;
   const ry = box.height / 2 + pad * 0.8;
   const aspect = Math.max(box.width, box.height) / Math.max(1, Math.min(box.width, box.height));
-  const exponent = clamp(2 + (aspect - 1.5) * 0.5, 2, 4);
+  const exponent = shape.exponent ?? clamp(2 + (aspect - 1.5) * 0.5, 2, 4);
   const hug = (value: number) => Math.sign(value) * Math.pow(Math.abs(value), 2 / exponent);
   const start = ((196 + random() * 30) * Math.PI) / 180;
   const sweep = Math.PI * 2 * (1.08 + random() * 0.06);
   // alvo comprido inclinado encostaria as pontas no texto: quanto mais largo, mais reto
-  const tilt = (random() - 0.5) * 0.12 * Math.min(1, 3 / aspect);
+  const tilt = (shape.rotation ?? 0) + (random() - 0.5) * 0.12 * Math.min(1, 3 / aspect);
   const [p1, p2] = [random() * Math.PI * 2, random() * Math.PI * 2];
   const steps = Math.ceil(((rx + ry) * sweep) / 6);
 
@@ -194,13 +202,32 @@ export function travel(from: Point, to: Point, seed: string): Point[] {
   return Array.from({ length: steps + 1 }, (_, index) => quadratic(from, control, to, index / steps));
 }
 
+/** Quantas amostras do quadro a corda percorre: só o começo, onde cabe meio ciclo de grave. */
+const WAVE_WINDOW = 0.5;
+/** Raio da média móvel: o que sobra depois dela é ondulação, não chiado. */
+const WAVE_SMOOTH = 10;
+/** Música amaciada perde amplitude; isto devolve o corpo da onda. */
+const WAVE_BOOST = 2.6;
+
 /**
  * A corda que vibra com a música: presa nas duas pontas, livre no meio,
- * seguindo a linha que já estava ali — reta embaixo da frase, ou o próprio
- * arco do salto. `samples` é o sinal no tempo (0–255, 128 é silêncio);
- * sem sinal, a corda fica parada sobre a linha.
+ * seguindo a linha que já estava ali — o arco do salto, ou a moldura em
+ * volta da capa que está tocando. `samples` é o sinal no tempo (0–255,
+ * 128 é silêncio); sem sinal, a corda fica parada sobre a linha.
+ *
+ * O sinal cru, esticado na corda, vira chiado e parece risco. Amaciado,
+ * sobra o grave: a corda ondula largo, como corda de verdade.
+ *
+ * Com `outwardFrom`, a corda só vibra para longe daquele ponto — em volta
+ * da capa ela incha para fora e nunca invade a imagem.
  */
-export function wave(base: Point[], amp: number, samples: ArrayLike<number> | null, gain = 1): Point[] {
+export function wave(
+  base: Point[],
+  amp: number,
+  samples: ArrayLike<number> | null,
+  gain = 1,
+  outwardFrom?: Point,
+): Point[] {
   const total = polyLength(base);
   if (base.length < 2 || total === 0) return base;
   const reach = [0];
@@ -208,22 +235,40 @@ export function wave(base: Point[], amp: number, samples: ArrayLike<number> | nu
     reach.push(reach[index - 1] + Math.hypot(base[index].x - base[index - 1].x, base[index].y - base[index - 1].y));
   }
 
-  const columns = clamp(Math.round(total / 6), 16, 200);
+  const span = samples ? Math.max(1, Math.floor(samples.length * WAVE_WINDOW)) : 0;
+  const signalAt = (t: number) => {
+    if (!samples || span === 0) return 0;
+    const center = Math.floor(t * (span - 1));
+    let sum = 0;
+    let count = 0;
+    // janela de tamanho par: amostra sim, amostra não se anula por inteiro
+    for (let index = Math.max(0, center - WAVE_SMOOTH); index < Math.min(span, center + WAVE_SMOOTH); index += 1) {
+      sum += (samples[index] - 128) / 128;
+      count += 1;
+    }
+    return clamp((sum / count) * WAVE_BOOST, -1, 1);
+  };
+
+  const columns = clamp(Math.round(total / 6), 16, 220);
   let segment = 1;
   return Array.from({ length: columns + 1 }, (_, index) => {
     const t = index / columns;
     const at = total * t;
     while (segment < base.length - 1 && reach[segment] < at) segment += 1;
     const [a, b] = [base[segment - 1], base[segment]];
-    const span = reach[segment] - reach[segment - 1] || 1;
-    const local = clamp((at - reach[segment - 1]) / span, 0, 1);
-    const length = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-    const normal = { x: -(b.y - a.y) / length, y: (b.x - a.x) / length };
-    const sample = samples && samples.length > 0 ? samples[Math.floor(t * (samples.length - 1))] : 128;
-    const offset = ((sample - 128) / 128) * amp * gain * Math.sin(t * Math.PI);
-    return {
-      x: a.x + (b.x - a.x) * local + normal.x * offset,
-      y: a.y + (b.y - a.y) * local + normal.y * offset,
-    };
+    const length = reach[segment] - reach[segment - 1] || 1;
+    const local = clamp((at - reach[segment - 1]) / length, 0, 1);
+    const point = { x: a.x + (b.x - a.x) * local, y: a.y + (b.y - a.y) * local };
+    let normal = { x: -(b.y - a.y) / length, y: (b.x - a.x) / length };
+    let value = signalAt(t);
+    if (outwardFrom) {
+      // a normal que aponta para o centro vira; o sinal vira só intensidade
+      if (normal.x * (point.x - outwardFrom.x) + normal.y * (point.y - outwardFrom.y) < 0) {
+        normal = { x: -normal.x, y: -normal.y };
+      }
+      value = Math.abs(value);
+    }
+    const offset = value * amp * gain * Math.sin(t * Math.PI);
+    return { x: point.x + normal.x * offset, y: point.y + normal.y * offset };
   });
 }
