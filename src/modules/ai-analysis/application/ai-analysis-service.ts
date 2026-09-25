@@ -105,6 +105,18 @@ export class AIAnalysisService {
   }
 
   /**
+   * O pacote guardado de um período, sem gerar nada: para quem lê vários
+   * períodos de uma vez (a conversa) e não pode esperar uma geração em cada
+   * um. `stale` diz se ele já tem idade para ser conferido — quem chamou
+   * decide se agenda a renovação.
+   */
+  async peekPack(userId: string, period: PeriodKey): Promise<{ view: PackView; stale: boolean } | null> {
+    const stored = await this.findLatestPack(userId, period);
+    if (!stored) return null;
+    return { view: this.toView(stored), stale: oldEnoughToCheck(stored.builtAt, period) };
+  }
+
+  /**
    * O cron chama isto depois do sync: confere os períodos na ordem de
    * prioridade e gera no máximo UM pacote por execução — o primeiro que
    * precisar. Falha ou teto encerram a rodada: não adianta insistir agora.
