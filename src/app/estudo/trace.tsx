@@ -15,12 +15,20 @@ import styles from "./estudo.module.css";
  * desenha os caminhos uma vez por pose, e o resto é relógio.
  */
 
+export type StrokeCap = "round" | "butt" | "square";
+export type StrokeJoin = "round" | "miter";
+
 export interface TraceGesture {
   id: string;
   /** "under" fica atrás do texto (o grifo); "over" fica por cima de tudo. */
   layer: "under" | "over";
   strokes: Point[][];
   width: number;
+  /** Ponta e canto do traço; sem nada, os do estudo v1 (redondos). */
+  cap?: StrokeCap;
+  join?: StrokeJoin;
+  /** Já foi dito: continua na tela, mais apagado que o assunto da vez. */
+  dim?: boolean;
 }
 
 export interface WaveSpec {
@@ -31,6 +39,9 @@ export interface WaveSpec {
   outwardFrom?: Point;
   /** A linha já está desenhada ali (o arco do salto): a corda começa a vibrar no lugar. */
   inPlace?: boolean;
+  /** Espessura e ponta da corda; sem nada, as da caneta. */
+  width?: number;
+  cap?: StrokeCap;
 }
 
 export interface TracePlan {
@@ -52,6 +63,9 @@ interface Segment {
   duration: number;
   gestureId?: string;
   closesGesture?: boolean;
+  cap?: StrokeCap;
+  join?: StrokeJoin;
+  dim?: boolean;
 }
 
 const ERASE_MS = 220;
@@ -100,6 +114,7 @@ export function Trace({
   reduced,
   readSignal,
   onGesture,
+  travelStyle = "curve",
 }: {
   plan: TracePlan | null;
   size: { width: number; height: number };
@@ -108,6 +123,8 @@ export function Trace({
   /** O sinal da música neste quadro, ou null sem som. */
   readSignal: () => ArrayLike<number> | null;
   onGesture: (id: string, moment: "start" | "end") => void;
+  /** Como a ponta anda entre um gesto e outro: em arco (v1) ou reta, como num diagrama (v2). */
+  travelStyle?: "curve" | "straight";
 }) {
   const [segments, setSegments] = useState<Segment[]>([]);
   const nodes = useRef(new Map<string, SVGPathElement>());
@@ -152,7 +169,7 @@ export function Trace({
 
     const travelTo = (target: Point, id: string) => {
       const from = at ?? { x: -60, y: target.y + 40 };
-      const path = travel(from, target, `${plan.key}:${id}`);
+      const path = travelStyle === "straight" ? [from, target] : travel(from, target, `${plan.key}:${id}`);
       const length = polyLength(path);
       if (length < 8 || instant) return;
       const duration = clamp(length / 3.2, 160, 420);
@@ -170,6 +187,7 @@ export function Trace({
         // a corda que para de tocar assenta no traço de onde saiu: o arco
         // volta a ser arco com seta, sem a caneta refazer o caminho
         const settles = !instant && previousWave !== undefined && d.startsWith(previousWave.d);
+        const look = { cap: gesture.cap, join: gesture.join, dim: gesture.dim };
         if (kept || settles) {
           queue.push({
             id: kept?.id ?? id,
@@ -182,6 +200,7 @@ export function Trace({
             duration: 0,
             gestureId: gesture.id,
             closesGesture,
+            ...look,
           });
           at = stroke[stroke.length - 1];
           return;
@@ -200,6 +219,7 @@ export function Trace({
           duration,
           gestureId: gesture.id,
           closesGesture,
+          ...look,
         });
         cursor += duration + (instant ? 0 : 50);
         at = stroke[stroke.length - 1];
@@ -215,7 +235,17 @@ export function Trace({
       if (!inPlace) travelTo(base[0], id);
       const length = polyLength(base);
       const duration = inPlace ? 0 : clamp(length / 1.9, 220, 620);
-      queue.push({ id, layer: "over", kind: "wave", d: waveBase, length, width: penWidth, start: inPlace ? 0 : cursor, duration });
+      queue.push({
+        id,
+        layer: "over",
+        kind: "wave",
+        d: waveBase,
+        length,
+        width: plan.wave.width ?? penWidth,
+        start: inPlace ? 0 : cursor,
+        duration,
+        cap: plan.wave.cap,
+      });
       // corda que já vibrava não recomeça a rampa
       live.current = { spec: plan.wave, readyAt: keptWave ? -1000 : inPlace ? 0 : cursor + duration };
       at = base[base.length - 1];
@@ -303,8 +333,14 @@ export function Trace({
             d={segment.d}
             strokeWidth={segment.width}
             strokeDasharray={initialDash(segment)}
-            style={startsHidden(segment) ? { visibility: "hidden" } : undefined}
+            // estilo em linha: o CSS do traço fixa ponta redonda, e atributo de SVG perde para ele
+            style={{
+              visibility: startsHidden(segment) ? "hidden" : undefined,
+              strokeLinecap: segment.cap,
+              strokeLinejoin: segment.join,
+            }}
             data-kind={segment.kind}
+            data-dim={segment.dim || undefined}
           />
         ))}
     </svg>

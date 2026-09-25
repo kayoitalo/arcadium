@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { circle, highlight, jump, polyLength, seeded, wave } from "./gestures";
+import { band, circle, dimension, highlight, jump, polyLength, seeded, strike, wave } from "./gestures";
 
 const box = { left: 100, top: 200, width: 300, height: 40 };
 
@@ -35,6 +35,39 @@ describe("o traço do amigo", () => {
     // arco, farpa, ponta, farpa: a seta sai sem tirar a caneta do papel
     expect(points.length).toBe(arc.length + 3);
     expect(points[points.length - 2]).toEqual(arc[arc.length - 1]);
+  });
+
+  describe("os gestos exatos", () => {
+    const line = { left: 100, right: 400, capTop: 200, baseline: 270 };
+
+    it("a faixa cobre das maiúsculas à base, reta, com a mesma folga dos dois lados", () => {
+      const { strokes, width } = band([line], 100);
+      const [start, end] = strokes[0];
+      expect(start.y).toBe(end.y);
+      expect(start.x).toBeCloseTo(100 - 8);
+      expect(end.x).toBeCloseTo(400 + 8);
+      // do topo das maiúsculas (com folga) à base (com folga), e não a caixa inteira da linha
+      expect(width).toBeCloseTo(70 + 7 + 6);
+      expect(start.y - width / 2).toBeCloseTo(200 - 7);
+    });
+
+    it("o risco passa reto pelo meio das maiúsculas", () => {
+      const [[start, end]] = strike([line], 100);
+      expect(start.y).toBe(end.y);
+      expect(start.y).toBeGreaterThan(line.capTop);
+      expect(start.y).toBeLessThan(line.baseline);
+    });
+
+    it("a cota sobe, atravessa e desce em retas, acima das duas capas", () => {
+      const from = { left: 0, top: 300, width: 200, height: 200 };
+      const to = { left: 600, top: 320, width: 200, height: 200 };
+      const { posts, span, mid } = dimension(from, to, 80);
+      expect(span[0].y).toBe(220);
+      expect(span[1].y).toBe(220);
+      expect(posts[0][0].x).toBe(posts[0][1].x);
+      expect(posts[1][1].y).toBe(to.top - 14);
+      expect(mid).toEqual({ x: 400, y: 220 });
+    });
   });
 
   describe("a corda", () => {

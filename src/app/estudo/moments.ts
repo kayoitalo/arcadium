@@ -35,8 +35,23 @@ export interface StudyRow {
   plays: number;
 }
 
+/** Uma audição vizinha da transição: o que tocou antes e depois do salto. */
+export interface StudyStep {
+  artist: string;
+  track: string;
+  when: string;
+}
+
 export type StudyEvidence =
-  | { kind: "transition"; from: StudySide; to: StudySide }
+  | {
+      kind: "transition";
+      from: StudySide;
+      to: StudySide;
+      /** Minutos entre o início de uma e o da outra. */
+      gapMinutes: number;
+      /** Duas audições antes e duas depois: o salto dentro da sequência de verdade. */
+      context: { before: StudyStep[]; after: StudyStep[] };
+    }
   | {
       kind: "mostPlayed";
       focus: "track" | "album";
@@ -75,7 +90,8 @@ const SCRIPT: Array<{ kind: EvidenceKind; periods: PeriodKey[] }> = [
   { kind: "mostPlayed", periods: ["all", "1y"] },
 ];
 
-const ROWS = 5;
+/** Linhas da lista: a v1 mostra as 5 primeiras; na v2, "me mostra mais" abre o resto. */
+const ROWS = 10;
 
 const previews = new ItunesPreviewAdapter();
 
@@ -161,6 +177,7 @@ async function transitionEvidence(
   const side = (event: (typeof events)[number]) =>
     mentions(text, event.rawTrackName) ? 2 : mentions(text, event.rawArtistName) ? 1 : 0;
   let pair: [(typeof events)[number], (typeof events)[number]] | null = null;
+  let at = -1;
   let best = 0;
   for (let index = events.length - 1; index > 0; index -= 1) {
     const [a, b] = [events[index - 1], events[index]];
@@ -168,11 +185,23 @@ async function transitionEvidence(
     const [left, right] = [side(a), side(b)];
     if (left > 0 && right > 0 && left + right > best) {
       pair = [a, b];
+      at = index - 1;
       best = left + right;
       if (best === 4) break;
     }
   }
   if (!pair) return null;
+
+  const step = (event: (typeof events)[number]): StudyStep => ({
+    artist: event.rawArtistName,
+    track: event.rawTrackName,
+    when: formatWhen(event.playedAt, timeZone),
+  });
+  const context = {
+    before: events.slice(Math.max(0, at - 2), at).map(step),
+    after: events.slice(at + 2, at + 4).map(step),
+  };
+  const gapMinutes = Math.max(0, Math.round((pair[1].playedAt.getTime() - pair[0].playedAt.getTime()) / 60_000));
 
   const genres = await loadArtistGenres(pair.map((event) => event.rawArtistName));
   const [from, to] = await Promise.all(
@@ -197,7 +226,7 @@ async function transitionEvidence(
     }),
   );
 
-  return { kind: "transition", from, to };
+  return { kind: "transition", from, to, gapMinutes, context };
 }
 
 async function mostPlayedEvidence(

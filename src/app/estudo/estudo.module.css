@@ -77,6 +77,25 @@
   color: var(--tinta-3);
 }
 
+.versions {
+  display: inline-flex;
+  gap: 10px;
+  margin-left: 16px;
+  font-size: 12px;
+  font-variation-settings: "wdth" 100, "wght" 560;
+  color: var(--tinta-3);
+}
+
+.versions a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.versions a:hover,
+.versions [aria-current] {
+  color: var(--tinta);
+}
+
 .dots {
   display: flex;
   gap: 7px;
@@ -508,6 +527,15 @@
 /* marca-texto tem ponta chata */
 .trace[data-layer="under"] path {
   stroke-linecap: butt;
+}
+
+/* o que ele já disse continua na tela, mais apagado que o assunto da vez */
+.trace path[data-dim="true"] {
+  opacity: 0.3;
+}
+
+.trace path {
+  transition: opacity 420ms ease;
 }
 
 .note {

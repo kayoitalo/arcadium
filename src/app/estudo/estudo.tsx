@@ -1,6 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion, type Variants } from "framer-motion";
+import Link from "next/link";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { circle, highlight, jump, scribble, type Box, type Point } from "./gestures";
 import type { StudyCover, StudyMoment } from "./moments";
@@ -347,9 +348,11 @@ export function Estudo({ moments }: { moments: StudyMoment[] }) {
         const { rows, focusIndex } = evidence;
         const runnerUp = rows.find((_, rowIndex) => rowIndex !== focusIndex);
         const text =
-          focusIndex === 0 && runnerUp
-            ? `+${rows[0].plays - runnerUp.plays} que ${shorten(runnerUp.label)}`
-            : "esse aqui";
+          focusIndex !== 0 || !runnerUp
+            ? "esse aqui"
+            : rows[0].plays > runnerUp.plays
+              ? `+${rows[0].plays - runnerUp.plays} que ${shorten(runnerUp.label)}`
+              : `empatado com ${shorten(runnerUp.label)}`;
         // ao lado do círculo quando cabe; senão por cima dele, puxado para a direita
         const right = row.left + row.width + 44;
         const fits = right + 260 < origin.width;
@@ -562,6 +565,10 @@ export function Estudo({ moments }: { moments: StudyMoment[] }) {
         <div>
           <span className={styles.wordmark}>arcadium</span>
           <span className={styles.study}>estudo de linguagem</span>
+          <nav className={styles.versions} aria-label="Versão do estudo">
+            <span aria-current="page">v1</span>
+            <Link href="/estudo/v2">v2</Link>
+          </nav>
         </div>
         <div className={styles.dots} role="img" aria-label={`Assunto ${Math.min(index + 1, moments.length)} de ${moments.length}`}>
           {moments.map((entry, dot) => (
@@ -650,7 +657,7 @@ export function Estudo({ moments }: { moments: StudyMoment[] }) {
                   innerRef={soloRef}
                 />
                 <ol className={styles.rows}>
-                  {evidence.rows.map((row, rowIndex) => {
+                  {evidence.rows.slice(0, 5).map((row, rowIndex) => {
                     const max = evidence.rows[0]?.plays || 1;
                     const focus = rowIndex === evidence.focusIndex;
                     return (

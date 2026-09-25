@@ -202,6 +202,85 @@ export function travel(from: Point, to: Point, seed: string): Point[] {
   return Array.from({ length: steps + 1 }, (_, index) => quadratic(from, control, to, index / steps));
 }
 
+/*
+ * Gestos exatos (estudo v2). A mão do amigo continua, mas sem tremido:
+ * faixa na altura exata das letras, régua em cima da barra do dado, cota
+ * de desenho técnico entre duas coisas, risco reto de revisor. O humano
+ * está no que ele escolhe apontar, não em a linha sair torta.
+ */
+
+/** Uma linha de texto na tela: onde começa, onde acaba e onde ficam as maiúsculas e a base. */
+export interface TextLine {
+  left: number;
+  right: number;
+  capTop: number;
+  baseline: number;
+}
+
+/**
+ * A faixa de marca-texto exata: das maiúsculas à linha de base, com a
+ * mesma folga dos dois lados. Retângulo de navegador cobre a caixa inteira
+ * da linha e parece busca de Wikipédia; esta cobre só onde a letra está.
+ */
+export function band(lines: TextLine[], size: number): { strokes: Point[][]; width: number } {
+  const over = size * 0.08;
+  const above = size * 0.07;
+  const below = size * 0.06;
+  const strokes = lines.map((line) => {
+    const y = (line.capTop - above + line.baseline + below) / 2;
+    return [
+      { x: line.left - over, y },
+      { x: line.right + over, y },
+    ];
+  });
+  const first = lines[0];
+  return { strokes, width: first ? first.baseline + below - (first.capTop - above) : 0 };
+}
+
+/** O risco de revisor: uma reta por linha, na metade da altura das maiúsculas. */
+export function strike(lines: TextLine[], size: number): Point[][] {
+  return lines.map((line) => {
+    const y = line.baseline - (line.baseline - line.capTop) * 0.46;
+    return [
+      { x: line.left - size * 0.04, y },
+      { x: line.right + size * 0.04, y },
+    ];
+  });
+}
+
+/**
+ * A cota de desenho técnico entre duas caixas: sobe da primeira, atravessa
+ * e desce na segunda. Três retas de cantos vivos — o salto medido, não
+ * rabiscado. `span` é o trecho de cima: a corda que vibra com a música.
+ */
+export function dimension(
+  from: Box,
+  to: Box,
+  lift: number,
+): { posts: [Point[], Point[]]; span: Point[]; mid: Point } {
+  const gap = 14;
+  const ax = from.left + from.width / 2;
+  const bx = to.left + to.width / 2;
+  const top = Math.min(from.top, to.top) - lift;
+  return {
+    posts: [
+      [
+        { x: ax, y: from.top - gap },
+        { x: ax, y: top },
+      ],
+      [
+        { x: bx, y: top },
+        { x: bx, y: to.top - gap },
+      ],
+    ],
+    span: [
+      { x: ax, y: top },
+      { x: bx, y: top },
+    ],
+    mid: { x: (ax + bx) / 2, y: top },
+  };
+}
+
 /** Quantas amostras do quadro a corda percorre: só o começo, onde cabe meio ciclo de grave. */
 const WAVE_WINDOW = 0.5;
 /** Raio da média móvel: o que sobra depois dela é ondulação, não chiado. */
