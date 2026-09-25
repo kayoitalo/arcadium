@@ -75,11 +75,23 @@ export function claimedCounts(text: string): number[] {
 }
 
 /**
- * A frase bate com o dado? Todo "N vezes" dela precisa estar perto de um
- * número verdadeiro da prova. A folga cobre o pacote escrito horas antes
- * das últimas audições; frase sem número em algarismo passa.
+ * Os "N%" e "N por cento" da frase. De 100 para cima é jeito de falar
+ * ("100% vibe"), não dado.
  */
-export function countsAgree(claims: number[], truths: number[], tolerance = 2): boolean {
+export function claimedShares(text: string): number[] {
+  const pattern = /(\d{1,3}(?:[.,]\d+)?)\s*(?:%|por\s*cento\b)/giu;
+  return [...text.matchAll(pattern)]
+    .map((match) => Number(match[1].replace(",", ".")))
+    .filter((value) => Number.isFinite(value) && value < 100);
+}
+
+/**
+ * A frase bate com o dado? Todo número que ela afirma ("N vezes", "N%")
+ * precisa estar perto de um número verdadeiro da prova. A folga é a do
+ * jeito de falar — "quase 40%" para 39,4 —, não a de um dado velho: a
+ * prova é medida na janela que a leitura viu. Frase sem número passa.
+ */
+export function claimsAgree(claims: number[], truths: number[], tolerance = 2): boolean {
   return claims.every((claim) => truths.some((truth) => Math.abs(truth - claim) <= tolerance));
 }
 

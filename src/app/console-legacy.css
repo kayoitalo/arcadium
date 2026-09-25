@@ -1,0 +1,531 @@
+/* Legado do Console: só serve às telas que ainda não migraram. Sai inteiro no fim da migração. */
+
+/* ============================================================
+   Arcadium — Console
+   ------------------------------------------------------------
+   Um console de estúdio. Cinco regras decidem qualquer tela:
+   1. Só tem volume o que existe no mundo: disco, capa, vitrola.
+      Interface é plana — raio zero, fios de 1px.
+   2. Dado é limpo; a opinião do Gemini tem voz própria.
+   3. Estado se comunica por luz (LED), não por relevo.
+   4. Clique é seco, objeto é físico: duas velocidades.
+   5. Nada decorativo: tudo é dado, controle ou disco.
+
+   Duas cores com papéis separados: âmbar é a máquina (LED,
+   ativo, foco) e existe em toda tela; --chroma-* é o disco,
+   extraída da capa pelo ChromaProvider, e só aparece em volta
+   do que está tocando.
+   ============================================================ */
+
+@theme {
+  --color-background: #08090b;
+  --color-background-secondary: #0a0c0e;
+  /* janela de display: um tom abaixo do painel */
+  --color-well: #050607;
+
+  --color-surface: #0e1013;
+  --color-surface-elevated: #101317;
+  --color-surface-soft: #14181d;
+  --color-surface-glass: rgb(8 9 11 / 0.88);
+
+  /* dois fios: o interno (rule) divide, o externo (border) delimita */
+  --color-rule: #1b2129;
+  --color-border: #232a32;
+  --color-border-subtle: #171d23;
+  --color-border-strong: #313a44;
+  --color-border-glow: rgb(255 176 0 / 0.4);
+
+  --color-text-primary: #f2f4f3;
+  --color-text-secondary: #aab2b9;
+  --color-text-muted: #79838c;
+  --color-text-label: #8b959e;
+
+  /* a máquina */
+  --color-accent: #ffb000;
+  --color-accent-hover: #ffc53d;
+  --color-accent-gold: #ffc53d;
+  --color-accent-copper: #c98a00;
+  --color-accent-burgundy: #c98a00;
+  --color-accent-glow: rgb(255 176 0 / 0.12);
+
+  /* o disco */
+  --color-chroma: var(--chroma);
+
+  --color-status-success: #5faa8b;
+  --color-status-warning: #d6a45c;
+  --color-status-error: #e0604f;
+
+  /* Archivo é variável em largura: condensa nas manchetes e nos
+     números, fica normal no texto corrido. Martian Mono etiqueta e
+     é a voz do sistema. Unbounded só existe no logotipo. */
+  --font-sans: var(--font-archivo), "Archivo", system-ui, sans-serif;
+  --font-display: var(--font-archivo), "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-martian), ui-monospace, Menlo, monospace;
+  --font-brand: var(--font-unbounded), "Unbounded", sans-serif;
+
+  /* raio zero: interface não tem canto macio. Disco usa rounded-full,
+     que não passa por estes tokens. */
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
+
+  --shadow-glow: 0 0 44px -12px var(--chroma-glow);
+  /* sombra só para objetos: capa e disco */
+  --shadow-lift: 0 34px 60px -28px rgb(0 0 0 / 0.9);
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+:root {
+  /* croma padrão — substituído assim que uma capa entra em foco */
+  --chroma-h: 196;
+  --chroma-s: 72%;
+  --chroma-l: 56%;
+
+  --chroma: hsl(var(--chroma-h) var(--chroma-s) var(--chroma-l));
+  --chroma-bright: hsl(var(--chroma-h) var(--chroma-s) calc(var(--chroma-l) + 12%));
+  --chroma-deep: hsl(var(--chroma-h) calc(var(--chroma-s) * 0.8) calc(var(--chroma-l) - 16%));
+  --chroma-soft: hsl(var(--chroma-h) var(--chroma-s) var(--chroma-l) / 0.14);
+  --chroma-line: hsl(var(--chroma-h) var(--chroma-s) var(--chroma-l) / 0.38);
+  --chroma-glow: hsl(var(--chroma-h) var(--chroma-s) 46% / 0.42);
+
+  --machine: #ffb000;
+  --machine-soft: rgb(255 176 0 / 0.08);
+  --machine-line: rgb(255 176 0 / 0.45);
+
+  --background: #08090b;
+  --surface: #0e1013;
+  --rule: #1b2129;
+  --border: #232a32;
+  --border-strong: #313a44;
+  --text-primary: #f2f4f3;
+  --text-secondary: #aab2b9;
+  --text-muted: #79838c;
+  --text-label: #8b959e;
+
+  /* altura das duas faixas fixas do topo: as barras grudentas das
+     telas param logo abaixo dela */
+  --chrome-h: 98px;
+
+  color-scheme: dark;
+}
+
+/* a troca de croma é uma transição, não um corte */
+:root {
+  transition: --chroma-h 700ms var(--ease-in-out-soft),
+              --chroma-s 700ms var(--ease-in-out-soft),
+              --chroma-l 700ms var(--ease-in-out-soft);
+}
+
+@property --chroma-h { syntax: "<number>"; inherits: true; initial-value: 196; }
+@property --chroma-s { syntax: "<percentage>"; inherits: true; initial-value: 72%; }
+@property --chroma-l { syntax: "<percentage>"; inherits: true; initial-value: 56%; }
+
+html {
+  overflow-x: clip;
+}
+
+body {
+  color: var(--text-primary);
+  background-color: var(--background);
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  letter-spacing: -0.006em;
+  overflow-x: clip;
+}
+
+h1, h2, h3, h4 {
+  text-wrap: balance;
+}
+
+::selection {
+  background: var(--machine-line);
+  color: var(--text-primary);
+}
+
+:focus-visible {
+  outline: 1px solid var(--machine);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--background); }
+::-webkit-scrollbar-thumb { background: #232a32; }
+::-webkit-scrollbar-thumb:hover { background: var(--machine); }
+
+/* ============================================================
+   VOZES TIPOGRÁFICAS
+   Tudo daqui até MOVIMENTO fica em @layer components: assim um
+   utilitário na mesma tag (text-accent, text-[13px], h-auto)
+   ainda consegue ajustar a classe base.
+   ============================================================ */
+
+@layer components {
+
+.display {
+  font-family: var(--font-display);
+  font-variation-settings: "wdth" 78, "wght" 800;
+  letter-spacing: -0.045em;
+  line-height: 0.89;
+}
+
+.headline {
+  font-family: var(--font-display);
+  font-variation-settings: "wdth" 86, "wght" 800;
+  letter-spacing: -0.04em;
+  line-height: 0.97;
+}
+
+.numeral {
+  font-family: var(--font-display);
+  font-variation-settings: "wdth" 82, "wght" 800;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.94;
+}
+
+/* nome no ranking: a largura da fonte variável é o destaque */
+.rank-name {
+  font-family: var(--font-display);
+  font-variation-settings: "wdth" 100, "wght" 600;
+  letter-spacing: -0.025em;
+  transition: font-variation-settings 220ms var(--ease-out-expo);
+}
+
+.group:hover .rank-name {
+  font-variation-settings: "wdth" 112, "wght" 700;
+}
+
+/* etiqueta de seção */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* cabeçalho de coluna, marca de eixo */
+.micro {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-label);
+}
+
+/* número, hora, percentual */
+.data {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+/* a voz do sistema: o que o Gemini diz */
+.voice-text {
+  font-family: var(--font-mono);
+  line-height: 1.7;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+/* ============================================================
+   ESTRUTURA
+   ============================================================ */
+
+/* grade de células separadas por fio, sem borda dupla */
+.ruled {
+  display: grid;
+  gap: 1px;
+  background: var(--rule);
+}
+
+/* ============================================================
+   CONTROLES
+   Tecla plana, LED quadrado. Afunda em 50ms, volta em 150ms.
+   ============================================================ */
+
+.led {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  flex-shrink: 0;
+  background: #262d35;
+  transition: background-color 150ms, box-shadow 150ms;
+}
+
+.led[data-on="true"],
+[data-active="true"] > .led,
+[aria-current="page"] > .led {
+  background: var(--machine);
+  box-shadow: 0 0 6px rgb(255 176 0 / 0.7);
+}
+
+.key {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 13px;
+  border: 1px solid var(--border);
+  background: var(--color-background-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  transition: transform 150ms var(--ease-out-expo), color 150ms, background-color 150ms, border-color 150ms;
+}
+
+.key:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.key:active:not(:disabled) {
+  transform: translateY(1px);
+  background: var(--color-well);
+  transition-duration: 50ms;
+}
+
+.key[data-active="true"],
+.key[aria-current="page"] {
+  z-index: 1;
+  color: var(--text-primary);
+  border-color: var(--machine-line);
+  background: var(--machine-soft);
+}
+
+.key:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+
+.key-sm {
+  height: 26px;
+  padding: 0 10px;
+  gap: 7px;
+  font-size: 9.5px;
+}
+
+/* tecla de ação: a luz está acesa por inteiro */
+.key-ink {
+  border-color: var(--machine);
+  background: var(--machine);
+  color: #08090b;
+}
+
+.key-ink:hover:not(:disabled) {
+  color: #08090b;
+  border-color: var(--color-accent-hover);
+  background: var(--color-accent-hover);
+}
+
+.key-ink:active:not(:disabled) {
+  background: #d99600;
+}
+
+/* tecla que apaga algo: só acende em vermelho quando o cursor chega */
+.key-danger:hover:not(:disabled) {
+  color: var(--color-status-error);
+  border-color: var(--color-status-error);
+}
+
+/* atalho de teclado impresso na tecla */
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  color: var(--text-label);
+}
+
+/* fileira de teclas encostadas: bordas vizinhas se sobrepõem */
+.keys {
+  display: flex;
+  /* no celular a fileira rola, mas sem trilho de rolagem à mostra */
+  scrollbar-width: none;
+}
+
+.keys::-webkit-scrollbar {
+  display: none;
+}
+
+.keys > .key + .key {
+  margin-left: -1px;
+}
+
+/* etiqueta de dado: gênero, palavra-chave */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  padding: 5px 9px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+/* medidor segmentado: acende da esquerda para a direita */
+.meter {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 2px;
+  height: 8px;
+}
+
+.meter > span {
+  background: rgb(255 255 255 / 0.05);
+}
+
+.meter > span[data-lit="true"] {
+  background: var(--machine);
+  animation: gy-led 1ms steps(1) both;
+}
+
+/* coluna do espectro: LEDs apagados atrás, acesos por cima */
+.spectrum-col {
+  background: repeating-linear-gradient(to top, rgb(255 255 255 / 0.045) 0 3px, transparent 3px 5px);
+}
+
+.spectrum-lit {
+  background: repeating-linear-gradient(to top, var(--machine) 0 3px, transparent 3px 5px);
+}
+
+.spectrum-lit[data-hot="true"] {
+  background: repeating-linear-gradient(to top, var(--text-primary) 0 3px, transparent 3px 5px);
+}
+
+/* cursor do texto que está sendo digitado */
+.caret {
+  display: inline-block;
+  width: 0.55em;
+  height: 1.05em;
+  margin-left: 1px;
+  vertical-align: -0.16em;
+  background: var(--machine);
+}
+
+/* campo de busca */
+.field {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--color-well);
+  padding: 11px 16px;
+  font-size: 14px;
+  color: var(--text-primary);
+  transition: border-color 150ms;
+}
+
+.field::placeholder {
+  color: var(--text-muted);
+}
+
+.field:focus {
+  outline: none;
+  border-color: var(--machine);
+}
+
+.field-search {
+  padding-left: 38px;
+}
+
+/* linha de preenchimento (ficha técnica) */
+.field-line {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  padding: 10px 2px;
+  font-size: 14px;
+  color: var(--text-primary);
+  transition: border-color 150ms;
+}
+
+.field-line:focus {
+  outline: none;
+  border-color: var(--machine);
+}
+
+}
+
+/* ============================================================
+   MOVIMENTO
+   ============================================================ */
+
+@keyframes gy-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes gy-rise {
+  from { transform: translateY(108%); }
+  to { transform: none; }
+}
+
+@keyframes gy-page {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes gy-pulse {
+  0%, 100% { opacity: 0.45; transform: scale(0.94); }
+  50% { opacity: 0.9; transform: scale(1.08); }
+}
+
+@keyframes gy-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes gy-blink {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+
+/* LED acendendo: sem rampa, liga de uma vez */
+@keyframes gy-led {
+  from { background: rgb(255 255 255 / 0.05); }
+}
+
+.gy-page {
+  animation: gy-page 300ms ease-out both;
+}
+
+.gy-up {
+  animation: gy-up 600ms var(--ease-out-expo) both;
+}
+
+.gy-rise {
+  display: block;
+  animation: gy-rise 900ms var(--ease-out-expo) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

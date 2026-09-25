@@ -1,0 +1,79 @@
+/* A casa: uma barra quieta em cima e a tela embaixo. Nada de tecla, LED
+   ou período global — cada tela diz a janela dela, do jeito do amigo. */
+
+.shell {
+  min-height: 100dvh;
+}
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: clamp(16px, 4vw, 48px);
+  padding: clamp(14px, 2.4vh, 22px) var(--gutter) 26px;
+  background: linear-gradient(var(--papel) 58%, transparent);
+}
+
+.wordmark {
+  flex-shrink: 0;
+  font-size: 17px;
+  font-variation-settings: "wdth" 125, "wght" 820;
+  letter-spacing: -0.03em;
+  text-transform: lowercase;
+  color: var(--tinta);
+  text-decoration: none;
+}
+
+.nav {
+  display: flex;
+  gap: clamp(14px, 2.2vw, 28px);
+  margin-left: auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.nav::-webkit-scrollbar {
+  display: none;
+}
+
+.link {
+  flex-shrink: 0;
+  padding: 6px 0;
+  border-bottom: 1.5px solid transparent;
+  font-size: 14px;
+  font-variation-settings: "wdth" 96, "wght" 560;
+  white-space: nowrap;
+  color: var(--tinta-3);
+  text-decoration: none;
+  transition:
+    color 160ms,
+    border-color 160ms;
+}
+
+.link:hover {
+  color: var(--tinta);
+}
+
+.link[aria-current="page"] {
+  color: var(--tinta);
+  border-color: var(--tinta);
+}
+
+.page {
+  position: relative;
+  padding: 0 var(--gutter);
+}
+
+@media (max-width: 760px) {
+  .bar {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .nav {
+    width: 100%;
+    margin-left: 0;
+  }
+}

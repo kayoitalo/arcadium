@@ -1,450 +1,97 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
-import { pickFresh } from "@/components/ai/pick-fresh";
-import { usePreviewPlayer } from "@/components/audio/use-preview-player";
-import { useChroma } from "@/components/chroma/chroma-provider";
-import { useScreenChrome } from "@/components/layout/chrome";
-import { Decades } from "@/components/overview/decades";
-import { Movement } from "@/components/overview/movement";
-import { RankList } from "@/components/overview/rank-list";
-import { RecordCrate } from "@/components/overview/record-crate";
-import { Spectrum } from "@/components/overview/spectrum";
-import { Turntable } from "@/components/overview/turntable";
-import { Delta, Meter, Readout } from "@/components/ui/console";
-import { CountUp, InViewFade } from "@/components/ui/motion";
-import { SectionHead } from "@/components/ui/section-head";
-import { Voice, VoicePending } from "@/components/ui/voice";
-import type { OverviewData, PeriodKey } from "@/modules/statistics/application/overview-service";
-import type { PackView, ProfileNarrative } from "@/modules/ai-analysis/domain/ai-analysis.types";
+import { useEffect, useState } from "react";
+import { Aviso } from "@/components/amigo/aviso";
+import { Resposta } from "@/components/amigo/fala";
+import { Conversa } from "@/components/conversa/conversa";
+import type { ConversationView } from "@/modules/conversation/domain/conversation.types";
 
-const PERIODS = [
-  { key: "7d", label: "7 dias" },
-  { key: "30d", label: "30 dias" },
-  { key: "1y", label: "1 ano" },
-  { key: "all", label: "Tudo" },
-];
+/** Enquanto ele escreve a primeira leitura, a tela pergunta de novo nesse ritmo. */
+const POLL_MS = 10_000;
 
-const PERIOD_SUBJECT: Record<PeriodKey, string> = {
-  "7d": "na última semana",
-  "30d": "nos últimos 30 dias",
-  "1y": "no último ano",
-  all: "desde o começo",
-};
+type State = { status: "loading" } | { status: "error" } | { status: "ready"; view: ConversationView };
 
 /**
- * Só depois disso a leitura se anuncia como "sendo escrita". Pacote pronto
- * volta em milissegundos; avisar antes faria o quadro piscar à toa em toda
- * troca de período.
+ * A tela inicial é a conversa. Número só aparece como prova do que ele
+ * diz; o resto — espera, primeira leitura, falta de histórico, erro — é
+ * ele avisando, na mesma voz.
  */
-const PENDING_AFTER_MS = 600;
-
-/** Dias do intervalo — usado para medir quanto dele virou escuta. */
-const PERIOD_DAYS: Record<PeriodKey, number | null> = { "7d": 7, "30d": 30, "1y": 365, all: null };
-
-function formatHours(minutes: number): string {
-  const hours = Math.round(minutes / 60);
-  return hours >= 1 ? `${hours.toLocaleString("pt-BR")}h` : `${minutes}min`;
-}
-
-const decimal = (value: number) => value.toString().replace(".", ",");
-
-export default function OverviewPage() {
-  const [period, setPeriod] = useState<PeriodKey>("30d");
-  const [data, setData] = useState<OverviewData | null>(null);
-  const [story, setStory] = useState<ProfileNarrative | null>(null);
-  const [albumLines, setAlbumLines] = useState<PackView["albumLines"]>([]);
-  /** "escrevendo" só aparece depois de PENDING_AFTER_MS: pacote pronto responde na hora. */
-  const [writing, setWriting] = useState(false);
-  /** Quem escreveu o que está na tela: só o que veio do modelo usa o quadro dele. */
-  const [packSource, setPackSource] = useState<PackView["source"] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [focused, setFocused] = useState(0);
-  const heroRef = useRef<HTMLElement>(null);
-  const reduced = useReducedMotion();
-  const { adoptCover } = useChroma();
-
-  useScreenChrome({
-    title: "Visão geral",
-    periods: PERIODS,
-    period,
-    onPeriod: (key) => setPeriod(key as PeriodKey),
-  });
+export default function ConversaPage() {
+  const [state, setState] = useState<State>({ status: "loading" });
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
-    setError(null);
-    setFocused(0);
-    // cada período tem o seu pacote: manter o texto do anterior sobre os
-    // números novos seria dar leitura de mês para a semana
-    setStory(null);
-    setAlbumLines([]);
-    setWriting(false);
-    setPackSource(null);
-
-    fetch(`/api/overview?period=${period}`, { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error("A leitura do período falhou.");
-        return response.json();
-      })
-      .then((payload: OverviewData) => setData(payload))
-      .catch((cause: unknown) => {
-        if (controller.signal.aborted) return;
-        setError(cause instanceof Error ? cause.message : "A leitura do período falhou.");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-
-    // o pacote do período traz várias leituras e os comentários dos discos;
-    // o sorteio é aqui, pra que dois reloads não mostrem o mesmo texto
-    const writingTimer = setTimeout(() => setWriting(true), PENDING_AFTER_MS);
-    fetch(`/api/ai/pack?period=${period}`, { signal: controller.signal })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload: PackView | null) => {
-        if (!payload) return;
-        setStory(pickFresh(payload.readings, `gy:reading:${period}`, (reading) => reading.headline));
-        setAlbumLines(payload.albumLines);
-        setPackSource(payload.source);
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        clearTimeout(writingTimer);
-        if (!controller.signal.aborted) setWriting(false);
-      });
-
+    let timer = 0;
+    const load = async () => {
+      try {
+        const response = await fetch("/api/conversation", { signal: controller.signal, cache: "no-store" });
+        if (!response.ok) throw new Error(`conversa ${response.status}`);
+        const view = (await response.json()) as ConversationView;
+        setState({ status: "ready", view });
+        if (view.writing) timer = window.setTimeout(load, POLL_MS);
+      } catch {
+        if (!controller.signal.aborted) setState({ status: "error" });
+      }
+    };
+    void load();
     return () => {
       controller.abort();
-      clearTimeout(writingTimer);
+      window.clearTimeout(timer);
     };
-  }, [period]);
+  }, [attempt]);
 
-  // sem corte aqui: quem decide o tamanho do rack é o RACK_SIZE da consulta
-  const albums = useMemo(() => data?.topAlbums ?? [], [data]);
-  const focusedAlbum = albums[focused];
+  if (state.status === "loading") {
+    return <Aviso headline="Peraí, tô ouvindo aqui." />;
+  }
 
-  // o prato abre no disco que mais mostra o que a vitrola faz: com capa e
-  // com prévia, senão só com capa. Escolha automática uma vez por leitura;
-  // depois disso quem manda é o clique, mesmo num disco sem capa
-  const autoPick = useRef(true);
-  useEffect(() => {
-    autoPick.current = true;
-  }, [data]);
-  useEffect(() => {
-    if (!autoPick.current || albums.length === 0) return;
-    autoPick.current = false;
-    const complete = albums.findIndex((album) => album.coverUrl && album.previewUrl);
-    const withCover = albums.findIndex((album) => album.coverUrl);
-    const pick = complete >= 0 ? complete : withCover;
-    if (pick >= 0) setFocused(pick);
-  }, [albums]);
-
-  useEffect(() => {
-    adoptCover(focusedAlbum?.coverUrl, focusedAlbum?.title ?? null);
-  }, [focusedAlbum?.coverUrl, focusedAlbum?.title, adoptCover]);
-
-  const player = usePreviewPlayer(focusedAlbum?.previewUrl);
-
-  /**
-   * Escolher no rack põe o disco na agulha — e leva o olho até a vitrola.
-   * A prévia sai no mesmo clique: o navegador só deixa tocar dentro do gesto.
-   */
-  const putOnDeck = (index: number) => {
-    setFocused(index);
-    const url = albums[index]?.previewUrl;
-    if (url) player.play(url);
-    heroRef.current?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
-  };
-
-  const headline = story?.headline ?? data?.aiStory.headline;
-  const narrative = story?.narrative ?? data?.aiStory.narrative;
-  const insight = story?.insight ?? data?.aiStory.insight;
-  const closing = story?.playfulClosing;
-  const summary = data?.summary;
-  const activity = data?.listeningActivity ?? [];
-
-  /** O que o intervalo escolhido tem de dias vira o denominador do tempo. */
-  const listeningShare = useMemo(() => {
-    const days = PERIOD_DAYS[period] ?? activity.length;
-    if (!summary || !days) return null;
-    return Math.min(100, Number((((summary.listeningMinutes / (days * 1440)) * 100)).toFixed(1)));
-  }, [summary, period, activity.length]);
-
-  if (error) {
+  if (state.status === "error") {
     return (
-      <div className="border border-status-error/50 bg-well p-6">
-        <span className="eyebrow text-status-error">Falha de leitura</span>
-        <p className="mt-2 text-sm text-status-error">{error}</p>
-      </div>
+      <Aviso headline="Me perdi no teu histórico." narrative="Deu erro do meu lado lendo o que você ouviu. Tenta de novo?">
+        <Resposta
+          onClick={() => {
+            setState({ status: "loading" });
+            setAttempt((current) => current + 1);
+          }}
+        >
+          tenta de novo
+        </Resposta>
+      </Aviso>
     );
   }
 
-  const empty = !loading && data && summary?.totalPlays === 0;
+  const { view } = state;
 
-  if (empty) {
+  if (!view.hasHistory) {
     return (
-      <section className="gy-page border-y border-border py-24">
-        <span className="eyebrow">Nada no período</span>
-        <h1 className="display mt-5 max-w-[16ch] text-[clamp(2.2rem,5vw,3.8rem)]">
-          Nada tocou {PERIOD_SUBJECT[period]}.
-        </h1>
-        <p className="mt-6 max-w-[46ch] text-[15px] leading-relaxed text-text-secondary">
-          Escolha um intervalo maior, ou registre seu usuário do Last.fm nos ajustes para trazer o
-          histórico.
-        </p>
-      </section>
-    );
-  }
-
-  const metrics = [
-    {
-      label: "Artistas",
-      value: summary?.uniqueArtists ?? 0,
-      change: summary?.artistsChangePercent,
-      bar: (data?.concentration.top5ArtistShare ?? 0) / 100,
-      note: `top 5 = ${decimal(data?.concentration.top5ArtistShare ?? 0)}% da escuta`,
-    },
-    {
-      label: "Faixas",
-      value: summary?.uniqueTracks ?? 0,
-      change: summary?.tracksChangePercent,
-      bar: (data?.concentration.top10TrackShare ?? 0) / 100,
-      note: `top 10 = ${decimal(data?.concentration.top10TrackShare ?? 0)}% da escuta`,
-    },
-    {
-      label: "Tempo",
-      value: summary?.listeningMinutes ?? 0,
-      format: formatHours,
-      change: null,
-      bar: (listeningShare ?? 0) / 100,
-      note:
-        listeningShare == null ? "duração estimada" : `${decimal(listeningShare)}% do período com música`,
-      // o "≈" sozinho não diz quanto é medido: a cobertura fica escrita
-      detail:
-        summary && summary.durationSource === "ESTIMATE"
-          ? summary.durationCoverage > 0
-            ? `duração real em ${summary.durationCoverage}% das audições · resto estimado`
-            : "duração estimada: o catálogo ainda não mediu estas faixas"
-          : summary
-            ? "duração real de todas as audições"
-            : undefined,
-      approximate: summary?.durationSource === "ESTIMATE",
-    },
-  ] as Array<{
-    label: string;
-    value: number;
-    change?: number | null;
-    bar: number;
-    note: string;
-    format?: (minutes: number) => string;
-    detail?: string;
-    approximate?: boolean;
-  }>;
-
-  return (
-    <div className="gy-page flex flex-col gap-16 sm:gap-20">
-      {/* ---------- abertura: a manchete do Gemini e a vitrola ---------- */}
-      <section
-        ref={heroRef}
-        className="relative grid items-center gap-x-14 gap-y-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(300px,0.75fr)]"
-        style={{ scrollMarginTop: "calc(var(--chrome-h) + 24px)" }}
+      <Aviso
+        headline="Ainda não ouvi nada teu."
+        narrative="Me passa teu Last.fm que eu leio tudo que você já ouviu e volto com o que reparei."
       >
-        <div>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`${period}-${headline ?? "loading"}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              {/* o âmbar no rótulo continua marcando que o texto é opinião, não dado */}
-              <span className="eyebrow block text-accent">{story?.eyebrow ?? PERIOD_SUBJECT[period]}</span>
+        <Resposta href="/settings">conectar o Last.fm</Resposta>
+      </Aviso>
+    );
+  }
 
-              <h1 className="display mt-5 max-w-[17ch] text-[clamp(2.6rem,6.6vw,5.9rem)]">
-                {headline ? (
-                  <span className="block overflow-hidden">
-                    <span className="gy-rise">{headline}</span>
-                  </span>
-                ) : (
-                  <span className="block h-[1em] w-[8ch] animate-pulse bg-surface-elevated" />
-                )}
-              </h1>
+  if (view.writing) {
+    return (
+      <Aviso
+        headline="Tô escrevendo o que reparei."
+        narrative="Li teu histórico inteiro. Dá um minuto que eu já volto com a primeira."
+      />
+    );
+  }
 
-              {narrative && (
-                <p className="gy-up mt-7 max-w-[50ch] text-base leading-[1.66] text-text-secondary [animation-delay:260ms]">
-                  {narrative}
-                </p>
-              )}
+  if (view.moments.length === 0) {
+    return (
+      <Aviso
+        headline="Nada que eu consiga provar ainda."
+        narrative="Eu reparei em umas coisas, mas nenhuma bateu com o teu histórico. Não vou te contar o que não consigo mostrar."
+      >
+        <Resposta href="/history">ver tudo que tocou</Resposta>
+      </Aviso>
+    );
+  }
 
-              {Boolean(story?.tasteKeywords?.length) && (
-                <div className="mt-7 flex flex-wrap gap-1.5">
-                  {story?.tasteKeywords?.map((keyword, index) => (
-                    <span
-                      key={keyword}
-                      className="gy-up tag"
-                      style={{ animationDelay: `${320 + index * 60}ms`, animationDuration: "450ms" }}
-                    >
-                      {keyword}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        <Turntable albums={albums} selectedIndex={focused} player={player} albumLines={albumLines} />
-      </section>
-
-      {/* ---------- números ---------- */}
-      <section className="ruled grid-cols-2 border border-border xl:grid-cols-4">
-        <Readout label="Audições" footer={<Delta value={summary?.playsChangePercent} />}>
-          <strong className="numeral block text-[clamp(2.4rem,4.4vw,3.5rem)]">
-            <CountUp value={summary?.totalPlays ?? 0} />
-          </strong>
-        </Readout>
-
-        {metrics.map((metric) => (
-          <Readout
-            key={metric.label}
-            label={metric.label}
-            footer={
-              <>
-                <Meter ratio={metric.bar} label={metric.note} />
-                <span className="data mt-2.5 block text-text-muted">{metric.note}</span>
-                {metric.detail && <span className="data mt-1 block text-text-label">{metric.detail}</span>}
-                {typeof metric.change === "number" && (
-                  <span className="mt-1.5 block">
-                    <Delta value={metric.change} suffix="que antes" />
-                  </span>
-                )}
-              </>
-            }
-          >
-            <strong className="numeral block text-[clamp(2.4rem,4.4vw,3.5rem)]">
-              {metric.approximate && <span className="mr-1 align-middle text-[0.45em] text-text-muted">≈</span>}
-              <CountUp value={metric.value} format={metric.format} />
-            </strong>
-          </Readout>
-        ))}
-      </section>
-
-      {/* ---------- espectro ---------- */}
-      <InViewFade>
-        <section>
-          <SectionHead index="01" eyebrow="Espectro" title="Onde o volume subiu" />
-          <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-            <Spectrum activity={activity} days={PERIOD_DAYS[period]} />
-            {writing ? (
-              <VoicePending label="leitura">
-                escrevendo a leitura deste período — a primeira de cada intervalo leva alguns
-                segundos. trocar de período agora cancela o pedido.
-              </VoicePending>
-            ) : packSource === "ai" && insight ? (
-              <Voice label="leitura">{insight}</Voice>
-            ) : (
-              data && (
-                /* texto de reserva sai como texto comum: o quadro é só do que o modelo escreveu */
-                <p className="data border border-border bg-well p-4 leading-relaxed text-text-secondary">
-                  {insight ??
-                    `Os cinco primeiros artistas somam ${decimal(data.concentration.top5ArtistShare)}% de tudo que você ouviu ${PERIOD_SUBJECT[period]}.`}
-                </p>
-              )
-            )}
-          </div>
-        </section>
-      </InViewFade>
-
-      {/* ---------- ranking ---------- */}
-      <InViewFade>
-        <section>
-          <SectionHead
-            index="02"
-            eyebrow="Mais ouvidos"
-            title="Quem carregou o período"
-            aside={
-              <div className="flex items-center gap-4 pb-1">
-                <span className="data text-text-muted">
-                  {(summary?.uniqueArtists ?? 0).toLocaleString("pt-BR")} artistas no total
-                </span>
-                <span className="tag">top 5 = {decimal(data?.concentration.top5ArtistShare ?? 0)}%</span>
-              </div>
-            }
-          />
-          <RankList artists={data?.topArtists.slice(0, 8) ?? []} periodKey={period} />
-        </section>
-      </InViewFade>
-
-      {/* ---------- movimento e estreias ---------- */}
-      {data && (data.tasteShift.rising.length > 0 || data.discoveries.length > 0) && (
-        <InViewFade>
-          <Movement
-            rising={data.tasteShift.rising}
-            declining={data.tasteShift.declining}
-            discoveries={data.discoveries}
-          />
-        </InViewFade>
-      )}
-
-      {/* ---------- o rack ---------- */}
-      {albums.length > 0 && (
-        <InViewFade>
-          <section>
-            <SectionHead
-              index="04"
-              eyebrow="Discos do período"
-              title="O rack"
-              aside={<span className="data pb-1 text-text-muted">escolha um para pôr na agulha</span>}
-            />
-            <RecordCrate
-              albums={albums}
-              onDeckIndex={focused}
-              playing={player.playing}
-              onSelect={putOnDeck}
-            />
-          </section>
-        </InViewFade>
-      )}
-
-      {/* ---------- décadas ---------- */}
-      {data && data.decades.items.length > 0 && (
-        <InViewFade>
-          <section>
-            <SectionHead
-              index="05"
-              eyebrow="Décadas"
-              title="De que época é a sua escuta"
-              aside={
-                <span className="data pb-1 text-text-muted">ano de lançamento vindo do catálogo</span>
-              }
-            />
-            <div className="mt-6">
-              <Decades distribution={data.decades} />
-            </div>
-          </section>
-        </InViewFade>
-      )}
-
-      {/* ---------- fecho ---------- */}
-      {closing && (
-        <InViewFade>
-          <section className="flex flex-col gap-4">
-            <Voice label="fechando o período" size="lg">
-              {closing}
-            </Voice>
-            <Link href="/discovery" className="key self-end">
-              ir para descobertas
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </section>
-        </InViewFade>
-      )}
-    </div>
-  );
+  return <Conversa moments={view.moments} />;
 }

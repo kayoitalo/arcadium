@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   claimedCounts,
-  countsAgree,
+  claimedShares,
+  claimsAgree,
   decadesIn,
   focusIn,
   mentions,
@@ -67,11 +68,18 @@ describe("a frase bate com o dado", () => {
     expect(claimedCounts("Trinta e duas vezes o álbum")).toEqual([]);
   });
 
-  it("aceita a folga do pacote escrito antes, e barra o número de outra coisa", () => {
-    expect(countsAgree([32], [33])).toBe(true);
+  it("lê as porcentagens, e deixa de fora o jeito de falar", () => {
+    expect(claimedShares("Os anos 2000 dominam 41% de tudo; o resto, 12,5 por cento")).toEqual([41, 12.5]);
+    expect(claimedShares("Isso é 100% vibe")).toEqual([]);
+  });
+
+  it("aceita o jeito de falar, e barra o número de outra coisa", () => {
+    expect(claimsAgree([32], [33])).toBe(true);
+    // "quase 40%" para 39,4
+    expect(claimsAgree(claimedShares("Quase 40% de tudo"), [39.4])).toBe(true);
     // "Bleeding Heart com 53 vezes": 53 é o total do Angra, a faixa tem 11
-    expect(countsAgree([53], [11])).toBe(false);
-    expect(countsAgree([], [11])).toBe(true);
+    expect(claimsAgree([53], [11])).toBe(false);
+    expect(claimsAgree([], [11])).toBe(true);
   });
 });
 

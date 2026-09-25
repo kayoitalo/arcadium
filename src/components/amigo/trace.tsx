@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { polyLength, toPath, travel, wave, type Point } from "./gestures";
-import styles from "./estudo.module.css";
+import styles from "./trace.module.css";
 
 /*
  * O traço do amigo: o protagonista do estudo. É uma caneta só. Quando o

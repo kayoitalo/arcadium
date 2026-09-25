@@ -1,0 +1,309 @@
+/* ============================================================
+   A voz do amigo e o que responde a ela.
+
+   A fala é a única coisa grande da tela: o resto é prova em repouso.
+   A letra dele é a Archivo condensada; a cor dele (--marca) só existe
+   no traço e no que o traço escreve.
+   ============================================================ */
+
+.fala {
+  position: relative;
+  z-index: 3;
+  min-width: 0;
+}
+
+.window {
+  margin: 0 0 16px;
+  font-size: 13px;
+  font-variation-settings: "wdth" 96, "wght" 520;
+  color: var(--tinta-3);
+}
+
+.headline {
+  margin: 0;
+  max-width: 15ch;
+  font-size: clamp(2rem, 1rem + 2.6vw, 3.8rem);
+  font-variation-settings: "wdth" 74, "wght" 820;
+  line-height: 0.96;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+  color: var(--tinta);
+  transition: color 420ms ease;
+}
+
+.fala[data-active="false"] .headline {
+  color: var(--tinta-2);
+}
+
+.fala[data-dismissed="true"] .headline {
+  color: var(--tinta-3);
+}
+
+/* só o assunto da vez fica escuro sobre a faixa acesa: fora dele a faixa
+   apaga e a letra volta a ser clara, senão sumiria no escuro */
+.mark {
+  transition: color 140ms ease 120ms;
+}
+
+.fala[data-active="true"] .mark[data-marked="true"] {
+  color: var(--sobre-marca);
+}
+
+.narrative,
+.reply,
+.insight,
+.closing {
+  margin: 0;
+  max-width: 46ch;
+  font-size: clamp(1rem, 0.9rem + 0.35vw, 1.2rem);
+  line-height: 1.5;
+  text-wrap: pretty;
+  transition: opacity 420ms ease;
+}
+
+.narrative {
+  margin-top: clamp(18px, 2.6vh, 28px);
+  color: var(--tinta-2);
+}
+
+.reply {
+  margin-top: clamp(18px, 2.6vh, 28px);
+  color: var(--tinta);
+  font-variation-settings: "wdth" 100, "wght" 560;
+}
+
+.aside {
+  display: grid;
+  gap: 8px;
+  margin-top: clamp(14px, 2vh, 22px);
+}
+
+.insight {
+  color: var(--tinta);
+  font-variation-settings: "wdth" 100, "wght" 520;
+}
+
+.closing {
+  color: var(--tinta-3);
+}
+
+.fala[data-active="false"] p {
+  opacity: 0.6;
+}
+
+/* o aviso: uma fala só, no meio da tela */
+.aviso {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  align-content: center;
+  min-height: 72dvh;
+  padding: 6vh 0;
+}
+
+/* ---------- respostas ---------- */
+
+.reactions {
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 22px 0 clamp(18px, 3.5vh, 32px);
+  background: linear-gradient(to top, var(--papel) 58%, transparent);
+}
+
+.reactions[data-inline="true"] {
+  position: static;
+  padding: clamp(26px, 4vh, 40px) 0 0;
+  background: none;
+}
+
+.reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 15px 0 18px;
+  border: 1.5px solid rgb(242 239 231 / 0.2);
+  border-radius: 999px;
+  background: rgb(11 11 10 / 0.9);
+  color: var(--tinta);
+  font: inherit;
+  font-size: 15px;
+  font-variation-settings: "wdth" 92, "wght" 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 160ms,
+    border-color 160ms,
+    scale 420ms var(--spring);
+}
+
+.reaction:hover:not(:disabled) {
+  background: rgb(38 37 34 / 0.95);
+  border-color: rgb(242 239 231 / 0.36);
+}
+
+.reaction[aria-pressed="true"] {
+  border-color: var(--tinta);
+  background: rgb(242 239 231 / 0.1);
+}
+
+.reaction:active:not(:disabled) {
+  scale: 0.94;
+  transition-duration: 160ms, 160ms, 60ms;
+}
+
+/* apagada, mas com o fundo inteiro: botão translúcido deixaria a prova vazar por trás */
+.reaction:disabled {
+  border-color: rgb(242 239 231 / 0.08);
+  color: rgb(242 239 231 / 0.3);
+  cursor: default;
+}
+
+.reaction:disabled .key {
+  opacity: 0.4;
+}
+
+.key {
+  min-width: 22px;
+  padding: 1px 6px;
+  border: 1px solid rgb(242 239 231 / 0.18);
+  border-radius: 6px;
+  font-size: 11px;
+  font-variation-settings: "wdth" 100, "wght" 600;
+  text-align: center;
+  color: var(--tinta-3);
+}
+
+/* ---------- capa ---------- */
+
+.cover {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: #1a1917;
+  box-shadow:
+    0 24px 48px -28px rgb(0 0 0 / 0.9),
+    0 0 0 1px rgb(255 255 255 / 0.06);
+  scale: calc(1 + var(--level, 0) * 0.05 * var(--on, 0));
+}
+
+.cover[data-playing="true"] {
+  --on: 1;
+}
+
+.cover img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  user-select: none;
+  transition: opacity 400ms ease;
+}
+
+.cover img[data-loaded="true"] {
+  opacity: 1;
+}
+
+.coverEmpty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 10px;
+  overflow: hidden;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--tinta-3);
+}
+
+/* ---------- o que o traço escreve fora da grade ---------- */
+
+.note {
+  position: absolute;
+  z-index: 5;
+  margin: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  transition: opacity 420ms ease;
+}
+
+.note[data-kind="grito"] {
+  translate: -50% -100%;
+  font-size: clamp(1.5rem, 1rem + 1.6vw, 2.6rem);
+  font-variation-settings: "wdth" 70, "wght" 860;
+  line-height: 0.9;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: var(--marca);
+  animation: shout 520ms var(--spring) both;
+}
+
+.note[data-kind="dado"] {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta-3);
+  animation: quietIn 300ms ease-out both;
+}
+
+.note[data-kind="dado"][data-align="end"] {
+  translate: -100% 0;
+}
+
+.note[data-kind="dado"][data-align="center"] {
+  translate: -50% 0;
+}
+
+.note[data-dim="true"] {
+  opacity: 0.35;
+}
+
+@keyframes quietIn {
+  from {
+    opacity: 0;
+  }
+}
+
+/* a palavra dele chega larga e fecha além da conta: o grito, sem entortar nada */
+@keyframes shout {
+  0% {
+    opacity: 0;
+    font-variation-settings: "wdth" 125, "wght" 860;
+  }
+  60% {
+    opacity: 1;
+    font-variation-settings: "wdth" 62, "wght" 860;
+  }
+  100% {
+    font-variation-settings: "wdth" 70, "wght" 860;
+  }
+}
+
+@media (max-width: 760px) {
+  .reactions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 16px 0 max(14px, env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--papel) 78%, transparent);
+  }
+
+  .reaction {
+    justify-content: center;
+    height: 42px;
+    padding: 0 12px;
+    font-size: 14px;
+  }
+
+  .key {
+    display: none;
+  }
+}

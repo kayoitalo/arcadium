@@ -3,22 +3,23 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /*
- * O som do estudo. Toca uma sequência de prévias — uma só, ou duas com
- * corte seco entre elas, que é o "de repente" de uma transição — e deixa
- * o sinal à disposição de quem desenha: a corda do traço e o pulso da capa.
+ * O som do Arcadium: as prévias de 30s do catálogo da Apple. Toca uma
+ * sequência — uma faixa só, ou duas com corte seco entre elas, que é o
+ * "de repente" de uma transição — e deixa o sinal à disposição de quem
+ * desenha: a corda do traço e o pulso da capa.
  *
  * A prévia do iTunes manda access-control-allow-origin: *, então com
  * crossOrigin="anonymous" o analisador lê o sinal de verdade. Cada elemento
  * de áudio só pode virar fonte uma vez: ficam guardados por URL.
  */
 
-export interface AudioStep {
+export interface SoundStep {
   url: string;
   /** Quanto tempo esta prévia toca antes do corte para a próxima. */
   seconds?: number;
 }
 
-export function useStudyAudio() {
+export function useSound() {
   const context = useRef<AudioContext | null>(null);
   const analyser = useRef<AnalyserNode | null>(null);
   const buffer = useRef<Uint8Array<ArrayBuffer> | null>(null);
@@ -26,6 +27,8 @@ export function useStudyAudio() {
   const timers = useRef<number[]>([]);
   const [playing, setPlaying] = useState(false);
   const [step, setStep] = useState(0);
+  /** A prévia que está soando agora: quem mostra "para aí" numa lista precisa saber qual. */
+  const [current, setCurrent] = useState<string | null>(null);
 
   const graph = useCallback(() => {
     // contexto fechado não volta: elementos presos a ele também não servem mais
@@ -73,13 +76,15 @@ export function useStudyAudio() {
     });
     setPlaying(false);
     setStep(0);
+    setCurrent(null);
   }, []);
 
   const play = useCallback(
-    (steps: AudioStep[]) => {
+    (steps: SoundStep[]) => {
       stop();
       if (steps.length === 0) return;
       graph();
+      // todas nascem já: o corte para a segunda tem que ser seco, sem espera de rede
       const queue = steps.map((entry) => element(entry.url));
 
       const run = (index: number) => {
@@ -88,6 +93,7 @@ export function useStudyAudio() {
         audio.currentTime = 0;
         void audio.play().catch(() => stop());
         setStep(index);
+        setCurrent(steps[index].url);
         if (index < queue.length - 1) {
           timers.current.push(window.setTimeout(() => run(index + 1), (steps[index].seconds ?? 8) * 1000));
         } else {
@@ -99,6 +105,15 @@ export function useStudyAudio() {
       run(0);
     },
     [element, graph, stop],
+  );
+
+  /** A mesma prévia pausa; outra troca a faixa no mesmo gesto. */
+  const toggle = useCallback(
+    (url: string) => {
+      if (playing && current === url) stop();
+      else play([{ url }]);
+    },
+    [current, play, playing, stop],
   );
 
   /** O sinal no tempo deste quadro (0–255) e o nível, de 0 a 1. */
@@ -124,5 +139,5 @@ export function useStudyAudio() {
     [stop],
   );
 
-  return { playing, step, play, stop, read };
+  return { playing, step, current, play, stop, toggle, read };
 }

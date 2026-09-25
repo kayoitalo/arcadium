@@ -18,7 +18,8 @@ import type {
 } from "../domain/conversation.types";
 import {
   claimedCounts,
-  countsAgree,
+  claimedShares,
+  claimsAgree,
   decadesIn,
   focusIn,
   formatWhen,
@@ -36,7 +37,10 @@ import {
  * - frase sem prova achável;
  * - "voltou depois de X" que atravessa um buraco no histórico, ou de
  *   quem nunca tinha tocado antes;
- * - "N vezes" que não bate com o número da prova.
+ * - "N vezes" ou "N%" que não bate com o número da prova.
+ *
+ * A prova é medida na janela que a leitura viu (até o pacote ser escrito):
+ * o número da frase e o da tela são o mesmo número.
  */
 
 const PERIODS: PeriodKey[] = ["7d", "30d", "1y", "all"];
@@ -58,6 +62,8 @@ function sharpCover(url: string | null | undefined): string | null {
 
 const fieldsOf = (reading: ProfileNarrative) => [reading.headline, reading.narrative, reading.insight];
 const textOf = (reading: ProfileNarrative) => fieldsOf(reading).join(" ");
+const minuteOf = (date: Date) => Math.floor(date.getTime() / 60_000);
+const percent = (part: number, whole: number) => (whole > 0 ? Number(((part / whole) * 100).toFixed(1)) : 0);
 
 interface Candidate {
   period: PeriodKey;
@@ -66,7 +72,12 @@ interface Candidate {
   evidence: Evidence;
 }
 
-/** Tudo que uma visita consulta sobre um período fica aqui, para não repetir consulta. */
+/**
+ * Tudo que uma visita consulta sobre um período fica aqui, para não repetir
+ * consulta. A janela é a que a leitura viu: termina quando o pacote foi
+ * escrito, não agora. Senão o "41%" dele vira "39,2%" na prova só porque a
+ * semana andou.
+ */
 class PeriodData {
   private events?: Promise<Array<{ artist: string; track: string; playedAt: Date; albumId: string | null; trackId: string | null }>>;
   private tops = new Map<string, Promise<RankRow[]>>();
@@ -74,17 +85,18 @@ class PeriodData {
   constructor(
     readonly userId: string,
     readonly period: PeriodKey,
+    readonly asOf: Date,
   ) {}
 
   get where() {
-    const { current } = getPeriodRanges(this.period);
+    const { current } = getPeriodRanges(this.period, this.asOf);
     return this.period === "all"
-      ? { userId: this.userId }
+      ? { userId: this.userId, playedAt: { lte: current.end } }
       : { userId: this.userId, playedAt: { gte: current.start, lte: current.end } };
   }
 
   get start(): Date {
-    return getPeriodRanges(this.period).current.start;
+    return getPeriodRanges(this.period, this.asOf).current.start;
   }
 
   orderedEvents() {
@@ -169,6 +181,8 @@ async function transitionEvidence(data: PeriodData, reading: ProfileNarrative, t
   const events = await data.orderedEvents();
   const at = pickTransition(events, textOf(reading));
   if (at < 0) return null;
+  // porcentagem não se prova com um salto entre duas faixas
+  if (claimedShares(textOf(reading)).length > 0) return null;
   const pair = [events[at], events[at + 1]];
 
   const genres = await loadArtistGenres(pair.map((event) => event.artist));
@@ -199,7 +213,8 @@ async function transitionEvidence(data: PeriodData, reading: ProfileNarrative, t
     kind: "transition",
     from,
     to,
-    gapMinutes: Math.max(0, Math.round((pair[1].playedAt.getTime() - pair[0].playedAt.getTime()) / 60_000)),
+    // pelo minuto do relógio, como a tela mostra: de 22:38 para 22:43 são 5 min, não 4 e meio arredondados
+    gapMinutes: Math.max(0, minuteOf(pair[1].playedAt) - minuteOf(pair[0].playedAt)),
     context: { before: events.slice(Math.max(0, at - 2), at).map(step), after: events.slice(at + 2, at + 4).map(step) },
   };
 }
@@ -221,9 +236,12 @@ async function rankingEvidence(data: PeriodData, reading: ProfileNarrative): Pro
   const chosen = rows[focus.index];
   const artist = focus.unit === "artist" ? chosen.label : chosen.sub;
 
-  // todo "N vezes" da frase precisa bater com algum número de verdade
-  const truths = [chosen.plays, await data.artistPlays(artist), await data.total()];
-  if (!countsAgree(claimedCounts(textOf(reading)), truths)) return null;
+  // todo "N vezes" e todo "N%" da frase precisam bater com algum número de verdade
+  const text = textOf(reading);
+  const [artistPlays, total] = await Promise.all([data.artistPlays(artist), data.total()]);
+  if (!claimsAgree(claimedCounts(text), [chosen.plays, artistPlays, total])) return null;
+  const shares = claimedShares(text);
+  if (!claimsAgree(shares, [percent(chosen.plays, total), percent(artistPlays, total)])) return null;
 
   const scope = {
     ...data.where,
@@ -274,6 +292,8 @@ async function rankingEvidence(data: PeriodData, reading: ProfileNarrative): Pro
     unit: focus.unit,
     rows,
     focusIndex: focus.index,
+    share: percent(chosen.plays, total),
+    citesShare: shares.length > 0,
     cover: coverView,
     previewUrl: preview.url,
     previewTrack,
@@ -309,6 +329,8 @@ async function decadesEvidence(data: PeriodData, reading: ProfileNarrative): Pro
       .reduce((sum, item) => sum + item.share, 0)
       .toFixed(1),
   );
+  const truths = [focusShare, distribution.coverage, ...distribution.items.map((item) => item.share)];
+  if (!claimsAgree(claimedShares(textOf(reading)), truths)) return null;
   return {
     kind: "decades",
     bars: distribution.items.map((item) => ({ decade: item.decade, share: item.share, plays: item.plays })),
@@ -414,7 +436,7 @@ export class ConversationService {
     const candidates: Candidate[] = [];
     for (const { period, pack } of packs) {
       if (!pack || pack.view.source !== "ai") continue;
-      const data = new PeriodData(userId, period);
+      const data = new PeriodData(userId, period, pack.view.builtAt ? new Date(pack.view.builtAt) : new Date());
       for (const reading of pack.view.readings) {
         if (!(await comebacksHold(data, reading, monthly))) continue;
         const candidate = await evidenceFor(data, reading, timeZone);

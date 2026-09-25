@@ -61,6 +61,10 @@ export type Evidence =
       rows: RankRow[];
       /** A linha que a frase cita — é nela que o amigo passa a régua. */
       focusIndex: number;
+      /** Quanto a linha citada é de tudo que tocou na janela, em %. */
+      share: number;
+      /** A frase fala em porcentagem: a anotação dele mostra a fatia, não a distância para a segunda. */
+      citesShare: boolean;
       cover: ConversationCover;
       previewUrl: string | null;
       previewTrack: string | null;
