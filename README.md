@@ -6,14 +6,20 @@
 
 The interpretive texts are the heart of the product. Charts, rankings and numbers exist to back them up.
 
-The visual identity is being redefined, so this README deliberately does not describe the interface.
+## ✦ Interface
+
+Five screens, one narrator. The home screen is **the conversation**: the readings the friend already wrote, each one with the proof it cites, pulled from the database and always on screen at rest. A reading whose numbers do not match the data (`N vezes`, `N%`, a "comeback" across a gap in the history) never reaches the screen.
+
+- **One narrator, one protagonist.** Every line is the friend talking, or mute data. His pen is the only moving thing: it highlights the part of the sentence the proof backs, rules the cited bar, measures the jump between two covers. With music playing, the pen becomes a string that vibrates with the real signal.
+- **One colour.** A dry track-lane yellow belongs to the pen alone; everything else is ink on paper. Covers bring the rest.
+- **Screens:** conversa (home) · o que mudou (genre share shift, month or year) · pra ouvir depois (discovery, one track at a time, with the map) · tudo que tocou (history by day, with the listening hours) · ajustes.
 
 ---
 
 ## ✦ Principles
 
 1. **The backend calculates facts.** Counts, rankings, shares, comparisons (7d, 30d, 1y, all time) and recommendation scores come from deterministic SQL and TypeScript.
-2. **AI interprets, it never calculates.** Gemini writes the readings from evidence the app has already measured. It does not invent counts, IDs or candidate tracks, and every screen has a deterministic fallback when the model is unavailable.
+2. **AI interprets, it never calculates.** Gemini writes the readings from evidence the app has already measured. It does not invent counts, IDs or candidate tracks, and every screen still speaks from measured data when the model is unavailable.
 3. **PostgreSQL is the source of truth.** Providers supply input or enrichment; every screen reads from the local database.
 4. **Providers stay replaceable.** HTTP and payload details live behind small interfaces in each module's `infrastructure/` folder.
 5. **Privacy by design.** The model only receives aggregates and signals — never tokens, e-mail or usernames. Provider tokens are encrypted at rest.
@@ -44,12 +50,12 @@ Next.js 16 (Turbopack) · React 19 · TypeScript 7 · Tailwind CSS v4 · Prisma 
 | Route | Methods | What it does |
 |---|---|---|
 | `/api/sync` | `GET` `POST` | Sync status; resumable incremental scrobble ingestion with deduplication |
-| `/api/overview` | `GET` | Period metrics, concentration, taste shift, decades, discoveries |
+| `/api/conversation` | `GET` | The home conversation: stored readings with verified proof |
+| `/api/overview` | `GET` | Period metrics and taste shift (in share points) |
 | `/api/history` | `GET` | Paginated listening history |
 | `/api/enrichment` | `GET` `POST` | Enrichment coverage; rate-limited metadata and catalog enrichment |
 | `/api/recommendations` | `GET` `POST` | Discovery sessions |
 | `/api/recommendations/[sessionId]/feedback` | `POST` | Feedback on a suggestion |
-| `/api/ai/pack` | `GET` | The reading pack for a period (generated on demand) |
 | `/api/ai/lines` | `GET` | Short lines for the secondary screens |
 | `/api/ai/refresh` | `POST` | Regenerates packs within the AI budget |
 | `/api/cover` | `GET` | Cover image proxy |
