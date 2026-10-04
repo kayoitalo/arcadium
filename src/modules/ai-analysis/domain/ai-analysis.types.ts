@@ -108,32 +108,6 @@ export type ProfileNarrative = z.infer<typeof profileNarrativeSchema>;
 export const SCREEN_KEYS = ['evolution', 'discovery', 'history'] as const;
 export type ScreenKey = (typeof SCREEN_KEYS)[number];
 
-export const screenLinesSchema = z.object({
-  lines: z
-    .array(
-      z.object({
-        screen: z.enum(SCREEN_KEYS),
-        line: z.string().min(8).max(180),
-      })
-    )
-    .min(3)
-    .max(10),
-});
-
-export type ScreenLines = z.infer<typeof screenLinesSchema>;
-
-export const recommendationExplanationSchema = z.object({
-  explanations: z.array(
-    z.object({
-      artistName: z.string(),
-      trackName: z.string(),
-      reason: z.string().max(300),
-    })
-  ),
-});
-
-export type RecommendationExplanation = z.infer<typeof recommendationExplanationSchema>;
-
 /** Uma leitura do pacote: o ângulo e a forma que ela recebeu no sorteio. */
 export interface PackSlot {
   angle: NarrativeAngle;
@@ -162,7 +136,7 @@ export type ReadingPack = z.infer<typeof readingPackSchema>;
 export type AlbumLine = ReadingPack["albumLines"][number];
 
 /**
- * O que a tela recebe de `/api/ai/pack`: o pacote pronto pra sortear, ou o
+ * O pacote guardado de um período, como a conversa o lê — ou o
  * texto de reserva. Mora no domínio porque é contrato dos dois lados — o
  * serviço monta, o componente lê.
  */

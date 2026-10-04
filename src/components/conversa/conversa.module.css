@@ -1,0 +1,282 @@
+/* ============================================================
+   A conversa: um fio que se rola. Cada bloco é um assunto — a fala
+   dele à esquerda, a prova em repouso à direita. O assunto da vez é o
+   que cruza o meio da tela; o que ele já disse fica mais apagado, e o
+   que você mandou esquecer fica riscado.
+   ============================================================ */
+
+.stage {
+  position: relative;
+  isolation: isolate;
+}
+
+.block {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  column-gap: clamp(28px, 6vw, 112px);
+  align-items: center;
+  min-height: 78dvh;
+  padding: 8vh 0;
+}
+
+.block[data-end="true"] {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 66dvh;
+}
+
+/* ---------- a prova, sempre na tela ---------- */
+
+.proof {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  transition: opacity 420ms ease;
+}
+
+.block[data-dismissed="true"] .proof {
+  opacity: 0.22;
+}
+
+.quiet {
+  margin: 18px 0 0;
+  font-size: 12px;
+  color: var(--tinta-3);
+}
+
+/* transição: as duas capas lado a lado, com a cota por cima */
+.pair {
+  display: grid;
+  grid-template-columns: auto minmax(40px, 1fr) auto;
+  align-items: start;
+  padding-top: clamp(100px, 15vh, 136px);
+}
+
+.side {
+  margin: 0;
+  width: clamp(130px, 13vw, 210px);
+}
+
+.side[data-side="to"] {
+  grid-column: 3;
+}
+
+.caption {
+  display: grid;
+  gap: 3px;
+  margin-top: 14px;
+}
+
+.when {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta-3);
+}
+
+.track {
+  font-size: clamp(0.98rem, 0.85rem + 0.4vw, 1.2rem);
+  font-variation-settings: "wdth" 84, "wght" 680;
+  line-height: 1.1;
+  color: var(--tinta-2);
+}
+
+.block[data-active="true"] .track {
+  color: var(--tinta);
+}
+
+.who {
+  font-size: 12px;
+  color: var(--tinta-3);
+}
+
+/* "me mostra mais" na transição: o salto dentro da sequência de verdade */
+.sequence {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  margin: 28px 0 0;
+  padding: 16px 0 0;
+  list-style: none;
+  border-top: 1px solid var(--fio);
+  animation: quietIn 260ms ease-out both;
+}
+
+.sequence li {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sequenceTrack {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-variation-settings: "wdth" 86, "wght" 620;
+  color: var(--tinta-3);
+}
+
+.sequence li[data-jump="true"] .sequenceTrack {
+  color: var(--tinta);
+}
+
+/* lista: a capa e as linhas, com a régua dele sobre a barra citada */
+.solo {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: clamp(20px, 3vw, 48px);
+  align-items: start;
+}
+
+.soloCover {
+  width: clamp(110px, 11vw, 180px);
+}
+
+.rows {
+  display: grid;
+  gap: clamp(9px, 1.4vh, 14px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  column-gap: 12px;
+  row-gap: 6px;
+  align-items: baseline;
+}
+
+.rowRank {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta-3);
+}
+
+.rowText {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.rowLabel {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: clamp(0.95rem, 0.84rem + 0.35vw, 1.15rem);
+  font-variation-settings: "wdth" 86, "wght" 620;
+  color: var(--tinta-3);
+  transition: color 300ms ease;
+}
+
+.rowSub {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--tinta-3);
+}
+
+.rowValue {
+  font-size: clamp(1rem, 0.9rem + 0.4vw, 1.3rem);
+  font-variant-numeric: tabular-nums;
+  font-variation-settings: "wdth" 80, "wght" 760;
+  color: var(--tinta-3);
+  transition: color 300ms ease;
+}
+
+.row[data-lit="true"] .rowLabel,
+.row[data-lit="true"] .rowValue {
+  color: var(--tinta);
+}
+
+.rowBar {
+  grid-column: 2 / -1;
+  height: 5px;
+  background: var(--fio);
+}
+
+/* lista sem posição (as décadas vêm em ordem de calendário) */
+.rows[data-plain="true"] .row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.rows[data-plain="true"] .rowBar,
+.rows[data-plain="true"] .rowNote {
+  grid-column: 1 / -1;
+}
+
+.rowBar > span {
+  display: block;
+  height: 100%;
+  background: var(--fio-2);
+}
+
+/* a anotação mora na grade: embaixo do número, alinhada à direita, reta */
+.rowNote {
+  grid-column: 2 / -1;
+  justify-self: end;
+  margin-top: 8px;
+  font-size: 12px;
+  font-variation-settings: "wdth" 82, "wght" 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--marca);
+  clip-path: inset(0 100% 0 0);
+  transition:
+    clip-path 380ms var(--glide),
+    opacity 420ms ease;
+}
+
+.row[data-lit="true"] .rowNote {
+  clip-path: inset(0 0 0 0);
+}
+
+.block:not([data-active="true"]) .rowNote {
+  opacity: 0.45;
+}
+
+/* ---------- estados ---------- */
+
+.waiting {
+  display: grid;
+  align-content: center;
+  gap: 28px;
+  min-height: 70dvh;
+}
+
+@keyframes quietIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .block {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 28px;
+    min-height: auto;
+    padding: 7vh 0;
+  }
+
+  .pair {
+    padding-top: 92px;
+  }
+
+  .side {
+    width: clamp(110px, 36vw, 150px);
+  }
+
+  .solo {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 18px;
+  }
+
+  .soloCover {
+    width: 120px;
+  }
+
+  .sequence {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

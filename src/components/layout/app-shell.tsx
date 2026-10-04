@@ -1,0 +1,47 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, type ReactNode } from "react";
+import { SECTIONS, sectionFor } from "@/components/layout/sections";
+import styles from "./app-shell.module.css";
+
+/**
+ * O cabeçalho do app: o nome e as telas, em texto. A tela atual é a que
+ * está sublinhada — sem cor, porque cor aqui é só do amigo.
+ */
+export function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const current = sectionFor(pathname);
+  const navRef = useRef<HTMLElement>(null);
+
+  // no celular a fileira rola: a tela atual precisa estar à vista
+  useEffect(() => {
+    navRef.current
+      ?.querySelector<HTMLElement>('[aria-current="page"]')
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [current.href]);
+
+  return (
+    <div className={styles.shell}>
+      <header className={styles.bar}>
+        <Link href="/overview" className={styles.wordmark} aria-label="Arcadium, voltar para a conversa">
+          arcadium
+        </Link>
+        <nav ref={navRef} className={styles.nav} aria-label="Telas">
+          {SECTIONS.map((section) => (
+            <Link
+              key={section.href}
+              href={section.href}
+              className={styles.link}
+              aria-current={section.href === current.href ? "page" : undefined}
+            >
+              {section.label}
+            </Link>
+          ))}
+        </nav>
+      </header>
+      <main className={styles.page}>{children}</main>
+    </div>
+  );
+}

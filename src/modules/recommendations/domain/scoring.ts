@@ -1,5 +1,6 @@
 
 
+import { genreLabel } from "@/lib/format/genre";
 import {
   type DiscoveryDials,
   MODE_DIALS,
@@ -221,6 +222,11 @@ function computeMetadataConfidence(candidate: RawCandidate): number {
   return Math.min(1.0, confidence);
 }
 
+/**
+ * Por que ele sugere esta: dito por ele, como amigo que indica música —
+ * de onde veio a ideia, onde ela fica no mapa que você pediu e quanto ele
+ * aposta nela.
+ */
 function buildReason(
   candidate: RawCandidate,
   position: { proximity: number; fame: number },
@@ -229,30 +235,30 @@ function buildReason(
 ): string {
   const origin =
     candidate.source === "similar_artist" && candidate.sourceArtistName
-      ? `Quem ouve ${candidate.sourceArtistName} costuma chegar aqui`
+      ? `Quem ouve ${candidate.sourceArtistName} vive parando aqui.`
       : candidate.source === "top_artist_deep_cut" && candidate.sourceArtistName
-        ? `Faixa de ${candidate.sourceArtistName} que passou batido por você`
+        ? `É de ${candidate.sourceArtistName}, e essa passou batido por você.`
         : candidate.source === "artist_graph"
-          ? "Cruza dois dos seus gêneros principais"
+          ? "Cruza dois gêneros que você mais ouve."
           : candidate.genre
-            ? `Vizinho de ${candidate.genre}`
-            : "Perto do que você já ouve";
+            ? `Mora perto de ${genreLabel(candidate.genre)}, que você ouve.`
+            : "Fica perto do que você já ouve.";
 
-  // as duas coordenadas viram frase: é o que a pessoa acabou de pedir
+  // as duas coordenadas viram frase: é o que a pessoa acabou de pedir no mapa
   const distancia =
-    position.proximity >= 70 ? 'bem no seu território'
-    : position.proximity >= 40 ? 'um passo para o lado'
-    : 'longe da sua zona';
+    position.proximity >= 70 ? 'Bem no teu território'
+    : position.proximity >= 40 ? 'Um passo pro lado'
+    : 'Longe da tua zona';
 
   const plateia =
-    position.fame >= 70 ? 'que muita gente já ouviu'
+    position.fame >= 70 ? 'e muita gente já ouviu'
     : position.fame >= 40 ? 'de público médio'
-    : 'que quase ninguém ouve';
+    : 'e quase ninguém conhece';
 
   const aposta =
     score >= 75 ? 'Aposta segura.'
     : score >= 55 ? 'Vale o teste.'
     : mode === 'EXPERIMENTAL' ? 'Tiro no escuro.' : 'Aposta de risco.';
 
-  return `${origin} — ${distancia}, ${plateia}. ${aposta}`;
+  return `${origin} ${distancia}, ${plateia}. ${aposta}`;
 }

@@ -1,0 +1,216 @@
+/* ============================================================
+   Pra ouvir depois: ele indica uma faixa por vez — a fala à esquerda,
+   a capa à direita, reta, que é imagem da música e não objeto de cena.
+   Tocando, a corda dele abraça a capa. Embaixo fica o mapa, quieto:
+   quão perto do que você já ouve, e quão conhecida.
+   ============================================================ */
+
+.stage {
+  position: relative;
+  isolation: isolate;
+}
+
+.block {
+  display: grid;
+  grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  column-gap: clamp(28px, 6vw, 112px);
+  align-items: center;
+  min-height: calc(100dvh - 180px);
+  padding: 5vh 0;
+}
+
+/* a folga embaixo da capa é a da corda: tocando, ela incha até ~26px para fora */
+.record {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: start;
+  gap: 36px;
+  min-width: 0;
+}
+
+.cover {
+  width: clamp(220px, 30vw, 420px);
+}
+
+.caption {
+  display: grid;
+  gap: 4px;
+  max-width: clamp(220px, 30vw, 420px);
+}
+
+.album {
+  font-size: 13px;
+  color: var(--tinta-2);
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--tinta-3);
+}
+
+.meta a {
+  color: inherit;
+}
+
+.meta a:hover {
+  color: var(--tinta);
+}
+
+/* ---------- o mapa ---------- */
+
+.map {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  column-gap: clamp(28px, 6vw, 112px);
+  row-gap: 36px;
+  padding: 8vh 0 14vh;
+  border-top: 1px solid var(--fio);
+}
+
+.mapTitle {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-variation-settings: "wdth" 90, "wght" 720;
+  color: var(--tinta);
+}
+
+.mapNote {
+  margin: 0 0 20px;
+  max-width: 44ch;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--tinta-3);
+}
+
+.corners {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.corners button {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--tinta-3);
+  font: inherit;
+  font-size: 14px;
+  text-decoration: underline 1.5px transparent;
+  text-underline-offset: 5px;
+  cursor: pointer;
+  transition:
+    color 160ms,
+    text-decoration-color 160ms;
+}
+
+.corners button:hover {
+  color: var(--tinta-2);
+}
+
+.corners button[aria-pressed="true"] {
+  color: var(--tinta);
+  text-decoration-color: currentColor;
+}
+
+/* separadas: o que você marcou nesta pilha */
+.kept {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kept li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--fio);
+}
+
+.keptTrack {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-variation-settings: "wdth" 88, "wght" 620;
+}
+
+.keptHow {
+  font-size: 12px;
+  color: var(--tinta-3);
+}
+
+.quiet {
+  margin: 0;
+  font-size: 13px;
+  color: var(--tinta-3);
+}
+
+/* ---------- levar pro Spotify ---------- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(11 11 10 / 0.9);
+  animation: quietIn 160ms ease-out both;
+}
+
+.dialog {
+  width: min(520px, 100%);
+  padding: clamp(24px, 4vw, 36px);
+  border: 1px solid var(--fio-2);
+  background: var(--papel);
+}
+
+.dialog h2 {
+  margin: 0;
+  font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2.1rem);
+  font-variation-settings: "wdth" 74, "wght" 820;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.dialog p {
+  margin: 16px 0 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--tinta-2);
+}
+
+.dialog p[data-kind="erro"] {
+  color: var(--erro);
+}
+
+@keyframes quietIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .block,
+  .map {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 32px;
+    min-height: auto;
+  }
+
+  .record {
+    order: -1;
+  }
+
+  .cover {
+    width: min(72vw, 320px);
+  }
+}

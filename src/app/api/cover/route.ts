@@ -46,7 +46,7 @@ export async function GET(request: Request) {
 
   try {
     const upstream = await fetch(target, {
-      headers: { "User-Agent": "Grooveyard/0.1 (+cover-proxy)", Accept: "image/*" },
+      headers: { "User-Agent": "Arcadium/0.1 (+cover-proxy)", Accept: "image/*" },
       redirect: "follow",
       signal: AbortSignal.timeout(8000),
     });

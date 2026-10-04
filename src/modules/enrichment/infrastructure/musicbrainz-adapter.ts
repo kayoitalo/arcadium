@@ -15,7 +15,7 @@ export class MusicBrainzAdapter implements MetadataProvider {
    * esperando o intervalo real de 1 req/s exigido pelo MusicBrainz.
    */
   constructor(
-    userAgent = process.env.MUSICBRAINZ_USER_AGENT || "Grooveyard/0.1 ( contato@example.com )",
+    userAgent = process.env.MUSICBRAINZ_USER_AGENT || "Arcadium/0.1 ( contato@example.com )",
     timing: { minDelayMs?: number; backoffBaseMs?: number } = {},
   ) {
     this.userAgent = userAgent;

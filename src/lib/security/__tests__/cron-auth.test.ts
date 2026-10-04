@@ -4,7 +4,7 @@ import { verifyCronAuth } from "../cron-auth";
 const SECRET = "segredo-do-cron";
 
 function requestWith(headers: Record<string, string>): Request {
-  return new Request("https://grooveyard.app/api/sync", { method: "POST", headers });
+  return new Request("https://arcadium.app/api/sync", { method: "POST", headers });
 }
 
 describe("verifyCronAuth", () => {
@@ -38,8 +38,8 @@ describe("verifyCronAuth", () => {
     const result = verifyCronAuth(
       requestWith({
         "sec-fetch-site": "same-origin",
-        origin: "https://grooveyard.app",
-        host: "grooveyard.app",
+        origin: "https://arcadium.app",
+        host: "arcadium.app",
       }),
     );
     expect(result.authorized).toBe(true);
@@ -49,9 +49,9 @@ describe("verifyCronAuth", () => {
     const result = verifyCronAuth(
       requestWith({
         "sec-fetch-site": "same-origin",
-        origin: "https://grooveyard.app",
+        origin: "https://arcadium.app",
         host: "localhost:3000",
-        "x-forwarded-host": "grooveyard.app",
+        "x-forwarded-host": "arcadium.app",
       }),
     );
     expect(result.authorized).toBe(true);
@@ -62,7 +62,7 @@ describe("verifyCronAuth", () => {
       requestWith({
         "sec-fetch-site": "cross-site",
         origin: "https://site-de-terceiro.com",
-        host: "grooveyard.app",
+        host: "arcadium.app",
       }),
     );
     expect(result.authorized).toBe(false);
@@ -71,7 +71,7 @@ describe("verifyCronAuth", () => {
   /** curl não manda Sec-Fetch-Site; forjar só o Origin não pode bastar. */
   it("recusa quem alega a origem sem ser navegador", () => {
     const result = verifyCronAuth(
-      requestWith({ origin: "https://grooveyard.app", host: "grooveyard.app" }),
+      requestWith({ origin: "https://arcadium.app", host: "arcadium.app" }),
     );
     expect(result.authorized).toBe(false);
   });
@@ -81,7 +81,7 @@ describe("verifyCronAuth", () => {
       requestWith({
         "sec-fetch-site": "same-origin",
         origin: "https://outro.app",
-        host: "grooveyard.app",
+        host: "arcadium.app",
       }),
     );
     expect(result.authorized).toBe(false);

@@ -24,7 +24,6 @@ import {
   type MusicProfileInput,
   type PackProvider,
   type PackView,
-  type ProfileNarrative,
   type ReadingPack,
   type ScreenKey,
 } from "../domain/ai-analysis.types";
@@ -80,28 +79,15 @@ export class AIAnalysisService {
   ) {}
 
   /**
-   * O pacote de um período pra tela. Com pacote pronto, responde na hora e,
-   * se ele já tem idade pra ser conferido, agenda a renovação em segundo
-   * plano (`schedule`, que a rota liga ao `after` do Next). Sem pacote
-   * nenhum — só na primeira visita de um período — gera ali mesmo.
+   * O pacote guardado de um período, sem gerar nada: para quem lê vários
+   * períodos de uma vez (a conversa) e não pode esperar uma geração em cada
+   * um. `stale` diz se ele já tem idade para ser conferido — quem chamou
+   * decide se agenda a renovação.
    */
-  async getPack(
-    userId: string,
-    period: PeriodKey,
-    schedule?: (task: () => Promise<unknown>) => void,
-  ): Promise<PackView> {
+  async peekPack(userId: string, period: PeriodKey): Promise<{ view: PackView; stale: boolean } | null> {
     const stored = await this.findLatestPack(userId, period);
-
-    if (stored) {
-      if (schedule && oldEnoughToCheck(stored.builtAt, period)) {
-        schedule(() => this.refreshPack(userId, period));
-      }
-      return this.toView(stored);
-    }
-
-    const outcome = await this.refreshPack(userId, period);
-    if (outcome.status === "generated") return this.toView({ pack: outcome.pack, builtAt: outcome.builtAt });
-    return this.fallbackView(userId, period);
+    if (!stored) return null;
+    return { view: this.toView(stored), stale: oldEnoughToCheck(stored.builtAt, period) };
   }
 
   /**
@@ -293,70 +279,6 @@ export class AIAnalysisService {
       albumLines: stored.pack.albumLines,
       builtAt: stored.builtAt.toISOString(),
       source: "ai",
-    };
-  }
-
-  private async fallbackView(userId: string, period: PeriodKey): Promise<PackView> {
-    const profile = await this.profileBuilder.buildProfile(userId, period).catch(() => null);
-    return { readings: [this.getFallbackNarrative(profile)], albumLines: [], builtAt: null, source: "fallback" };
-  }
-
-  /**
-   * Sem chave de IA ou com o provedor fora do ar, o texto ainda precisa
-   * soar como alguém falando. Continua 100% determinístico: cada frase
-   * é escolhida pelos próprios números, nada é inventado.
-   */
-  private getFallbackNarrative(profile: MusicProfileInput | null): ProfileNarrative {
-    const emptyState: ProfileNarrative = {
-      eyebrow: "Sem leitura deste período",
-      headline: "Silêncio por aqui",
-      narrative: "Nada tocou nesse intervalo, ou o histórico ainda não chegou até aqui.",
-      insight: "Escolha um intervalo maior para ver o quadro completo.",
-      tasteKeywords: [],
-      playfulClosing: null,
-      tone: "ANALYTICAL",
-      referencedEvidence: [],
-    };
-
-    if (!profile) return emptyState;
-
-    const mainArtist = profile.topArtists[0]?.name;
-    const plays = profile.totalPlays;
-    if (!plays || !mainArtist) return { ...emptyState, referencedEvidence: ["totalPlays"] };
-
-    const topGenre = profile.topGenres[0]?.name;
-    const artists = profile.uniqueArtists ?? 0;
-    const share = Math.round((profile.topArtists[0]?.share ?? 0) * 100);
-    // o ProfileBuilder entrega fração (0.17), não porcentagem
-    const top5 = Math.round((profile.concentration?.top5ArtistShare ?? 0) * 100);
-
-    const headline =
-      share >= 20
-        ? `${mainArtist} não deixou espaço para mais ninguém`
-        : share >= 10
-          ? `${mainArtist} liderou, mas sem folga`
-          : `Nenhum nome dominou — ${mainArtist} só ficou na frente`;
-
-    const narrative = topGenre
-      ? `${mainArtist} ficou no topo entre ${artists} artistas, puxando ${topGenre} junto.`
-      : `${mainArtist} ficou no topo entre ${artists} artistas diferentes.`;
-
-    const insight =
-      top5 >= 50
-        ? `Metade da sua escuta cabe em cinco nomes — ${top5}%, para ser exato.`
-        : `Os cinco primeiros somam ${top5}%: o resto ficou bem espalhado.`;
-
-    return {
-      eyebrow: "Destaque do período",
-      headline,
-      narrative,
-      insight,
-      tasteKeywords: profile.topGenres.slice(0, 3).map((genre) => genre.name),
-      playfulClosing: null,
-      tone: "ANALYTICAL",
-      referencedEvidence: topGenre
-        ? ["totalPlays", "topArtists", "topGenres", "concentration"]
-        : ["totalPlays", "topArtists", "concentration"],
     };
   }
 }

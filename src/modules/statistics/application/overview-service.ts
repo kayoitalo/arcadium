@@ -47,7 +47,8 @@ export interface AlbumItem {
   appleMusicUrl?: string;
 }
 export interface ActivityPoint { label: string; hours: number; plays: number }
-export interface TasteShiftItem { genre: string; changePercent: number; currentShare: number; previousShare: number }
+/** Fatias em % da escuta com gênero conhecido; `delta` é a diferença, em pontos. */
+export interface TasteShiftItem { genre: string; delta: number; currentShare: number; previousShare: number }
 export interface DiscoveryItem { id: string; artistName: string; albumName: string; discoveredAt: string; plays: number; coverUrl?: string }
 export interface RecommendationItem { id: string; title: string; artistName: string; coverUrl?: string; reason: string }
 export interface AiStorySummary { headline: string; narrative: string; insight: string }
@@ -56,6 +57,15 @@ export interface DataQuality {
   artistMetadataPercentage: number; coveredAlbums: number; totalAlbums: number; albumCoverPercentage: number;
 }
 
+/** Abaixo disso a mudança de fatia é ruído de gênero pequeno, não gosto mudando. */
+const MIN_SHIFT_POINTS = 0.3;
+
+/**
+ * O que mudou no gosto: quanto da escuta cada gênero ocupava antes e agora,
+ * e a diferença em pontos. É a fatia que conta, não a contagem: ouvir mais
+ * no total não faz todo gênero "subir", e um gênero que foi de 0,1% para 1%
+ * cresceu 900% sem mudar nada no que você ouve.
+ */
 export function calculateTasteShift(
   currentArtists: Array<{ name: string; plays: number; tags: string[] }>,
   previousArtists: Array<{ name: string; plays: number; tags: string[] }>,
@@ -74,23 +84,27 @@ export function calculateTasteShift(
   };
   const current = aggregate(currentArtists);
   const previous = aggregate(previousArtists);
+  const currentTotal = [...current.values()].reduce((sum, value) => sum + value, 0);
+  const previousTotal = [...previous.values()].reduce((sum, value) => sum + value, 0);
+  // sem gênero conhecido num dos lados não há o que comparar
+  if (currentTotal === 0 || previousTotal === 0) return { rising: [], declining: [] };
+
   const shifts: TasteShiftItem[] = [];
   for (const genre of new Set([...current.keys(), ...previous.keys()])) {
-    const currentValue = current.get(genre) ?? 0;
-    const previousValue = previous.get(genre) ?? 0;
-    if (previousValue === 0 || currentValue === previousValue) continue;
-    const currentTotal = [...current.values()].reduce((sum, value) => sum + value, 0) || 1;
-    const previousTotal = [...previous.values()].reduce((sum, value) => sum + value, 0) || 1;
+    const currentShare = ((current.get(genre) ?? 0) / currentTotal) * 100;
+    const previousShare = ((previous.get(genre) ?? 0) / previousTotal) * 100;
+    const delta = currentShare - previousShare;
+    if (Math.abs(delta) < MIN_SHIFT_POINTS) continue;
     shifts.push({
       genre,
-      changePercent: Math.round(((currentValue - previousValue) / previousValue) * 100),
-      currentShare: Number(((currentValue / currentTotal) * 100).toFixed(1)),
-      previousShare: Number(((previousValue / previousTotal) * 100).toFixed(1)),
+      delta: Number(delta.toFixed(1)),
+      currentShare: Number(currentShare.toFixed(1)),
+      previousShare: Number(previousShare.toFixed(1)),
     });
   }
   return {
-    rising: shifts.filter((item) => item.changePercent > 0).sort((a, b) => b.changePercent - a.changePercent).slice(0, 5),
-    declining: shifts.filter((item) => item.changePercent < 0).sort((a, b) => a.changePercent - b.changePercent).slice(0, 5),
+    rising: shifts.filter((item) => item.delta > 0).sort((a, b) => b.delta - a.delta).slice(0, 5),
+    declining: shifts.filter((item) => item.delta < 0).sort((a, b) => a.delta - b.delta).slice(0, 5),
   };
 }
 export interface OverviewData {

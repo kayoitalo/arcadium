@@ -78,7 +78,7 @@ const cache = new Map<string, { value: Fact | null; expiresAt: number }>();
 export class LastFmFactsAdapter implements FactsProvider {
   constructor(
     private apiKey = process.env.LASTFM_API_KEY || "",
-    private userAgent = process.env.LASTFM_USER_AGENT || "Grooveyard/0.1",
+    private userAgent = process.env.LASTFM_USER_AGENT || "Arcadium/0.1",
   ) {}
 
   async collectFacts(profile: MusicProfileInput): Promise<Fact[]> {

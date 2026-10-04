@@ -1,0 +1,36 @@
+/* O traço do amigo: duas camadas de SVG por cima da tela. "under" fica
+   atrás do texto (a faixa de marca-texto); "over", por cima de tudo. A cor
+   é a dele, --marca, e ninguém mais na interface usa. */
+
+.trace {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.trace[data-layer="under"] {
+  z-index: 2;
+}
+
+.trace[data-layer="over"] {
+  z-index: 4;
+}
+
+.trace path {
+  fill: none;
+  stroke: var(--marca);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: opacity 420ms ease;
+}
+
+/* marca-texto tem ponta chata */
+.trace[data-layer="under"] path {
+  stroke-linecap: butt;
+}
+
+/* o que ele já disse continua na tela, mais apagado que o assunto da vez */
+.trace path[data-dim="true"] {
+  opacity: 0.3;
+}

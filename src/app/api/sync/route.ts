@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     if (!user) {
       user = await prisma.user.create({
         data: {
-          email: `${username.toLowerCase()}@grooveyard.local`,
+          email: `${username.toLowerCase()}@arcadium.local`,
           displayName: username,
           timezone: "America/Sao_Paulo",
         },
