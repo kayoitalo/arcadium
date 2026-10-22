@@ -38,6 +38,7 @@
 }
 .highlight { display: inline-block; color: var(--tinta); transition: color 140ms ease 120ms; }
 .highlight[data-marked="true"] { color: var(--sobre-marca); }
+.intro { max-width: 34ch; margin: 26px 0 0; color: var(--tinta-2); font-size: clamp(15px, 1.2vw, 18px); line-height: 1.65; }
 
 .signature { position: relative; max-width: 600px; margin: 24px 0 0; }
 .waveSpace { height: 76px; }
@@ -62,6 +63,7 @@
 .submit:hover:not(:disabled) .submitArrow { translate: 2px -2px; }
 .submit:active:not(:disabled) { translate: 0 1px; }
 .submit:disabled, .input:disabled, .reveal:disabled { opacity: 0.6; cursor: wait; }
+.privateNote { margin: 20px 0 0; color: var(--tinta-3); font-size: 12px; line-height: 1.6; }
 
 @media (max-width: 1000px) {
   .layout { grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr); gap: 32px; }
@@ -74,6 +76,7 @@
   .wordmark { font-size: 18px; }
   .layout { grid-template-columns: minmax(0, 1fr); gap: 32px; padding: 32px 0 36px; }
   .headline { max-width: none; font-size: clamp(54px, 13vw, 84px); }
+  .intro { margin-top: 20px; font-size: 15px; }
   .signature { margin-top: 12px; }
   .waveSpace { height: 44px; }
   .entry { max-width: none; padding: 28px 0 0; border-left: 0; border-top: 1px solid var(--fio-2); }

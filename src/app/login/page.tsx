@@ -25,6 +25,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           {authConfigured() ? <LoginForm /> : (
             <p role="status" className={styles.status}>O proprietário ainda precisa configurar o acesso para abrir a sala.</p>
           )}
+          <p className={styles.privateNote}>Tua sala de escuta. Acesso pessoal.</p>
         </section>
       </div>
     </main>

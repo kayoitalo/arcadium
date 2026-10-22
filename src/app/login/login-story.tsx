@@ -50,6 +50,7 @@ export function LoginStory() {
   return (
     <section ref={stageRef} className={styles.story} aria-labelledby="login-title">
       <h1 id="login-title" className={styles.headline}>Teu gosto<br />tem <span ref={markRef} className={styles.highlight} data-marked={pen.started.has("grifo")}>história.</span></h1>
+      <p className={styles.intro}>O que voltou pro repeat. O que mudou. O que ainda falta ouvir.</p>
       <div className={styles.signature} aria-hidden="true">
         <div ref={lineRef} className={styles.waveSpace}>
           {reduced && <svg viewBox="0 0 640 76" preserveAspectRatio="none"><path d="M2 38H638" /></svg>}
