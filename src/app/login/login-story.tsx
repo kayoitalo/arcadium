@@ -49,20 +49,12 @@ export function LoginStory() {
 
   return (
     <section ref={stageRef} className={styles.story} aria-labelledby="login-title">
-      <p className={styles.eyebrow}>Tem coisa no teu fone que merece uma conversa.</p>
       <h1 id="login-title" className={styles.headline}>Teu gosto<br />tem <span ref={markRef} className={styles.highlight} data-marked={pen.started.has("grifo")}>história.</span></h1>
-      <p className={styles.intro}>Aquela volta pro mesmo disco. A fase que passou.<br className={styles.desktopBreak} /> O artista que chegou pra ficar. Eu reparo nessas coisas.</p>
       <div className={styles.signature} aria-hidden="true">
         <div ref={lineRef} className={styles.waveSpace}>
           {reduced && <svg viewBox="0 0 640 76" preserveAspectRatio="none"><path d="M2 38H638" /></svg>}
         </div>
-        <span>escutar é só o começo.</span>
       </div>
-      <ul className={styles.topics} aria-label="O que a gente conversa">
-        <li><span>01</span> o que voltou pro repeat</li>
-        <li><span>02</span> o que mudou em você</li>
-        <li><span>03</span> o que ainda falta ouvir</li>
-      </ul>
       <Trace plan={pen.plan} size={pen.size} penWidth={1.5} reduced={reduced} readSignal={readSignal} onGesture={pen.onGesture} travelStyle="straight" />
     </section>
   );
