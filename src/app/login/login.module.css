@@ -36,24 +36,26 @@
   letter-spacing: -0.045em;
   text-wrap: initial;
 }
-.highlight { display: inline-block; color: var(--tinta); transition: color 140ms ease 120ms; }
-.highlight[data-marked="true"] { color: var(--sobre-marca); }
+.highlight { position: relative; isolation: isolate; display: inline-block; color: var(--tinta); }
+.highlight::before { content: ""; position: absolute; inset: 0.08em 0 0.02em; z-index: 0; background: var(--marca); }
+.word { position: relative; z-index: 1; }
+.markedWord { position: absolute; inset: 0; z-index: 2; color: var(--sobre-marca); pointer-events: none; }
+/* The ink and its dark lettering share a mask, so the word stays readable
+   while the highlighter fills from the left and retracts from the right. */
+.highlight::before, .markedWord { clip-path: inset(0 100% 0 0); animation: highlightPass 8s var(--glide) 240ms infinite both; }
+.page:has(.form:focus-within) .highlight::before,
+.page:has(.form:focus-within) .markedWord { animation-play-state: paused; }
+
+@keyframes highlightPass {
+  0%, 100% { clip-path: inset(0 100% 0 0); }
+  12%, 60% { clip-path: inset(0 0 0 0); }
+  72% { clip-path: inset(0 100% 0 0); }
+}
 .intro { max-width: 34ch; margin: 26px 0 0; color: var(--tinta-2); font-size: clamp(15px, 1.2vw, 18px); line-height: 1.65; }
 
 .signature { position: relative; max-width: 600px; margin: 24px 0 0; }
 .waveSpace { height: 76px; }
 .signature svg { display: block; width: 100%; height: 100%; overflow: visible; fill: none; stroke: var(--marca); stroke-width: 1.5; }
-.penLoop { position: absolute; inset: 0; z-index: 2; overflow: visible; pointer-events: none; }
-.penLoop path { fill: none; stroke: var(--marca); stroke-width: 2; stroke-linecap: butt; stroke-linejoin: miter; stroke-dasharray: 0.08 1; stroke-dashoffset: 0.08; opacity: 0; animation: penVisit 8s linear 5s infinite; }
-.page:has(.form:focus-within) .penLoop { visibility: hidden; }
-.page:has(.form:focus-within) .penLoop path { animation-play-state: paused; }
-
-@keyframes penVisit {
-  0% { stroke-dashoffset: 0.08; opacity: 0; }
-  3% { opacity: 1; }
-  43% { stroke-dashoffset: -1; opacity: 1; }
-  48%, 100% { stroke-dashoffset: -1; opacity: 0; }
-}
 
 .entry { min-width: 0; max-width: 420px; width: 100%; padding: 30px 0 30px clamp(24px, 3.2vw, 56px); border-left: 1px solid var(--fio-2); }
 .entryTitle { margin: 0; font-size: clamp(30px, 2.7vw, 40px); font-variation-settings: "wdth" 82, "wght" 750; line-height: 1.12; letter-spacing: -0.03em; }
@@ -95,7 +97,6 @@
   .form { margin-top: 26px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .penLoop { display: none; }
-  .highlight { transition: none; }
+  .highlight::before, .markedWord { animation: none; clip-path: inset(0); }
   .submit, .submitArrow, .passwordField { transition: none; }
 }
