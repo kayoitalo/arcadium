@@ -27,5 +27,5 @@
 }
 
 @media (max-width: 760px) {
-  .wrap { position: absolute; top: 16px; right: var(--gutter); }
+  .wrap { position: static; margin-left: auto; }
 }

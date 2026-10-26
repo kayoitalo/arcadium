@@ -40,6 +40,9 @@ try {
     content = pattern.test(content) ? content.replace(pattern, line) : `${content.trimEnd()}\n${line}\n`;
   }
   fs.writeFileSync(envPath, content, { mode: 0o600 });
+  // Existing files retain their old mode unless it is changed explicitly.
+  // Windows permissions are governed by the user's profile ACL instead.
+  if (process.platform !== "win32") fs.chmodSync(envPath, 0o600);
   console.log("Acesso configurado para a conta:", user.id);
   if (customPassword) console.log("Sua senha pessoal foi configurada. Apenas o hash foi salvo no .env.");
   else console.log("Sua senha (guarde no gerenciador de senhas):", password);

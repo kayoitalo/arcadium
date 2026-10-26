@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { addSelected, readSelection, selectionKey, type SelectedTrack } from "./selection";
+import { addSelected, selectionKey, type SelectedTrack } from "./selection";
+import { migrateSelection, readStoredSelection, removeStoredSelection, selectionPrefix, storeSelected } from "./selection-storage";
 
 interface Selection {
   items: SelectedTrack[];
@@ -18,15 +19,26 @@ export function SelectionProvider({ userId, children }: { userId: string; childr
   const [ready, setReady] = useState(false);
   const key = `arcadium:selection:${userId}`;
   useEffect(() => {
-    try { setItems(readSelection(window.localStorage.getItem(key))); } catch { setItems([]); }
+    const refresh = () => {
+      try { setItems(readStoredSelection(window.localStorage, key)); } catch { /* Keep the in-memory selection. */ }
+    };
+    try { migrateSelection(window.localStorage, key); } catch { /* Storage may be disabled. */ }
+    refresh();
     setReady(true);
+    const sync = (event: StorageEvent) => {
+      if (event.storageArea === window.localStorage && (event.key === null || event.key === key || event.key.startsWith(selectionPrefix(key)))) refresh();
+    };
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
   }, [key]);
-  useEffect(() => {
-    if (!ready) return;
-    try { window.localStorage.setItem(key, JSON.stringify(items)); } catch { /* Selection still works in memory. */ }
-  }, [items, key, ready]);
-  const add = useCallback((item: SelectedTrack) => setItems((current) => addSelected(current, item)), []);
-  const remove = useCallback((item: SelectedTrack) => setItems((current) => current.filter((entry) => selectionKey(entry) !== selectionKey(item))), []);
+  const add = useCallback((item: SelectedTrack) => {
+    try { setItems(storeSelected(window.localStorage, key, item)); }
+    catch { setItems((current) => addSelected(current, item)); }
+  }, [key]);
+  const remove = useCallback((item: SelectedTrack) => {
+    try { setItems(removeStoredSelection(window.localStorage, key, item)); }
+    catch { setItems((current) => current.filter((entry) => selectionKey(entry) !== selectionKey(item))); }
+  }, [key]);
   const value = useMemo(() => ({ items, ready, add, remove }), [items, ready, add, remove]);
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }

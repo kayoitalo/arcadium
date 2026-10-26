@@ -3,7 +3,7 @@
 import { privateFetch } from "@/lib/http/private-fetch";
 
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { describeRefresh } from "@/components/ai/refresh-report";
 import { Aviso } from "@/components/amigo/aviso";
@@ -104,6 +104,8 @@ export function Ajustes() {
   const [coverage, setCoverage] = useState<EnrichmentCoverage | null>(null);
   const [spotify, setSpotify] = useState<SpotifyStatus | null>(null);
   const [addressAs, setAddressAs] = useState<AddressAs | null>(null);
+  const addressSaving = useRef(false);
+  const [savingAddress, setSavingAddress] = useState(false);
   const searchParams = useSearchParams();
 
   const loadJson = useCallback(async <T,>(url: string, apply: (payload: T) => void, key: string) => {
@@ -148,6 +150,9 @@ export function Ajustes() {
 
   /** A troca vale para as próximas leituras; as já escritas continuam como estão. */
   const chooseAddress = (next: AddressAs) => {
+    if (addressSaving.current) return;
+    addressSaving.current = true;
+    setSavingAddress(true);
     const previous = addressAs;
     setAddressAs(next);
     void privateFetch("/api/user/preferences", {
@@ -162,6 +167,9 @@ export function Ajustes() {
     }).catch(() => {
       setAddressAs(previous);
       setMessage({ text: "A conexão falhou. Não consegui salvar o jeito de falar.", kind: "erro" });
+    }).finally(() => {
+      addressSaving.current = false;
+      setSavingAddress(false);
     });
   };
 
@@ -337,7 +345,7 @@ export function Ajustes() {
         <ul className={styles.choices} role="group" aria-label="Como ele te chama">
           {ADDRESS_OPTIONS.map((option) => (
             <li key={option.value}>
-              <button type="button" aria-pressed={addressAs === option.value} onClick={() => chooseAddress(option.value)}>
+              <button type="button" disabled={savingAddress} aria-pressed={addressAs === option.value} onClick={() => chooseAddress(option.value)}>
                 {option.label}
               </button>
             </li>

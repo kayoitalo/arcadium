@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db/prisma";
 import { completeConnection } from "@/modules/spotify/application/spotify-connection";
-import { STATE_COOKIE } from "../connect/route";
+import { spotifyStateCookie } from "@/lib/security/spotify-state";
 
 /** Para onde o usuário volta, com o resultado legível na barra de endereço. */
 function back(request: Request, params: Record<string, string>) {
@@ -11,7 +11,9 @@ function back(request: Request, params: Record<string, string>) {
   for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
 
   const response = NextResponse.redirect(url);
-  response.cookies.delete(STATE_COOKIE);
+  const state = new URL(request.url).searchParams.get("state");
+  const cookieName = state && spotifyStateCookie(state);
+  if (cookieName) response.cookies.delete(cookieName);
   return response;
 }
 
@@ -28,7 +30,8 @@ export async function GET(request: Request) {
   if (!code || !state) return back(request, { spotify: "erro" });
 
   // o state precisa bater com o cookie criado no início do fluxo
-  const expected = (await cookies()).get(STATE_COOKIE)?.value;
+  const cookieName = spotifyStateCookie(state);
+  const expected = cookieName ? (await cookies()).get(cookieName)?.value : undefined;
 
   if (!expected || expected !== `${userId}:${state}`) {
     return back(request, { spotify: "estado-invalido" });

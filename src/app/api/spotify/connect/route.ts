@@ -1,4 +1,5 @@
 import { authorizeApi } from "@/lib/security/api-auth";
+import { spotifyStateCookie } from "@/lib/security/spotify-state";
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
@@ -8,8 +9,6 @@ import {
   getConnectionStatus,
   isSpotifyConfigured,
 } from "@/modules/spotify/application/spotify-connection";
-
-export const STATE_COOKIE = "spotify_oauth_state";
 
 /** Status da conexão, para a tela de Ajustes saber o que mostrar. */
 export async function GET(request: Request) {
@@ -37,7 +36,7 @@ export async function POST(request: Request) {
   const state = crypto.randomBytes(24).toString("base64url");
   const response = NextResponse.json({ authorizeUrl: buildAuthorizeUrl(state) });
 
-  response.cookies.set(STATE_COOKIE, `${userId}:${state}`, {
+  response.cookies.set(spotifyStateCookie(state)!, `${userId}:${state}`, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
