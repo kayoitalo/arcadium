@@ -32,25 +32,12 @@
   max-width: 10ch;
   font-size: clamp(64px, 7.7vw, 126px);
   font-variation-settings: "wdth" 74, "wght" 850;
-  line-height: 1.02;
+  line-height: 1.08;
   letter-spacing: -0.045em;
   text-wrap: initial;
 }
-.highlight { position: relative; isolation: isolate; display: inline-block; color: var(--tinta); }
-.highlight::before { content: ""; position: absolute; inset: 0.08em 0 0.02em; z-index: 0; background: var(--marca); }
-.word { position: relative; z-index: 1; }
-.markedWord { position: absolute; inset: 0; z-index: 2; color: var(--sobre-marca); pointer-events: none; }
-/* The ink and its dark lettering share a mask, so the word stays readable
-   while the highlighter fills from the left and retracts from the right. */
-.highlight::before, .markedWord { clip-path: inset(0 100% 0 0); animation: highlightPass 8s var(--glide) 240ms infinite both; }
-.page:has(.form:focus-within) .highlight::before,
-.page:has(.form:focus-within) .markedWord { animation-play-state: paused; }
-
-@keyframes highlightPass {
-  0%, 100% { clip-path: inset(0 100% 0 0); }
-  12%, 60% { clip-path: inset(0 0 0 0); }
-  72% { clip-path: inset(0 100% 0 0); }
-}
+.highlight { display: inline-block; margin-inline-start: 0.14em; color: var(--tinta); transition: color 140ms ease 120ms; }
+.highlight[data-marked="true"] { color: var(--sobre-marca); }
 .intro { max-width: 34ch; margin: 26px 0 0; color: var(--tinta-2); font-size: clamp(15px, 1.2vw, 18px); line-height: 1.65; }
 
 .signature { position: relative; max-width: 600px; margin: 24px 0 0; }
@@ -66,6 +53,7 @@
 .passwordField:focus-within { border-bottom-color: var(--tinta); }
 .input { min-width: 0; width: 100%; padding: 15px 0; border: 0; border-radius: 0; background: transparent; color: var(--tinta); font: inherit; font-size: 16px; outline: none; }
 .input::placeholder { color: var(--tinta-3); }
+.input:-webkit-autofill { -webkit-text-fill-color: var(--tinta); box-shadow: 0 0 0 1000px var(--papel) inset; caret-color: var(--tinta); }
 .input:focus-visible { outline: 2px solid var(--tinta); outline-offset: 6px; }
 .reveal { flex-shrink: 0; min-height: 44px; padding: 8px 4px; border: 0; background: none; color: var(--tinta-2); font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; }
 .reveal:hover { color: var(--tinta); }
@@ -97,6 +85,6 @@
   .form { margin-top: 26px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .highlight::before, .markedWord { animation: none; clip-path: inset(0); }
+  .highlight { transition: none; }
   .submit, .submitArrow, .passwordField { transition: none; }
 }

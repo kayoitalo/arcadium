@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Aviso } from "@/components/amigo/aviso";
 import { Capa, Fala, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
-import { band, type Point } from "@/components/amigo/gestures";
+import { band, frame } from "@/components/amigo/gestures";
 import { boxOf, textLines } from "@/components/amigo/measure";
 import type { TraceGesture, WaveSpec } from "@/components/amigo/trace";
 import { usePen, type PenDrawing } from "@/components/amigo/use-pen";
@@ -60,19 +60,6 @@ const CORNERS = [
   { label: "fora da bolha", proximity: 18, fame: 30 },
   { label: "como nunca ouvi isso?", proximity: 62, fame: 92 },
 ];
-
-/** A moldura em volta da capa, com folga: é por ela que a corda passa. */
-function frame(box: { left: number; top: number; width: number; height: number }, gap: number): Point[] {
-  const [left, top] = [box.left - gap, box.top - gap];
-  const [right, bottom] = [box.left + box.width + gap, box.top + box.height + gap];
-  return [
-    { x: left, y: top },
-    { x: right, y: top },
-    { x: right, y: bottom },
-    { x: left, y: bottom },
-    { x: left, y: top },
-  ];
-}
 
 /**
  * Pra ouvir depois. Ele indica uma faixa por vez, dizendo de onde tirou

@@ -20,6 +20,16 @@ export interface Box {
   height: number;
 }
 
+/** A moldura do traço, usada para abraçar uma capa ou uma palavra. */
+export function frame(box: Box, gap: number): Point[] {
+  const [left, top] = [box.left - gap, box.top - gap];
+  const [right, bottom] = [box.left + box.width + gap, box.top + box.height + gap];
+  return [
+    { x: left, y: top }, { x: right, y: top },
+    { x: right, y: bottom }, { x: left, y: bottom }, { x: left, y: top },
+  ];
+}
+
 /** Gerador determinístico a partir de um texto: o mesmo alvo, o mesmo tremido. */
 export function seeded(seed: string): () => number {
   let hash = 2166136261;
