@@ -185,41 +185,48 @@ export class RecommendationService {
     userId: string,
     itemId: string,
     feedbackType: FeedbackType,
-    note?: string
+    note?: string,
+    sessionId?: string,
   ): Promise<{ success: boolean }> {
+    return prisma.$transaction(async (tx) => {
+      // Serialize decisions for the same item, including concurrent retries.
+      await tx.$queryRaw`SELECT "id" FROM "RecommendationItem" WHERE "id" = ${itemId} FOR UPDATE`;
+      const item = await tx.recommendationItem.findUnique({
+        where: { id: itemId },
+        include: { session: true },
+      });
 
-    const item = await prisma.recommendationItem.findUnique({
-      where: { id: itemId },
-      include: { session: true },
+      if (!item || item.session.userId !== userId || (sessionId && item.sessionId !== sessionId)) {
+        throw new Error("Recommendation item not found or unauthorized");
+      }
+
+      const existing = await tx.recommendationFeedback.findFirst({ where: { itemId, userId, type: feedbackType } });
+      if (existing) return { success: true };
+
+      const statusMap: Record<FeedbackType, string> = {
+        LIKED: "LIKED",
+        DISLIKED: "DISLIKED",
+        ALREADY_KNOW: "KNOWN",
+        NOT_INTERESTED: "NOT_INTERESTED",
+        SAVE_FOR_LATER: "SAVED",
+      };
+
+      await tx.recommendationItem.update({
+        where: { id: itemId },
+        data: { status: statusMap[feedbackType] },
+      });
+
+      await tx.recommendationFeedback.create({
+        data: {
+          itemId,
+          userId,
+          type: feedbackType,
+          note: note || null,
+        },
+      });
+
+      return { success: true };
     });
-
-    if (!item || item.session.userId !== userId) {
-      throw new Error("Recommendation item not found or unauthorized");
-    }
-
-    const statusMap: Record<FeedbackType, string> = {
-      LIKED: "LIKED",
-      DISLIKED: "DISLIKED",
-      ALREADY_KNOW: "KNOWN",
-      NOT_INTERESTED: "NOT_INTERESTED",
-      SAVE_FOR_LATER: "SAVED",
-    };
-
-    await prisma.recommendationItem.update({
-      where: { id: itemId },
-      data: { status: statusMap[feedbackType] },
-    });
-
-    await prisma.recommendationFeedback.create({
-      data: {
-        itemId,
-        userId,
-        type: feedbackType,
-        note: note || null,
-      },
-    });
-
-    return { success: true };
   }
 
   async getSession(sessionId: string, userId: string): Promise<SessionResult | null> {

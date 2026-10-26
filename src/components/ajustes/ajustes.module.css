@@ -24,6 +24,8 @@
   color: var(--erro);
 }
 
+.loadError { display: grid; justify-items: start; gap: 12px; padding: 20px 0; color: var(--erro); font-size: 14px; line-height: 1.5; }
+
 .section {
   display: grid;
   gap: 14px;
@@ -165,6 +167,7 @@
 .choices button:hover {
   color: var(--tinta-2);
 }
+.choices button:disabled { cursor: wait; opacity: 0.6; }
 
 .choices button[aria-pressed="true"] {
   color: var(--tinta);

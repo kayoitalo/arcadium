@@ -60,22 +60,23 @@ export class EnrichmentService {
     private fallbackCoverArt: AlbumCoverFallbackProvider[] = [new LastFmCoverAdapter(), catalog],
   ) {}
 
-  async getCoverageStats(): Promise<EnrichmentCoverage> {
+  async getCoverageStats(userId: string): Promise<EnrichmentCoverage> {
+    const owned = { listeningEvents: { some: { userId } } };
     // a capa vale para todo álbum, não só para os que o MusicBrainz conhece
     const [
       totalArtists, resolvedCount, failedCount, totalCanonicalAlbums, albumsWithCover, pendingCoverLookup,
       albumsInCatalog, pendingCatalogLookup, totalTracks, tracksWithDuration,
     ] = await Promise.all([
-      prisma.artist.count(),
-      prisma.artist.count({ where: { metadataStatus: "RESOLVED" } }),
-      prisma.artist.count({ where: { metadataStatus: "FAILED" } }),
-      prisma.album.count(),
-      prisma.album.count({ where: { coverUrl: { not: null } } }),
-      prisma.album.count({ where: { coverFetchedAt: null } }),
-      prisma.album.count({ where: { itunesCollectionId: { not: null } } }),
-      prisma.album.count({ where: { itunesFetchedAt: null } }),
-      prisma.track.count(),
-      prisma.track.count({ where: { durationMs: { not: null } } }),
+      prisma.artist.count({ where: owned }),
+      prisma.artist.count({ where: { ...owned, metadataStatus: "RESOLVED" } }),
+      prisma.artist.count({ where: { ...owned, metadataStatus: "FAILED" } }),
+      prisma.album.count({ where: owned }),
+      prisma.album.count({ where: { ...owned, coverUrl: { not: null } } }),
+      prisma.album.count({ where: { ...owned, coverFetchedAt: null } }),
+      prisma.album.count({ where: { ...owned, itunesCollectionId: { not: null } } }),
+      prisma.album.count({ where: { ...owned, itunesFetchedAt: null } }),
+      prisma.track.count({ where: owned }),
+      prisma.track.count({ where: { ...owned, durationMs: { not: null } } }),
     ]);
     const unresolvedCount = totalArtists - (resolvedCount + failedCount);
     const percentage = totalArtists ? Math.round((resolvedCount / totalArtists) * 100) : 0;
@@ -119,8 +120,8 @@ export class EnrichmentService {
     };
   }
 
-  async enrichUnresolvedArtists(batchSize = 5): Promise<EnrichmentSummary> {
-    const recentArtistIds = await this.getRecentEntityIds("artistId", batchSize * 5);
+  async enrichUnresolvedArtists(userId: string, batchSize = 5): Promise<EnrichmentSummary> {
+    const recentArtistIds = await this.getRecentEntityIds(userId, "artistId", batchSize * 5);
     const recentUnresolved = recentArtistIds.length ? await prisma.artist.findMany({
       where: { id: { in: recentArtistIds }, ...this.pendingStatusFilter() },
     }) : [];
@@ -128,9 +129,9 @@ export class EnrichmentService {
     const unresolvedArtists = recentArtistIds.map((id) => recentById.get(id)).filter(Boolean).slice(0, batchSize) as typeof recentUnresolved;
     if (unresolvedArtists.length < batchSize) {
       const fallback = await prisma.artist.findMany({
-        where: { ...this.pendingStatusFilter(), id: { notIn: unresolvedArtists.map((artist) => artist.id) } },
+        where: { ...this.pendingStatusFilter(), listeningEvents: { some: { userId } }, id: { notIn: unresolvedArtists.map((artist) => artist.id) } },
         take: batchSize - unresolvedArtists.length,
-        orderBy: { listeningEvents: { _count: "desc" } },
+        orderBy: { id: "asc" },
       });
       unresolvedArtists.push(...fallback);
     }
@@ -165,10 +166,9 @@ export class EnrichmentService {
             },
           });
 
-          const recentAlbumIds = await this.getRecentEntityIds("albumId", 50);
           const topAlbum = await prisma.album.findFirst({
-            where: { artistId: artist.id, enrichedAt: null },
-            orderBy: recentAlbumIds.length ? { listeningEvents: { _count: "desc" } } : undefined,
+            where: { artistId: artist.id, enrichedAt: null, listeningEvents: { some: { userId } } },
+            orderBy: { id: "asc" },
           });
 
           if (topAlbum) {
@@ -217,15 +217,15 @@ export class EnrichmentService {
       }
     }
 
-    await this.enrichMissingReleaseGroups(batchSize);
-    const coverSummary = await this.enrichMissingAlbumCovers(batchSize);
+    await this.enrichMissingReleaseGroups(userId, batchSize);
+    const coverSummary = await this.enrichMissingAlbumCovers(userId, batchSize);
     summary.coversResolved = coverSummary.resolved;
     summary.coversMissing = coverSummary.missing;
     return summary;
   }
 
-  async enrichMissingReleaseGroups(batchSize = 10): Promise<{ processed: number; resolved: number }> {
-    const recentAlbumIds = await this.getRecentEntityIds("albumId", batchSize * 5);
+  async enrichMissingReleaseGroups(userId: string, batchSize = 10): Promise<{ processed: number; resolved: number }> {
+    const recentAlbumIds = await this.getRecentEntityIds(userId, "albumId", batchSize * 5);
     const recentAlbums = recentAlbumIds.length ? await prisma.album.findMany({
       where: { id: { in: recentAlbumIds }, releaseGroupFetchedAt: null, artist: { mbid: { not: null } } },
       include: { artist: { select: { mbid: true } } },
@@ -234,10 +234,10 @@ export class EnrichmentService {
     const albums = recentAlbumIds.map((id) => recentById.get(id)).filter(Boolean).slice(0, batchSize) as typeof recentAlbums;
     if (albums.length < batchSize) {
       const fallback = await prisma.album.findMany({
-        where: { releaseGroupFetchedAt: null, artist: { mbid: { not: null } }, id: { notIn: albums.map((album) => album.id) } },
+        where: { listeningEvents: { some: { userId } }, releaseGroupFetchedAt: null, artist: { mbid: { not: null } }, id: { notIn: albums.map((album) => album.id) } },
         include: { artist: { select: { mbid: true } } },
         take: batchSize - albums.length,
-        orderBy: { listeningEvents: { _count: "desc" } },
+        orderBy: { id: "asc" },
       });
       albums.push(...fallback);
     }
@@ -264,16 +264,16 @@ export class EnrichmentService {
     return { processed: albums.length, resolved };
   }
 
-  async enrichMissingAlbumCovers(batchSize = 10): Promise<{ processed: number; resolved: number; missing: number }> {
+  async enrichMissingAlbumCovers(userId: string, batchSize = 10): Promise<{ processed: number; resolved: number; missing: number }> {
     const retryBefore = new Date(Date.now() - COVER_RETRY_DAYS * 86_400_000);
     // qualquer álbum ainda não consultado entra: os sem vínculo no MusicBrainz
     // eram a maioria e nunca chegavam aqui, então nunca ganhavam capa
-    const coverWhere: Prisma.AlbumWhereInput = { OR: [
+    const coverWhere: Prisma.AlbumWhereInput = { listeningEvents: { some: { userId } }, OR: [
       { coverFetchedAt: null },
       { coverUrl: null, coverFetchedAt: { lt: retryBefore } },
       { coverSource: "cover-art-archive", coverUrl: { startsWith: "https://coverartarchive.org/" } },
     ] };
-    const recentAlbumIds = await this.getRecentEntityIds("albumId", batchSize * 5);
+    const recentAlbumIds = await this.getRecentEntityIds(userId, "albumId", batchSize * 5);
     const recentAlbums = recentAlbumIds.length ? await prisma.album.findMany({ where: { ...coverWhere, id: { in: recentAlbumIds } }, include: { artist: { select: { name: true } } } }) : [];
     const recentById = new Map(recentAlbums.map((album) => [album.id, album]));
     const albums = recentAlbumIds.map((id) => recentById.get(id)).filter(Boolean).slice(0, batchSize) as typeof recentAlbums;
@@ -281,7 +281,7 @@ export class EnrichmentService {
       const fallback = await prisma.album.findMany({
         where: { ...coverWhere, id: { notIn: albums.map((album) => album.id) } },
         take: batchSize - albums.length,
-        orderBy: { listeningEvents: { _count: "desc" } },
+        orderBy: { id: "asc" },
         include: { artist: { select: { name: true } } },
       });
       albums.push(...fallback);
@@ -330,15 +330,15 @@ export class EnrichmentService {
    * Duas chamadas por disco no ritmo de ~19 por minuto: um lote de 6 leva
    * perto de 40 segundos. Os mais ouvidos no último mês vêm primeiro.
    */
-  async enrichAlbumsFromCatalog(batchSize = 6): Promise<CatalogSummary> {
+  async enrichAlbumsFromCatalog(userId: string, batchSize = 6): Promise<CatalogSummary> {
     const retryBefore = new Date(Date.now() - COVER_RETRY_DAYS * 86_400_000);
-    const catalogWhere: Prisma.AlbumWhereInput = { OR: [
+    const catalogWhere: Prisma.AlbumWhereInput = { listeningEvents: { some: { userId } }, OR: [
       { itunesFetchedAt: null },
       { itunesCollectionId: null, itunesFetchedAt: { lt: retryBefore } },
     ] };
     const include = { artist: { select: { name: true } } } as const;
 
-    const recentAlbumIds = await this.getRecentEntityIds("albumId", batchSize * 5);
+    const recentAlbumIds = await this.getRecentEntityIds(userId, "albumId", batchSize * 5);
     const recentAlbums = recentAlbumIds.length
       ? await prisma.album.findMany({ where: { ...catalogWhere, id: { in: recentAlbumIds } }, include })
       : [];
@@ -348,7 +348,7 @@ export class EnrichmentService {
       albums.push(...await prisma.album.findMany({
         where: { ...catalogWhere, id: { notIn: albums.map((album) => album.id) } },
         take: batchSize - albums.length,
-        orderBy: { listeningEvents: { _count: "desc" } },
+        orderBy: { id: "asc" },
         include,
       }));
     }
@@ -362,7 +362,7 @@ export class EnrichmentService {
           const tracks = await this.catalog.lookupTracks(album.itunesCollectionId);
           await prisma.album.update({ where: { id: album.id }, data: { itunesFetchedAt: new Date() } });
           summary.matched++;
-          summary.tracksUpdated += await this.applyCatalogTracks(album.id, album.artistId, tracks);
+          summary.tracksUpdated += await this.applyCatalogTracks(userId, album.id, album.artistId, tracks);
           continue;
         }
 
@@ -391,7 +391,7 @@ export class EnrichmentService {
         });
 
         summary.matched++;
-        summary.tracksUpdated += await this.applyCatalogTracks(album.id, album.artistId, tracks);
+        summary.tracksUpdated += await this.applyCatalogTracks(userId, album.id, album.artistId, tracks);
       } catch (error) {
         // rede ou limite da Apple: o disco fica na fila para o próximo lote
         console.warn(`[EnrichmentService] Catalog lookup failed for "${album.name}".`, error);
@@ -402,12 +402,12 @@ export class EnrichmentService {
   }
 
   /** Casa as faixas do disco no catálogo com as que você ouviu dele, pelo título. */
-  private async applyCatalogTracks(albumId: string, artistId: string, tracks: CatalogTrack[]): Promise<number> {
+  private async applyCatalogTracks(userId: string, albumId: string, artistId: string, tracks: CatalogTrack[]): Promise<number> {
     if (tracks.length === 0) return 0;
 
     const byTitle = new Map(tracks.map((track) => [normalizeTitle(track.name), track]));
     const heard = await prisma.track.findMany({
-      where: { artistId, listeningEvents: { some: { albumId } } },
+      where: { artistId, listeningEvents: { some: { albumId, userId } } },
       select: { id: true, name: true, durationMs: true },
     });
 
@@ -455,11 +455,11 @@ export class EnrichmentService {
     return null;
   }
 
-  private async getRecentEntityIds(field: "artistId" | "albumId", take: number): Promise<string[]> {
+  private async getRecentEntityIds(userId: string, field: "artistId" | "albumId", take: number): Promise<string[]> {
     const since = new Date(Date.now() - 30 * 86_400_000);
     const groups = await prisma.listeningEvent.groupBy({
       by: [field],
-      where: { playedAt: { gte: since }, [field]: { not: null } },
+      where: { userId, playedAt: { gte: since }, [field]: { not: null } },
       _count: { id: true },
       orderBy: { _count: { id: "desc" } },
       take,

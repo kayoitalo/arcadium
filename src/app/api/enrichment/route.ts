@@ -1,3 +1,4 @@
+import { authorizeApi } from "@/lib/security/api-auth";
 import { EnrichmentService } from "@/modules/enrichment/application/enrichment-service";
 import { NextResponse } from "next/server";
 
@@ -9,9 +10,11 @@ const enrichmentService = new EnrichmentService();
  */
 export const maxDuration = 60;
 
-export async function GET() {
+export async function GET(request: Request) {
+  const access = await authorizeApi(request);
+  if (access.response) return access.response;
   try {
-    const coverage = await enrichmentService.getCoverageStats();
+    const coverage = await enrichmentService.getCoverageStats(access.userId);
     return NextResponse.json({ success: true, data: coverage });
   } catch (error: any) {
     console.error("GET /api/enrichment error:", error);
@@ -20,6 +23,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const access = await authorizeApi(request);
+  if (access.response) return access.response;
   try {
     let batchSize = 5;
     let action: "all" | "covers" | "catalog" = "all";
@@ -34,20 +39,20 @@ export async function POST(request: Request) {
     }
 
     if (action === "covers") {
-      const covers = await enrichmentService.enrichMissingAlbumCovers(batchSize);
-      const coverage = await enrichmentService.getCoverageStats();
+      const covers = await enrichmentService.enrichMissingAlbumCovers(access.userId, batchSize);
+      const coverage = await enrichmentService.getCoverageStats(access.userId);
       return NextResponse.json({ success: true, data: { covers, coverage } });
     }
 
     if (action === "catalog") {
       // duas chamadas por disco: mais de 8 não cabe em um minuto
-      const catalog = await enrichmentService.enrichAlbumsFromCatalog(Math.min(8, batchSize));
-      const coverage = await enrichmentService.getCoverageStats();
+      const catalog = await enrichmentService.enrichAlbumsFromCatalog(access.userId, Math.min(8, batchSize));
+      const coverage = await enrichmentService.getCoverageStats(access.userId);
       return NextResponse.json({ success: true, data: { catalog, coverage } });
     }
 
-    const summary = await enrichmentService.enrichUnresolvedArtists(batchSize);
-    const updatedCoverage = await enrichmentService.getCoverageStats();
+    const summary = await enrichmentService.enrichUnresolvedArtists(access.userId, batchSize);
+    const updatedCoverage = await enrichmentService.getCoverageStats(access.userId);
 
     return NextResponse.json({
       success: true,
