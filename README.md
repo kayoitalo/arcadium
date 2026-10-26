@@ -96,6 +96,12 @@ scrypt hash in `.env`. No public registration is available.
 Open `http://127.0.0.1:3000/login`. To rotate the password and invalidate all existing
 sessions, run `node scripts/setup-auth.mjs --reset`, then restart the application.
 
+To choose your own password, run `node scripts/setup-auth.mjs --custom-password`
+in an interactive terminal (or add `--reset` to replace an existing password).
+Enter and confirm 12–256 characters; input is hidden and only the salted hash is
+saved. Never pass the password as a command-line argument. After changing it,
+update `AUTH_PASSWORD_HASH` in the hosting environment and redeploy.
+
 For production, configure `AUTH_USER_ID`, `AUTH_PASSWORD_HASH` and `APP_ORIGIN`
 in the hosting environment before deployment. `APP_ORIGIN` must be the exact HTTPS
 origin, for example `https://your-app.vercel.app`; configure each preview separately.
