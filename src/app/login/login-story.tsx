@@ -2,7 +2,7 @@
 
 import { useReducedMotion } from "framer-motion";
 import { useCallback, useRef } from "react";
-import { band } from "@/components/amigo/gestures";
+import { band, toPath } from "@/components/amigo/gestures";
 import { textLines } from "@/components/amigo/measure";
 import { Trace } from "@/components/amigo/trace";
 import { usePen, type PenDrawing } from "@/components/amigo/use-pen";
@@ -34,6 +34,18 @@ export function LoginStory() {
   }, [reduced]);
   const pen = usePen(stageRef, draw, reduced ? "login-still" : "login-live", { first: 240 });
 
+  const markStroke = pen.plan?.gestures[0]?.strokes[0];
+  const waveBase = pen.plan?.wave?.base;
+  const loopPath = markStroke && waveBase && waveBase.length > 1 ? toPath([
+    waveBase[waveBase.length - 1],
+    { x: pen.size.width + 12, y: waveBase[waveBase.length - 1].y },
+    { x: pen.size.width + 12, y: markStroke[markStroke.length - 1].y },
+    ...markStroke.toReversed(),
+    { x: -12, y: markStroke[0].y },
+    { x: -12, y: waveBase[0].y },
+    ...waveBase,
+  ]) : null;
+
   // Ambient motion only: the login never starts audio or reads a microphone.
   const readSignal = useCallback(() => {
     if (reduced || document.hidden) return null;
@@ -57,6 +69,11 @@ export function LoginStory() {
         </div>
       </div>
       <Trace plan={pen.plan} size={pen.size} penWidth={1.5} reduced={reduced} readSignal={readSignal} onGesture={pen.onGesture} travelStyle="straight" />
+      {!reduced && loopPath && pen.done.has("grifo") && (
+        <svg className={styles.penLoop} width={pen.size.width} height={pen.size.height} viewBox={`0 0 ${pen.size.width} ${pen.size.height}`} aria-hidden="true">
+          <path d={loopPath} pathLength="1" />
+        </svg>
+      )}
     </section>
   );
 }
