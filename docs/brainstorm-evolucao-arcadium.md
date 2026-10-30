@@ -1,6 +1,6 @@
 # Evolução do Arcadium — registro inicial do brainstorm
 
-Atualizado em 29/10/2026. Estado: discussão pausada para continuidade em outro ambiente.
+Atualizado em 29/10/2026. Estado: visão inicial consolidada; validações e comparação visual pendentes.
 
 Este documento preserva contexto, constatações e direções discutidas. Os acordos abaixo são direções de produto revisáveis, não uma especificação fechada nem autorização para implementar. A criação deste documento e do PR foi solicitada para permitir a retomada em nuvem.
 
@@ -8,19 +8,15 @@ Este documento preserva contexto, constatações e direções discutidas. Os aco
 
 Leia este documento, o [README](../README.md), o [ADR de autenticação](adr-001-personal-authentication.md) e as [notas de revisão](pr-9-review-notes.md). Confira o código atual antes de tratar as constatações como permanentes.
 
-Continue como parceiro de discussão de produto, UX, arquitetura, dados e recomendação musical. Use partes curtas, exemplos concretos, contrapontos e uma pergunta por vez. O usuário prefere discutir progressivamente a receber outro panorama muito extenso.
+Continue como parceiro de discussão de produto, UX, arquitetura, dados e recomendação musical. Use blocos de decisões relacionadas, exemplos concretos e contrapontos. O usuário pediu acelerar a discussão trazendo vários pontos por vez, com espaço para comentar o conjunto, evitando uma pergunta a cada microdecisão.
 
 Nesta etapa, não implementar funcionalidades, executar migrations, modificar infraestrutura ou fechar um roadmap. O PR documenta a conversa; não aprova execução. Novas alterações dependem de uma mudança explícita de escopo pelo usuário.
 
-**Pausa inicial (superada na continuação abaixo):** foi proposta a distinção entre “fugiu do pedido”, “respeitou o pedido, mas não agradou” e “despertou interesse, com ressalvas”. Naquela pausa, a pergunta ainda não tinha sido respondida:
-
-> Você acha natural ter uma opção como “não era o que pedi” separada de “não gostei”, deixando os detalhes opcionais?
-
-A opção foi aprovada na continuação registrada ao final deste documento. O ponto atual é a análise da limpeza e identificação do catálogo. Métricas, viabilidade dos dados, responsabilidades da IA e arquitetura continuam abertas.
+**Ponto atual:** os principais blocos foram discutidos e o usuário autorizou consolidar esta visão no PR. A próxima conversa deve revisar o conjunto, identificar contradições e escolher quais validações aprofundar. Não há pergunta de produto pendente nem autorização de implementação. As seções de continuação abaixo registram as decisões mais recentes e prevalecem sobre indicações históricas de pendência.
 
 Sugestão de mensagem para retomar:
 
-> Leia docs/brainstorm-evolucao-arcadium.md e continue o brainstorm de onde paramos, sem implementar. Diferencie acordos, hipóteses e pendências. Faça uma pergunta por vez e mantenha atenção à viabilidade dos dados e ao limite gratuito da IA.
+> Leia docs/brainstorm-evolucao-arcadium.md e revise a visão consolidada. Diferencie acordos, propostas provisórias e validações pendentes. Continue em blocos relacionados, sem implementar nem fechar um roadmap antes de discutirmos as possibilidades.
 
 ## Propósito e limites
 
@@ -257,4 +253,90 @@ Hipótese de evolução, ainda em discussão: separar nome bruto, chave de busca
 
 Uma auditoria futura poderia usar uma amostra com coletâneas, remasters, versões ao vivo/acústicas, remixes, participações, títulos com parênteses e artistas homônimos. Verificar correspondência da prévia, agrupamento, identificadores e procedência de gênero. Não foi executada auditoria do banco nem alteração do catálogo.
 
-**Ponto atual da discussão:** aprofundar como aproveitar essa limpeza existente sem apagar diferenças musicalmente relevantes. Continuar com exemplos e uma pergunta por vez; não iniciar implementação.
+Essa investigação é estática. A continuação abaixo registra as direções de produto acordadas após esses achados.
+
+## Consolidação — decisões sobre catálogo, motor e experiência
+
+### Direções aceitas
+
+| Área | Acordo |
+| --- | --- |
+| Gravação e prévia | Priorizar a gravação exata; versões ao vivo, acústicas, remixes ou regravações entram como alternativas identificadas. O feedback acompanha a versão ouvida. A mesma gravação em outro lançamento pode ser usada quando houver evidência confiável. |
+| Relato de erro | Correção de metadados fica num canal discreto de relato de problema, não como funcionalidade em destaque ou obrigação de manutenção pelo usuário. |
+| Seleção | Separar adequação ao pedido, afinidade pessoal e composição da sequência. Afinidade não compensa descumprimento de um pedido estrito. Falta de informação representa incerteza. |
+| Aprendizado | O feedback precisa alterar escolhas posteriores e permitir avaliar se ajudou. Aprender preferências e, como hipótese técnica, quais estratégias funcionam em cada contexto. |
+| Força dos sinais | Pedido de sessão tem efeito imediato; avaliação de faixa tem alcance específico; padrões consistentes sustentam generalizações graduais. Permitir revisão e mudança de gosto. |
+| Familiaridade e surpresa | Equilíbrio conduzido automaticamente pela intenção escolhida, sem acrescentar um slider para isso. |
+| Redescoberta | Descoberta próxima prioriza inéditas, mas permite redescobertas ocasionais e justificadas. Identificar “vale revisitar”, sem chamar de novidade. “Já conheço” informa familiaridade, não rejeição. |
+| Arquitetura | Evoluir regras, evidências e resultados dentro do monólito modular e PostgreSQL. Não há necessidade demonstrada de microserviços, banco vetorial ou treinamento próprio para começar. |
+| Fontes | Avaliar inclusão, subutilização, redundância e obsolescência. Antiguidade não prova obsolescência; cada integração precisa justificar sua contribuição. |
+| Sem prévia | Uma boa candidata pode aparecer sem prévia; oferecer caminho para a gravação correta e equilibrar a sessão para não frustrar a experimentação. |
+| Filtros | Condicionar filtros à cobertura demonstrada por gravação. Informação parcial de artista não sustenta a mesma promessa que evidência específica. |
+| Procedência | Preservar origem, data, contexto e confiança. Divergências entre fontes não se resolvem automaticamente por maioria ou maior especificidade. |
+| Privacidade | Separar catálogo compartilhável, memória pessoal vinculada à conta e intenção temporária. Prever revisão, exportação e exclusão das escolhas pessoais. |
+| Diagnóstico | Registrar pedido, origem das candidatas, evidências, versão do algoritmo e resultados suficientes para explicar erros e efeitos do feedback, nos bastidores. |
+| Falhas | Distinguir não consultado, não encontrado e consulta falhou; indisponibilidade não vira ausência permanente de informação. |
+| Performance | Encurtar o caminho até ouvir; enriquecer conforme utilidade e reaproveitar dados válidos. Correções explícitas devem afetar a sessão quando possível. Não é necessário treinar modelo a cada clique. |
+| Limites | Orçamento por provedor, controle de concorrência e tokens, retries limitados e contagem de cada chamada externa, incluindo fallback. Respeitar cache, armazenamento e condições aplicáveis. |
+| Degradação | Reduzir candidatas ou narrativa quando necessário, preservando o pedido; contexto adicional não deve consumir toda a capacidade. |
+| Processamento | Começar com trabalho pequeno, retomável e registrado; worker ou fila somente diante de duração/volume que justifiquem. |
+| Avaliação | Comparar dados/identidade, qualidade da escolha e efeito do aprendizado separadamente. Score interno não comprova ganho musical. |
+| PRs e previews | Avaliar qualidade musical com uso frequente nas previews da Vercel; cada mudança do motor explicita melhora esperada e observação proposta. Testes automatizados protegem comportamento e contratos. |
+
+A avaliação por previews exige conferir banco, variáveis, tarefas de fundo e sessões compartilhadas com produção. O compartilhamento foi mencionado pelo usuário, mas a configuração real ainda não foi verificada. Evitar comparação contaminada por cache/reuso ou mistura de versões. Feedback imediato e resultados após dias/semanas têm tempos de observação diferentes.
+
+### Interface: estrutura acordada e propostas provisórias
+
+Direção aceita para navegação: **Conversa, Descoberta, Retrato musical e Histórico**, com ajustes em acesso secundário. “O que mudou” pode integrar o Retrato, distinguindo fase recente e retrato acumulado. Os nomes, a quantidade final de abas e o desenho ainda precisam de comparação visual.
+
+- Conversa permanece como entrada: mudanças relevantes, assuntos recentes identificados por data e convites contextualizados para descoberta.
+- Validade de um fato não garante interesse editorial. Selecionar assuntos por mudança relevante, exposição anterior e desdobramento útil antes de pedir redação à IA.
+- A home pode ser curta se não houver novidade; não fabricar análise diária nem regenerar texto para simular novidade.
+- O retrato acumulado delimita período, cobertura e incerteza. Evitar definições rígidas como “seu gosto é de 2010”.
+- A descoberta concentra a indicação da vez; motivos e contexto são progressivos. Timeline tem acesso dentro da área, sem obrigar a atravessá-la para ouvir.
+- No mobile, aproximar reprodução e reação, preservando redução de movimento e acessibilidade.
+
+O usuário concordou em **reavaliar o radar/mapa atual** e comparar alternativas antes de escolher. A intenção controla automaticamente familiaridade/surpresa, reduzindo a necessidade do mapa como controle obrigatório. Alternativas discutidas: mapa opcional; visualização de jornada; escolhas simples com caminhos e conexões da caneta. Não há substituição visual aprovada nem protótipo renderizado dessas alternativas.
+
+Direção provisória aceita para continuidade: abrir detalhes mantém a prévia; sair e voltar retoma sessão/faixa; escolhas, avaliações e jornadas ficam ligadas à conta; mudar intenção preserva a exploração anterior para possível retomada. Guardar e exportar são ações distintas; reprodução iniciada pelo usuário, sem autoplay inesperado. Player global permanece em avaliação visual e técnica, inclusive condições das fontes.
+
+### Auditoria documental adicional das integrações
+
+Esta auditoria cruzou código local e documentação pública. Não testou credenciais, funcionamento de produção ou cobertura musical por amostra. Mudanças externas devem ser reconfirmadas antes da execução.
+
+| Fonte | Achado | Direção discutida |
+| --- | --- | --- |
+| Last.fm | O fluxo atual usa similaridade por artista e top tracks; existem métodos documentados de similaridade por faixa, tags de faixa e top tracks por tag. | Manter e investigar melhor uso antes de adicionar dependências. Tags comunitárias não garantem gênero/mood nem explicam a causa da similaridade. |
+| MusicBrainz | Integração centrada em artistas, gêneros e lançamentos; identidade por gravação ainda pede investigação. | Manter; verificar ganho e precisão sem multiplicar consultas por padrão. |
+| iTunes Search | Enriquecimento espaça chamadas; prévias usam minIntervalMs: 0 e podem disparar em paralelo. Documentação indica aproximadamente 20 chamadas/minuto, sujeitas a mudança. | Manter com revisão de limite global, correspondência e condições. Não se comprovou excesso de chamadas. |
+| Spotify | Adaptador usa POST /users/{id}/playlists e POST /playlists/{id}/tracks; guia de 2026 indica /me/playlists e /playlists/{id}/items. | Revisar aplicabilidade ao acesso da integração e testar exportação; código não foi corrigido neste brainstorm. |
+| ListenBrainz | Relações entre gravações e recomendações pessoais são caminhos distintos; recomendações pessoais podem não estar geradas e endpoint é experimental. | Experimentar contribuição exclusiva por gravação sem assumir publicação do histórico. |
+
+Referências adicionais consultadas: [tags de faixa Last.fm](https://www.last.fm/api/show/track.getTopTags), [faixas por tag](https://www.last.fm/api/show/tag.getTopTracks), [Search API atual da Apple](https://performance-partners.apple.com/search-api) e [migração Spotify](https://developer.spotify.com/documentation/web-api/tutorials/february-2026-migration-guide).
+
+Não apareceu evidência suficiente para remover uma fonte central. Há indícios concretos de subutilização e necessidade de revisão. O conjunto atual tampouco comprova cobertura de mood, voz e instrumentação para todo o catálogo.
+
+### Critérios de validação discutidos
+
+- Manter motor atual como referência; comparar acréscimos delimitados para identificar contribuição.
+- Seleção por filtro: respeitar o pedido e funcionar no momento.
+- Descoberta próxima: novidade relevante e eventual retorno.
+- Exploração radical: curiosidade e vontade de continuar também são sucesso.
+- Não otimizar cliques ou tempo preso ao app; não exigir avaliação permanente.
+- Testar que rejeição de faixa não bloqueia artista, “ainda não ouvi” não penaliza, feedback acompanha versão e limites/indisponibilidade não comprometem contratos do produto.
+- Garantir que reduzir influência do histórico numa sessão preserve filtros explícitos.
+- Avaliar custo operacional, latência, duplicações, cobertura e candidatas úteis exclusivas por fonte.
+- Conteúdo duradouro deve ser reutilizado; texto novo depende de assunto relevante e orçamento.
+- Uma capacidade pode ter cobertura parcial explícita. Cada hipótese pode ser descartada após avaliação.
+
+## Estado consolidado e próximas discussões
+
+**Acordado:** princípios de produto e aprendizado, progressividade, memória/timeline, prioridade do pedido, arquitetura simples, revisão das fontes e avaliação nas previews. São direções revisáveis, não especificação executável.
+
+**Provisório:** desenho e nomes das telas, integração de “o que mudou”, substituição do mapa, detalhes da continuidade, UI de feedback e política exata de redescoberta.
+
+**A validar:** cobertura por gravação e característica; estado real das integrações; correspondência de versões; dados contaminados por identificadores; limites e consumo real; qualidade Lite/Flash; segurança da comparação preview/produção; ganho musical e UX renderizada.
+
+**Sem decisão:** pesos e algoritmos finais, banco vetorial, treinamento próprio, análise acústica ampla, worker/fila, player global, publicação/multiusuário, custos pagos e roadmap definitivo.
+
+A próxima etapa da conversa é revisar esta visão conjunta e escolher validações ou alternativas visuais para aprofundar. Não houve implementação, migration, modificação de infraestrutura ou teste de escuta nesta consolidação. O PR continua documental.
