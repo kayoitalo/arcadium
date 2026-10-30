@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 
 import { AIAnalysisService } from "@/modules/ai-analysis/application/ai-analysis-service";
 import { logAi } from "@/modules/ai-analysis/application/ai-log";
+import { manualAiAllowed } from "@/lib/runtime/deployment-policy.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,9 @@ export const maxDuration = 180;
 export async function POST(request: Request) {
   const access = await authorizeApi(request, true);
   if (access.response) return access.response;
+  if (!manualAiAllowed()) {
+    return NextResponse.json({ error: "Geração manual de IA não habilitada nesta preview." }, { status: 403 });
+  }
   const userId = access.userId;
 
   try {
