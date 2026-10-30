@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { defineConfig, env } from "prisma/config";
+import { defineConfig } from "prisma/config";
+import { databaseConnectionString } from "./src/lib/runtime/deployment-policy.mjs";
 
 if (!process.env.DATABASE_URL) {
   const envPath = path.join(__dirname, ".env");
@@ -21,6 +22,6 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: env("DATABASE_URL"),
+    url: databaseConnectionString(),
   },
 });
