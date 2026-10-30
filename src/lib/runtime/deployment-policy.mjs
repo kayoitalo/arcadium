@@ -1,5 +1,14 @@
 import { createHash } from "node:crypto";
 
+export class DeploymentPolicyError extends Error {
+  /** @param {string} code @param {string} message */
+  constructor(code, message) {
+    super(message);
+    this.name = "DeploymentPolicyError";
+    this.code = code;
+  }
+}
+
 /** @param {Record<string, string | undefined>} [env] */
 export function isPreview(env = process.env) {
   return env.VERCEL_ENV === "preview" || env.APP_ENV === "preview";
@@ -27,10 +36,14 @@ export function databaseConnectionString(env = process.env) {
   const value = env.PREVIEW_DATABASE_URL;
   const production = env.PRODUCTION_DATABASE_FINGERPRINT;
   if (!value || !production || !/^[a-f0-9]{64}$/i.test(production)) {
-    throw new Error("Preview requires an isolated PREVIEW_DATABASE_URL and production database fingerprint");
+    const code = !value ? "PREVIEW_DATABASE_URL_MISSING" : !production ? "PRODUCTION_FINGERPRINT_MISSING" : "PRODUCTION_FINGERPRINT_INVALID";
+    throw new DeploymentPolicyError(code, "Preview requires an isolated PREVIEW_DATABASE_URL and production database fingerprint");
   }
-  if (databaseFingerprint(value) === production.toLowerCase()) {
-    throw new Error("Preview database must differ from production");
+  let fingerprint;
+  try { fingerprint = databaseFingerprint(value); }
+  catch { throw new DeploymentPolicyError("PREVIEW_DATABASE_URL_INVALID", "Invalid preview PostgreSQL connection configuration"); }
+  if (fingerprint === production.toLowerCase()) {
+    throw new DeploymentPolicyError("PREVIEW_POINTS_TO_PRODUCTION", "Preview database must differ from production");
   }
   return value;
 }
