@@ -12,11 +12,11 @@ Continue como parceiro de discussão de produto, UX, arquitetura, dados e recome
 
 Nesta etapa, não implementar funcionalidades, executar migrations, modificar infraestrutura ou fechar um roadmap. O PR documenta a conversa; não aprova execução. Novas alterações dependem de uma mudança explícita de escopo pelo usuário.
 
-**Ponto exato da pausa:** foi proposta a distinção entre “fugiu do pedido”, “respeitou o pedido, mas não agradou” e “despertou interesse, com ressalvas”. A última pergunta ainda não foi respondida:
+**Pausa inicial (superada na continuação abaixo):** foi proposta a distinção entre “fugiu do pedido”, “respeitou o pedido, mas não agradou” e “despertou interesse, com ressalvas”. Naquela pausa, a pergunta ainda não tinha sido respondida:
 
 > Você acha natural ter uma opção como “não era o que pedi” separada de “não gostei”, deixando os detalhes opcionais?
 
-Não registrar essa opção como decisão aprovada. Depois, aprofundar métricas, viabilidade dos dados, responsabilidades da IA e arquitetura. A ordem continua aberta.
+A opção foi aprovada na continuação registrada ao final deste documento. O ponto atual é a análise da limpeza e identificação do catálogo. Métricas, viabilidade dos dados, responsabilidades da IA e arquitetura continuam abertas.
 
 Sugestão de mensagem para retomar:
 
@@ -216,3 +216,45 @@ Manter como hipóteses, sem transformar em backlog aprovado:
 
 Este documento é o único conteúdo proposto no PR. Alterações preexistentes em dependências locais não fazem parte dele. As decisões de produto continuam revisáveis. Retomar a discussão antes de planejar ou iniciar implementação.
 
+
+## Continuação — feedback, justificativas e memória de descobertas
+
+Direções adicionais explicitamente aceitas pelo usuário:
+
+- Separar “não era o que pedi” de “não gostei”. A primeira reação corrige adequação à intenção sem concluir desagrado pela faixa; a segunda informa preferência sem rejeitar automaticamente o artista.
+- Ajustes da busca valem para a sessão; avaliações explícitas de músicas são lembradas e podem ser revistas. Uma avaliação de mood permanece contextual.
+- Reconhecer “valeu conhecer” como exploração válida, sem marcar aprovação musical nem excluir tentativas futuras. Uma retomada precisa de motivo; não insistir automaticamente na mesma aposta.
+- Aprofundamento só com permissão/iniciativa do usuário. A reação simples já é suficiente. Oferecer convite discreto, sem abrir perguntas automaticamente ou bloquear a próxima música.
+- A justificativa inicial pode unir adequação ao pedido e conexão com o gosto em uma ou duas frases, quando houver evidência para ambas. Na exploração radical, não inventar afinidade para preencher essa estrutura.
+- Criar uma timeline visual de descobertas, agrupada por sessão/jornada, com capas e comentários pontuais do amigo. Datas discretas e caneta conectando desdobramentos; detalhes abertos sob demanda.
+- Agrupar interações para evitar repetir a mesma capa a cada clique. O histórico não precisa expor todo evento como um destaque.
+- Acrescentar retornos observados automaticamente à jornada, com opção de corrigir ou dispensar a observação. “Voltou a tocar” não significa “virou favorita”.
+- A timeline fica na área de descoberta; acontecimentos relevantes podem gerar convites na home.
+
+Sugestões de rótulos e menus são exemplos revisáveis. Não interpretar esses acordos como desenho final ou autorização de implementação.
+
+## Investigação adicional — limpeza já existente e identidade musical
+
+O usuário lembrou que já havia limpeza de músicas. A leitura estática confirmou camadas úteis, com responsabilidades diferentes:
+
+| Camada existente | Comportamento observado | Limite |
+| --- | --- | --- |
+| [normalizeText](../src/modules/listening/domain/normalization.ts) | Remove acentos, ajusta caixa, espaços e extremidades. | Não resolve aliases, homônimos, participações ou versões. |
+| [Chave de evento](../src/modules/listening/domain/event-key.ts) e sync | Deduplicam por conta, provedor, instante, artista e faixa normalizados; mantêm nomes brutos. | Evitam reimportação da mesma escuta, não identificam universalmente a gravação; provedores diferentes geram chaves diferentes. |
+| [Correspondência Apple](../src/modules/enrichment/infrastructure/itunes-catalog-adapter.ts) | Limpa títulos, compara artista/título e busca catálogo/prévia. Há testes que preservam números em títulos. | Remoção ampla de parênteses e sufixos pode perder distinções sonoras importantes. |
+| [Filtros de candidatos](../src/modules/recommendations/domain/candidate-filters.ts) | Identificam colaborações de artistas conhecidos e limitam itens por artista. | Heurística por separadores pode confundir nomes legítimos; colaboração também pode trazer contribuição nova. |
+| [MusicBrainz](../src/modules/enrichment/infrastructure/musicbrainz-adapter.ts) | Seleciona artista por nome e score heurístico, resolve gêneros e outros metadados. | Nome igual não prova identidade quando há homônimos; o score não é uma probabilidade calibrada. |
+
+Achados específicos para validar antes de futuras mudanças:
+
+1. No matching Apple, `normalizeTitle` remove parênteses/colchetes e sufixos que incluem live, acoustic, mix e version. Assim, “Numb - Live” e “Numb” podem corresponder; existe teste que confirma essa normalização. Isso ajuda buscas, mas não garante a versão da prévia ou do atributo anexado.
+2. O sync identifica faixa por artista e título normalizado, sem álbum na chave. Isso evita separar a mesma faixa só porque aparece em coletânea, mas pode juntar gravações distintas com o mesmo nome.
+3. No adaptador Last.fm, o campo único `mbid` recebe `t.mbid || t.artist.mbid`. O sync grava `item.mbid` no artista. Quando houver MBID da faixa, ele pode ser armazenado como se fosse do artista. É um caminho de código confirmado; não se verificou ocorrência no banco.
+4. A comparação de nomes de artista na Apple usa inclusão e sobreposição de tokens. No MusicBrainz, igualdade normalizada recebe confiança máxima. Essas aproximações precisam de contexto para homônimos e créditos.
+5. A normalização da ingestão é mais conservadora que a busca Apple; outros filtros usam apenas trim/lowercase. São regras distintas, que podem reconhecer familiaridade e identidade de forma inconsistente.
+
+Hipótese de evolução, ainda em discussão: separar nome bruto, chave de busca e identidade confirmada; preservar qualificadores de versão; tipar identificadores externos por entidade; manter correspondências incertas como candidatas, sem fusão automática. Popularidade, curadoria e inferências sonoras não corrigem uma gravação identificada incorretamente.
+
+Uma auditoria futura poderia usar uma amostra com coletâneas, remasters, versões ao vivo/acústicas, remixes, participações, títulos com parênteses e artistas homônimos. Verificar correspondência da prévia, agrupamento, identificadores e procedência de gênero. Não foi executada auditoria do banco nem alteração do catálogo.
+
+**Ponto atual da discussão:** aprofundar como aproveitar essa limpeza existente sem apagar diferenças musicalmente relevantes. Continuar com exemplos e uma pergunta por vez; não iniciar implementação.
