@@ -40,6 +40,16 @@ export function automaticAiAllowed(env = process.env) {
   return !isPreview(env);
 }
 
+/** Plain client generation is offline; generate --sql and database commands retain the guard.
+ * @param {Record<string, string | undefined>} [env]
+ * @param {string[]} [args] */
+export function prismaDatasource(env = process.env, args = process.argv.slice(2)) {
+  if (args[0] === "generate" && !args.some(arg => arg === "--sql" || arg.startsWith("--sql="))) {
+    return undefined;
+  }
+  return { url: databaseConnectionString(env) };
+}
+
 /** Explicit manual generation stays disabled until provider-wide quota sharing is verified.
  * @param {Record<string, string | undefined>} [env] */
 export function manualAiAllowed(env = process.env) {
