@@ -5,6 +5,7 @@ vi.mock("@/lib/security/password", () => ({ verifyPassword: mocks.verify }));
 vi.mock("@/lib/security/login-limit", () => ({ consumeLoginAttempt: mocks.limit }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: { user: { findUnique: mocks.user } } }));
 import { POST } from "./route";
+import { DeploymentPolicyError } from "@/lib/runtime/deployment-policy.mjs";
 
 const request = (body = '{"password":"secret"}', origin = "https://app.test") => new Request("https://app.test/api/auth/login", {
   method: "POST", headers: { origin, "Content-Type": "application/json" }, body,
@@ -21,6 +22,20 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("login route", () => {
+  it("exposes only a fixed diagnostic code in preview and logs no exception contents", async () => {
+    vi.stubEnv("VERCEL_ENV", "preview");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      mocks.limit.mockRejectedValue(new DeploymentPolicyError("PREVIEW_DATABASE_URL_MISSING", "private connection data"));
+      const response = await POST(request());
+      expect(response.status).toBe(503);
+      expect(await response.json()).toEqual({ error: "Não foi possível entrar. Tente novamente.", code: "PREVIEW_DATABASE_URL_MISSING" });
+      expect(log).toHaveBeenCalledWith("[auth.login.failed]", { stage: "login_limit", code: "PREVIEW_DATABASE_URL_MISSING" });
+      expect(JSON.stringify(log.mock.calls)).not.toContain("private connection data");
+      vi.stubEnv("VERCEL_ENV", "production");
+      expect(await (await POST(request())).json()).toEqual({ error: "Não foi possível entrar. Tente novamente." });
+    } finally { log.mockRestore(); }
+  });
   it("creates a session only after checking credentials and the explicit owner", async () => {
     expect((await POST(request())).status).toBe(200);
     expect(mocks.user).toHaveBeenCalledWith({ where: { id: "owner" }, select: { id: true } });

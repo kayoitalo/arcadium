@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { AIAnalysisService } from "@/modules/ai-analysis/application/ai-analysis-service";
 import { logAi } from "@/modules/ai-analysis/application/ai-log";
 import { ConversationService } from "@/modules/conversation/application/conversation-service";
+import { automaticAiAllowed } from "@/lib/runtime/deployment-policy.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,7 @@ export async function GET(request: Request) {
     if (!user) return NextResponse.json({ moments: [], writing: false, hasHistory: false });
 
     const { view, refresh } = await new ConversationService().load(user.id);
-    if (refresh) {
+    if (refresh && automaticAiAllowed()) {
       after(async () => {
         await new AIAnalysisService()
           .refreshPack(user.id, refresh)
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
           );
       });
     }
-    return NextResponse.json(view);
+    return NextResponse.json(automaticAiAllowed() ? view : { ...view, writing: false });
   } catch (error) {
     logAi("ai.route_failed", { route: "conversation", message: String(error).slice(0, 200) }, "error");
     return NextResponse.json({ error: "Não foi possível montar a conversa." }, { status: 500 });

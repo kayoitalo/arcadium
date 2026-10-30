@@ -4,12 +4,16 @@ import { authConfigured, createSession } from "@/lib/security/session";
 import { verifyPassword } from "@/lib/security/password";
 import { isTrustedMutation } from "@/lib/security/request-origin";
 import { consumeLoginAttempt } from "@/lib/security/login-limit";
+import { isPreview } from "@/lib/runtime/deployment-policy.mjs";
+import { loginFailureCode } from "@/lib/security/login-diagnostics";
 
 export async function POST(request: Request) {
   if (!isTrustedMutation(request)) return NextResponse.json({ error: "Origem não autorizada." }, { status: 403 });
   if (!authConfigured()) return NextResponse.json({ error: "O acesso ainda precisa ser configurado pelo proprietário." }, { status: 503 });
+  let stage = "login_limit";
   try {
     if (!await consumeLoginAttempt()) return NextResponse.json({ error: "Muitas tentativas. Aguarde até 15 minutos." }, { status: 429, headers: { "Retry-After": "900" } });
+    stage = "request_body";
     const reader = request.body?.getReader();
     let body = "";
     if (reader) {
@@ -25,15 +29,20 @@ export async function POST(request: Request) {
       body += decoder.decode();
     }
     const payload = JSON.parse(body || "null");
+    stage = "password_check";
     if (typeof payload?.password !== "string" || !await verifyPassword(payload.password, process.env.AUTH_PASSWORD_HASH!)) {
       return NextResponse.json({ error: "Senha incorreta." }, { status: 401 });
     }
+    stage = "owner_lookup";
     const user = await prisma.user.findUnique({ where: { id: process.env.AUTH_USER_ID! }, select: { id: true } });
     if (!user) return NextResponse.json({ error: "Conta de acesso não configurada." }, { status: 503 });
+    stage = "session_creation";
     await createSession(user.id);
     return NextResponse.json({ success: true }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (error instanceof SyntaxError) return NextResponse.json({ error: "Requisição inválida." }, { status: 400 });
-    return NextResponse.json({ error: "Não foi possível entrar. Tente novamente." }, { status: 503 });
+    const code = loginFailureCode(error);
+    console.error("[auth.login.failed]", { stage, code });
+    return NextResponse.json({ error: "Não foi possível entrar. Tente novamente.", ...(isPreview() ? { code } : {}) }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
 }
