@@ -20,6 +20,16 @@ No ambiente `VERCEL_ENV=preview` (ou `APP_ENV=preview` local), o app nunca usa `
 
 Geração e sync não foram acionados nesta entrega. Habilitar geração manual não implementa, por si, reserva atômica ou contagem por tentativa: isso pertence ao próximo trabalho de orçamento e permanece uma limitação explícita.
 
+## Instalação sem conexão e branches Neon
+
+O postinstall `prisma generate` gera o cliente sem consultar o banco. A configuração omite o datasource apenas para esse comando offline; `generate --sql`, migrations e operações de banco continuam exigindo isolamento. Assim, instalação e build podem terminar antes do provisionamento, mas páginas que acessam dados continuam bloqueadas até configurar a cópia.
+
+Para configuração manual: Neon → projeto → Branches → New branch → selecionar a branch que contém os dados reais como parent → Current data → nome específico da feature. Obter a conexão dessa branch e defini-la como `PREVIEW_DATABASE_URL` na Vercel, apenas em Preview e preferencialmente limitada à branch Git do PR. Definir `PRODUCTION_DATABASE_FINGERPRINT` a partir do endpoint real de produção; não usar o endpoint da cópia para gerar esse valor. Configurar APP_ORIGIN com a origem exata da preview, então redeploy. Não compartilhar uma mesma cópia entre PRs com migrations incompatíveis.
+
+Existe integração Neon-Managed para criar branches automaticamente por preview. Ela injeta `DATABASE_URL`, não a variável específica `PREVIEW_DATABASE_URL` exigida nesta primeira implementação. Portanto, instalar a integração sozinha não conclui a configuração deste PR. Uma adaptação futura deverá verificar a origem/identidade do endpoint injetado antes de permitir seu uso, sem voltar ao banco de produção por fallback. Não adicionar migrations ao build como parte desta correção.
+
+Segundo a documentação consultada, o Free inclui 10 branches por projeto, com compute e armazenamento limitados por projeto. Confirmar no painel da conta antes de criar e remover cópias antigas ao encerrar os testes. Fontes: [planos Neon](https://neon.com/docs/introduction/plans), [criação manual](https://neon.com/docs/manage/branches) e [integração Vercel](https://neon.com/docs/guides/neon-managed-vercel-integration).
+
 ## Amostra pública e consultas limitadas
 
 `scripts/evaluation/cases.json` contém 30 entradas públicas sintéticas. Não são histórico pessoal nem curadoria aprovada para o produto. Inclui referências conhecidas, música brasileira, versões, participações, homônimos e sondas de cobertura. A popularidade das sondas não foi medida. Qualificadores de versão são casos de consulta, não identificadores canônicos já confirmados.
