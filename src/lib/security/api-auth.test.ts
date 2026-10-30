@@ -13,6 +13,12 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("API access", () => {
+  it("rejects scheduler credentials on previews before looking up the owner", async () => {
+    vi.stubEnv("VERCEL_ENV", "preview");
+    const request = new Request("https://app.test/api/sync", { method: "POST", headers: { authorization: "Bearer cron-secret" } });
+    expect((await authorizeApi(request, true)).response?.status).toBe(403);
+    expect(mocks.findUser).not.toHaveBeenCalled();
+  });
   it("denies anonymous reads and mutations before accessing user data", async () => {
     mocks.session.mockResolvedValue(null);
     for (const method of ["GET", "POST", "DELETE"]) {
