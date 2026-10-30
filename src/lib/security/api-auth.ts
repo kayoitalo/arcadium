@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { currentSession } from "./session";
 import { verifyCronAuth } from "./cron-auth";
 import { isTrustedMutation } from "./request-origin";
+import { isPreview } from "@/lib/runtime/deployment-policy.mjs";
 
 type Access = { userId: string; response?: never } | { userId?: never; response: NextResponse };
 
@@ -10,6 +11,9 @@ type Access = { userId: string; response?: never } | { userId?: never; response:
 export async function authorizeApi(request: Request, allowCron = false): Promise<Access> {
   try {
     if (allowCron && request.method === "POST" && verifyCronAuth(request).authorized) {
+      if (isPreview()) {
+        return { response: NextResponse.json({ error: "Agendamentos desativados na preview." }, { status: 403 }) };
+      }
       const id = process.env.AUTH_USER_ID;
       const user = id ? await prisma.user.findUnique({ where: { id }, select: { id: true } }) : null;
       if (user) return { userId: user.id };
