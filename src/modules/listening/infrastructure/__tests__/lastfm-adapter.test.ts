@@ -15,7 +15,8 @@ describe("LastFmHistoryProvider", () => {
           {
             artist: { "#text": "Nirvana", mbid: "nirvana-mbid" },
             name: "Smells Like Teen Spirit",
-            album: { "#text": "Nevermind" },
+            album: { "#text": "Nevermind", mbid: "release-mbid" },
+            mbid: "recording-mbid",
             date: { uts: "1700000000", "#text": "20 Nov 2023, 00:00" },
           },
         ],
@@ -43,7 +44,9 @@ describe("LastFmHistoryProvider", () => {
       rawTrackName: "Smells Like Teen Spirit",
       rawAlbumName: "Nevermind",
       playedAtUtcSeconds: 1700000000,
-      mbid: "nirvana-mbid",
+      artistMbid: "nirvana-mbid",
+      recordingMbid: "recording-mbid",
+      releaseMbid: "release-mbid",
     });
     expect(result.page).toBe(1);
     expect(result.totalPages).toBe(1);

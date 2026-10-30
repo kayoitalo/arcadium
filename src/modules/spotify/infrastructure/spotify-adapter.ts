@@ -1,5 +1,6 @@
 import { PlaylistProvider, PlaylistSearchResult, PlaylistResult } from "../domain/playlist-provider.interface";
 import { SpotifyAuthError } from "../domain/spotify-errors";
+import { compatibleRecording } from "@/lib/music/recording-match";
 
 /** Nenhuma chamada pode ficar pendurada segurando a exportação. */
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -39,7 +40,7 @@ export class SpotifyAdapter implements PlaylistProvider {
     const query = new URLSearchParams({
       q: `track:${trackName} artist:${artistName}`,
       type: "track",
-      limit: "1",
+      limit: "10",
     });
 
     try {
@@ -63,7 +64,12 @@ export class SpotifyAdapter implements PlaylistProvider {
       }
 
       const data = await response.json();
-      const track = data.tracks?.items?.[0];
+      const track = data.tracks?.items?.find((candidate: {
+        name?: string; artists?: Array<{ name?: string }>; uri?: string;
+      }) => typeof candidate.name === "string" && candidate.uri?.startsWith("spotify:track:")
+        && compatibleRecording({ artistName, trackName }, {
+          artistName: candidate.artists?.[0]?.name ?? "", trackName: candidate.name,
+        }));
 
       if (!track) {
         return { uri: null, webUrl: webSearchUrl };
@@ -84,12 +90,12 @@ export class SpotifyAdapter implements PlaylistProvider {
 
   async createPlaylist(
     accessToken: string,
-    spotifyUserId: string,
+    _spotifyUserId: string,
     title: string,
     description: string
   ): Promise<PlaylistResult | null> {
     try {
-      const response = await fetch(`https://api.spotify.com/v1/users/${encodeURIComponent(spotifyUserId)}/playlists`, {
+      const response = await fetch("https://api.spotify.com/v1/me/playlists", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -141,7 +147,7 @@ export class SpotifyAdapter implements PlaylistProvider {
     for (let i = 0; i < validUris.length; i += chunkSize) {
       const chunk = validUris.slice(i, i + chunkSize);
       try {
-        const response = await fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/tracks`, {
+        const response = await fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/items`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${accessToken}`,

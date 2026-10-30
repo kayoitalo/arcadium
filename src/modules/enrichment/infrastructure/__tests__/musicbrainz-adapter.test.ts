@@ -70,6 +70,20 @@ describe("MusicBrainzAdapter", () => {
     expect(result).toBeNull();
   });
 
+  it("does not choose one homonym by search rank", async () => {
+    vi.mocked(fetch).mockResolvedValue({ ok: true, json: async () => ({ artists: [
+      { id: "one", name: "Ghost", score: 100 }, { id: "two", name: "Ghost", score: 90 },
+    ] }) } as Response);
+    expect(await adapter.searchArtist("Ghost")).toBeNull();
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it("uses the artist endpoint for a known identifier rather than a new name search", async () => {
+    vi.mocked(fetch).mockResolvedValue({ ok: true, json: async () => ({ id: "artist-id", name: "Band", genres: [] }) } as Response);
+    expect((await adapter.searchArtist("Band", "artist-id"))?.mbid).toBe("artist-id");
+    expect(String(vi.mocked(fetch).mock.calls[0][0])).toContain("/artist/artist-id?inc=genres");
+  });
+
   it("parses release year and primary type for albums", async () => {
     const mockAlbumResponse = {
       releases: [

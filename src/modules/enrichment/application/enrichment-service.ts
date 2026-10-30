@@ -7,7 +7,8 @@ import type { Prisma } from "@prisma/client";
 import { MusicBrainzAdapter } from "../infrastructure/musicbrainz-adapter";
 import { CoverArtArchiveAdapter } from "../infrastructure/cover-art-archive-adapter";
 import { LastFmCoverAdapter } from "../infrastructure/lastfm-cover-adapter";
-import { ItunesCatalogAdapter, normalizeTitle, type CatalogTrack } from "../infrastructure/itunes-catalog-adapter";
+import { ItunesCatalogAdapter, type CatalogTrack } from "../infrastructure/itunes-catalog-adapter";
+import { compatibleRecording } from "@/lib/music/recording-match";
 import type { AlbumCoverFallbackProvider, CoverArtResult } from "../domain/cover-art-provider.interface";
 
 /** Um álbum que nenhuma fonte achou volta para a fila depois deste prazo. */
@@ -150,7 +151,7 @@ export class EnrichmentService {
       summary.totalProcessed++;
 
       try {
-        const enriched = await this.adapter.searchArtist(artist.name);
+        const enriched = await this.adapter.searchArtist(artist.name, artist.mbid);
 
         if (enriched) {
           await prisma.artist.update({
@@ -227,14 +228,14 @@ export class EnrichmentService {
   async enrichMissingReleaseGroups(userId: string, batchSize = 10): Promise<{ processed: number; resolved: number }> {
     const recentAlbumIds = await this.getRecentEntityIds(userId, "albumId", batchSize * 5);
     const recentAlbums = recentAlbumIds.length ? await prisma.album.findMany({
-      where: { id: { in: recentAlbumIds }, releaseGroupFetchedAt: null, artist: { mbid: { not: null } } },
+      where: { id: { in: recentAlbumIds }, releaseGroupFetchedAt: null, artist: { mbid: { not: null }, metadataStatus: { not: "IDENTITY_REVIEW" } } },
       include: { artist: { select: { mbid: true } } },
     }) : [];
     const recentById = new Map(recentAlbums.map((album) => [album.id, album]));
     const albums = recentAlbumIds.map((id) => recentById.get(id)).filter(Boolean).slice(0, batchSize) as typeof recentAlbums;
     if (albums.length < batchSize) {
       const fallback = await prisma.album.findMany({
-        where: { listeningEvents: { some: { userId } }, releaseGroupFetchedAt: null, artist: { mbid: { not: null } }, id: { notIn: albums.map((album) => album.id) } },
+        where: { listeningEvents: { some: { userId } }, releaseGroupFetchedAt: null, artist: { mbid: { not: null }, metadataStatus: { not: "IDENTITY_REVIEW" } }, id: { notIn: albums.map((album) => album.id) } },
         include: { artist: { select: { mbid: true } } },
         take: batchSize - albums.length,
         orderBy: { id: "asc" },
@@ -405,15 +406,17 @@ export class EnrichmentService {
   private async applyCatalogTracks(userId: string, albumId: string, artistId: string, tracks: CatalogTrack[]): Promise<number> {
     if (tracks.length === 0) return 0;
 
-    const byTitle = new Map(tracks.map((track) => [normalizeTitle(track.name), track]));
     const heard = await prisma.track.findMany({
       where: { artistId, listeningEvents: { some: { albumId, userId } } },
-      select: { id: true, name: true, durationMs: true },
+      select: { id: true, name: true, durationMs: true, artist: { select: { name: true } } },
     });
 
     let updated = 0;
     for (const track of heard) {
-      const match = byTitle.get(normalizeTitle(track.name));
+      const match = tracks.find((candidate) => compatibleRecording(
+        { artistName: track.artist.name, trackName: track.name },
+        { artistName: candidate.artistName, trackName: candidate.name },
+      ));
       if (!match) continue;
 
       await prisma.track.update({

@@ -138,7 +138,9 @@ export class LastFmHistoryProvider implements ListeningHistoryProvider {
         rawTrackName: t.name,
         rawAlbumName: t.album?.["#text"] || undefined,
         playedAtUtcSeconds: parseInt(t.date!.uts, 10),
-        mbid: t.mbid || t.artist.mbid || undefined,
+        artistMbid: t.artist.mbid || undefined,
+        recordingMbid: t.mbid || undefined,
+        releaseMbid: t.album?.mbid || undefined,
       }));
 
     const attr = recentTracks["@attr"];

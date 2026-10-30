@@ -83,44 +83,27 @@ export class MusicBrainzAdapter implements MetadataProvider {
     await new Promise((resolve) => setTimeout(resolve, wait));
   }
 
-  async searchArtist(artistName: string): Promise<EnrichedArtistResult | null> {
+  async searchArtist(artistName: string, expectedMbid?: string | null): Promise<EnrichedArtistResult | null> {
     if (!artistName || !artistName.trim()) return null;
 
     const normalizedTarget = normalizeText(artistName);
-    const url = `https://musicbrainz.org/ws/2/artist?query=artist:${encodeURIComponent(artistName)}&fmt=json`;
+    const url = expectedMbid
+      ? `https://musicbrainz.org/ws/2/artist/${encodeURIComponent(expectedMbid)}?inc=genres&fmt=json`
+      : `https://musicbrainz.org/ws/2/artist?query=artist:${encodeURIComponent(artistName)}&fmt=json`;
 
     const data = await this.requestJson(url, artistName);
     if (!data) return null;
 
     {
-      const artists = data.artists || [];
+      const artists = expectedMbid ? (data.id === expectedMbid ? [data] : []) : (data.artists || []);
       if (artists.length === 0) return null;
 
-      let bestMatch: any = null;
-      let highestConfidence = 0;
+      // A search score or substring is not identity. Homonyms require evidence
+      // that this name-only search does not carry.
+      const exact = artists.filter((item: { name?: string }) => normalizeText(item.name || "") === normalizedTarget);
+      if (exact.length !== 1) return null;
 
-      for (const item of artists) {
-        const itemNorm = normalizeText(item.name || "");
-        let confidence = 0;
-
-        if (itemNorm === normalizedTarget) {
-          confidence = 1.0;
-        } else if (itemNorm.includes(normalizedTarget) || normalizedTarget.includes(itemNorm)) {
-          confidence = 0.8;
-        } else {
-          const mbScore = (item.score || 0) / 100;
-          confidence = mbScore * 0.7;
-        }
-
-        if (confidence > highestConfidence) {
-          highestConfidence = confidence;
-          bestMatch = item;
-        }
-      }
-
-      if (!bestMatch || highestConfidence < 0.6) {
-        return null;
-      }
+      const bestMatch = exact[0];
 
       const country = bestMatch.country || bestMatch.area?.["iso-3166-1-codes"]?.[0] || null;
       const type = bestMatch.type || null;
@@ -134,7 +117,8 @@ export class MusicBrainzAdapter implements MetadataProvider {
         type,
         disambiguation,
         tags,
-        score: highestConfidence,
+        // Text compatibility for legacy callers, not a probability of identity.
+        score: 1,
       };
     }
   }
@@ -153,7 +137,7 @@ export class MusicBrainzAdapter implements MetadataProvider {
     ).slice(0, 5);
 
     try {
-      const detail = await this.requestJson(
+      const detail = Array.isArray(bestMatch.genres) ? bestMatch : await this.requestJson(
         `https://musicbrainz.org/ws/2/artist/${bestMatch.id}?inc=genres&fmt=json`,
         bestMatch.name || bestMatch.id
       );

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { previewPath } from "@/lib/music/preview-path";
 import { formatGenre } from "@/lib/format/genre";
 import { AIAnalysisService } from "@/modules/ai-analysis/application/ai-analysis-service";
 import type { ProfileNarrative } from "@/modules/ai-analysis/domain/ai-analysis.types";
@@ -161,13 +162,10 @@ class PeriodData {
   }
 }
 
-/** A prévia guardada no catálogo; sem ela, a busca na Apple — que também serve de reserva de capa. */
+/** Known tracks are revalidated on play; old stored URLs do not prove version. */
 async function previewFor(trackId: string | null, artist: string, track: string) {
-  const stored = trackId
-    ? await prisma.track.findUnique({ where: { id: trackId }, select: { previewUrl: true } })
-    : null;
-  if (stored?.previewUrl) return { url: stored.previewUrl, artworkUrl: null as string | null };
-  const found = await previews.findPreview(artist, track);
+  if (trackId) return { url: previewPath(trackId), artworkUrl: null as string | null };
+  const found = await previews.findPreview(artist, track).catch(() => null);
   return { url: found?.url ?? null, artworkUrl: found?.artworkUrl ?? null };
 }
 

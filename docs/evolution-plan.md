@@ -12,8 +12,8 @@ Faixa por vez, contexto fundamentado e aprofundamentos opcionais. Álbuns podem 
 
 | Etapa | Entrega e aceitação | Estado |
 | --- | --- | --- |
-| 1 | Avaliação reproduzível, capacidades e limites, cópia isolada, baseline. | Código e ferramentas verificados; configuração manual da cópia/preview e avaliação pessoal pendentes. Ver [procedimento](evaluation-foundation.md). |
-| 2 | Identificadores por entidade, versões preservadas, integrações e limites corrigidos; prévia/feedback na gravação certa. | Pendente |
+| 1 | Avaliação reproduzível, capacidades e limites, cópia isolada, baseline. | PR 11 mergeado; preview testada e aprovada pelo proprietário. A amostra completa de fontes continua uma avaliação manual, não um resultado inferido dos testes. Ver [procedimento](evaluation-foundation.md). |
+| 2 | Identificadores por entidade, versões preservadas, integrações e limites corrigidos; prévia/feedback na gravação certa. | Implementação em revisão; validação musical/OAuth na preview pendente. Ver [alterações e limites](identity-integrations.md). |
 | 3 | Retomar/buscar mais/outra entrada distintos; feedback revisável com escopo correto e histórico preservado. | Pendente |
 | 4 | Perfil longo/recente, similaridade por faixa, adequação antes de afinidade, diversidade depois das exclusões; efeito do feedback observável. | Pendente |
 | 5 | ListenBrainz opt-in por gravação; contribuição exclusiva medida; fontes não compartilham uma escala artificial de score. | Pendente |
@@ -27,7 +27,7 @@ PRs pequenos devem entregar ganhos identificáveis, mantendo o motor atual como 
 
 ## Regras de execução
 
-- Preview Vercel com banco separado; proprietário escolheu configurar a cópia e as variáveis manualmente depois. Não contornar a pendência usando produção.
+- Preview Vercel com banco separado; cópia e variáveis configuradas manualmente pelo proprietário e preview aprovada na etapa 1. Manter o isolamento nas próximas entregas.
 - Sem contratação, IA paga, análise acústica ampla, worker/fila, banco vetorial ou publicação de histórico no ListenBrainz por padrão.
 - Identidade incerta não vira correspondência confirmada. Mesma gravação em outro lançamento é diferente de outra interpretação; alternativas são explícitas.
 - “Não era o que pedi”, “não gostei”, “já conheço”, pular, guardar, curiosidade e “ainda não ouvi” têm significados separados. Não converter feedback legado em motivos não declarados.
