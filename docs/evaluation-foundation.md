@@ -78,6 +78,23 @@ Não há evidência para oferecer filtros estritos de mood, voz ou instrumentaç
 
 ## Aceitação e pendências
 
+### Diagnóstico de login na preview
+
+Erros de operação do login mantêm HTTP 503 e mensagem genérica; apenas na preview a resposta inclui um código fixo. Os logs `[auth.login.failed]` incluem etapa e código, nunca exceção bruta, SQL, senha ou URL.
+
+| Código | Verificação |
+| --- | --- |
+| PREVIEW_DATABASE_URL_MISSING | Definir a conexão da cópia na variável de Preview/branch Git correta e redeploy. |
+| PRODUCTION_FINGERPRINT_MISSING / INVALID | Definir o hash de 64 caracteres hexadecimais, sem aspas/espaços; não colocar a connection string nesse campo. |
+| PREVIEW_POINTS_TO_PRODUCTION | A proteção rejeitou o mesmo endpoint; selecionar a cópia correta, sem desativar o guard. |
+| PREVIEW_DATABASE_URL_INVALID | Revisar formato PostgreSQL da conexão. |
+| DATABASE_UNREACHABLE / TIMEOUT / CONNECTION_CLOSED | Conferir endpoint/compute/rede na Neon e logs de operação. |
+| DATABASE_AUTH_FAILED | Conferir credenciais da branch de teste. |
+| DATABASE_TABLE_MISSING / COLUMN_MISSING | Verificar se a cópia inclui o schema atual; não executar migration em produção como solução. |
+| LOGIN_OPERATION_FAILED | Consultar a etapa fixa no log; drivers podem encapsular erros sem código reconhecido. |
+
+Produção continua sem código de diagnóstico na resposta. Senha incorreta retorna 401; origem recusada retorna 403.
+
 - Implementado: política de conexão isolada no app e Prisma CLI, bloqueio de cron e auto-IA em preview, opt-in manual conservador, testes, amostra e runners sem mutações.
 - Verificado: checagem de tipos, build de produção, suíte automatizada e execução dry-run. Testes e build precisaram rodar fora do sandbox devido a bloqueio de arquivos temporários e acesso à fonte Google; não exigiram alterações nos testes existentes.
 - Pendente: acesso autenticado Vercel/Neon, confirmação de plano gratuito, provisionamento da cópia, revisão de tokens/sessões copiados, configuração da preview e OAuth, avaliação real de provedores e baseline pessoal.
