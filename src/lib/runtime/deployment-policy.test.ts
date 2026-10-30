@@ -1,11 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { automaticAiAllowed, databaseConnectionString, databaseFingerprint, manualAiAllowed } from "./deployment-policy.mjs";
+import { automaticAiAllowed, databaseConnectionString, databaseFingerprint, manualAiAllowed, prismaDatasource } from "./deployment-policy.mjs";
 
 const production = "postgresql://owner:secret@ep-main.neon.tech/music?sslmode=require";
 const preview = "postgresql://owner:another@ep-preview.neon.tech/music?sslmode=require";
 const fingerprint = databaseFingerprint(production);
 
 describe("isolated preview deployment", () => {
+  it("allows offline client generation before preview provisioning", () => {
+    expect(prismaDatasource({ VERCEL_ENV: "preview" }, ["generate"])).toBeUndefined();
+    expect(prismaDatasource({}, ["generate"])).toBeUndefined();
+  });
+  it.each([
+    ["migrate", "deploy"], ["migrate", "status"], ["db", "push"],
+    ["db", "execute"], ["generate", "--sql"], ["generate", "--sql=query.sql"],
+    ["db", "push", "--schema", "generate"],
+  ])("retains the preview database guard for CLI arguments %j", (...args) => {
+    expect(() => prismaDatasource({ VERCEL_ENV: "preview", DATABASE_URL: production }, args)).toThrow("isolated");
+  });
+  it("uses the isolated connection for database CLI operations", () => {
+    expect(prismaDatasource({ VERCEL_ENV: "preview", PREVIEW_DATABASE_URL: preview, PRODUCTION_DATABASE_FINGERPRINT: fingerprint }, ["migrate", "status"]))
+      .toEqual({ url: preview });
+  });
   it("does not silently use production when preview configuration is absent", () => {
     expect(() => databaseConnectionString({ VERCEL_ENV: "preview", DATABASE_URL: production })).toThrow("isolated");
     expect(() => databaseConnectionString({ APP_ENV: "preview", PREVIEW_DATABASE_URL: preview })).toThrow("fingerprint");
