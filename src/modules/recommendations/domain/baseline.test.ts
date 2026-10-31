@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { scoreAndRank, type UserProfile } from "./scoring";
-import { ALGORITHM_VERSION, type RawCandidate } from "./recommendation.types";
+import { scoreAndRank, type UserProfile } from "./legacy-scoring";
+import { type RawCandidate } from "./recommendation.types";
 
 // A synthetic control, not the owner's history. Intentionally captures current heuristics.
 const profile: UserProfile = {
@@ -25,6 +25,6 @@ describe("v2-dials synthetic evaluation control", () => {
       ["BALANCED", [["Hum", 89, 90], ["Portishead", 72, 90], ["Radiohead", 71, 30]]],
       ["EXPERIMENTAL", [["Hum", 80, 90], ["Portishead", 64, 90], ["Radiohead", 60, 30]]],
     ]);
-    if (process.env.ARCADIUM_BASELINE_REPORT === "true") console.log(JSON.stringify({ algorithmVersion: ALGORITHM_VERSION, synthetic: true, result }));
+    if (process.env.ARCADIUM_BASELINE_REPORT === "true") console.log(JSON.stringify({ algorithmVersion: "v2-dials-control", synthetic: true, result }));
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeComponents, calculateScore, scoreAndRank, type UserProfile } from "./scoring";
+import { computeComponents, calculateScore, scoreAndRank, type UserProfile } from "./legacy-scoring";
 import { type RawCandidate } from "./recommendation.types";
 
 describe("Recommendation Scoring Engine", () => {

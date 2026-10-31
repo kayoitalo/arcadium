@@ -55,7 +55,7 @@ describe("explicit session operations", () => {
     expect(result.sessionId).not.toBe("source"); expect(result.mode).toBe("SAFE");
     expect(result.settings.dials).toEqual({ proximity: 85, fame: 70 });
     expect(result.items.map((item) => item.trackName)).not.toContain("One");
-    expect(result.items.length).toBeGreaterThan(0); expect(result.items[0].trackName).toBe("Two");
+    expect(result.items).toHaveLength(1); expect(["Two", "Three"]).toContain(result.items[0].trackName);
     expect(sessions[0].currentRank).toBe(2); expect(sessions[0].items[0].reason).toBe("original reason");
   });
   it("retries a generated request without another reservation or external generation", async () => {

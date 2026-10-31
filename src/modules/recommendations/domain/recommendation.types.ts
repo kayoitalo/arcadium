@@ -77,7 +77,7 @@ export interface RawCandidate {
   trackName: string;
   albumName?: string;
   genre?: string;
-  source: "similar_artist" | "genre_adjacency" | "artist_graph" | "top_artist_deep_cut";
+  source: "similar_artist" | "similar_track" | "genre_adjacency" | "artist_graph" | "top_artist_deep_cut" | "history_revisit";
   sourceArtistName?: string;
   artistId?: string;
   trackId?: string;
@@ -85,6 +85,22 @@ export interface RawCandidate {
   match?: number;
   /** Ouvintes únicos do artista, para posicionar na escala de fama. */
   listeners?: number;
+  evidence?: RecommendationEvidence[];
+  isRevisit?: boolean;
+  providerRank?: number;
+}
+
+export interface RecommendationEvidence {
+  kind: "artist_similarity" | "track_similarity" | "artist_catalog" | "genre_overlap" | "history_revisit";
+  source: "lastfm" | "catalog" | "history";
+  seedArtist?: string;
+  seedTrack?: string;
+  region?: "long_term" | "recent" | "feedback";
+  rank?: number;
+  rawMatch?: number;
+  genre?: string;
+  lastPlayedAt?: string;
+  playCount?: number;
 }
 
 export interface ScoredCandidate extends RawCandidate {
@@ -93,9 +109,9 @@ export interface ScoredCandidate extends RawCandidate {
   components: ScoreComponents;
   reason: string;
   /** Coordenadas 0..100 da sugestão nos mesmos eixos dos controles. */
-  position: DiscoveryDials;
+  position: DiscoveryDials | null;
 }
 
-export const ALGORITHM_VERSION = "v2-session-memory";
+export const ALGORITHM_VERSION = "v3-hybrid-1";
 export const DEFAULT_SESSION_SIZE = 8;
 export const RECENT_RECOMMENDATION_COOLDOWN_DAYS = 14;

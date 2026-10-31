@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "interpretation": "Mechanism and invariants only; no measured user acceptance or online recommendation-quality claim.",
+  "control": "legacy ranking and early artist cap on the shared synthetic pool",
+  "rankingVersion": "hybrid-weights-1",
+  "controls": {
+    "proximity": 55,
+    "fame": 50
+  },
+  "configuredLastFmCallCap": 19,
+  "invariantViolations": 0,
+  "feedbackWinnerChanged": true,
+  "rows": [
+    {
+      "treatment": "neutral",
+      "legacy": [
+        "Control",
+        "Linked"
+      ],
+      "hybrid": [
+        "Control",
+        "Unheard",
+        "Linked"
+      ]
+    },
+    {
+      "treatment": "liked-reference",
+      "legacy": [
+        "Control",
+        "Linked"
+      ],
+      "hybrid": [
+        "Linked",
+        "Control",
+        "Unheard"
+      ]
+    },
+    {
+      "treatment": "withdrawn",
+      "legacy": [
+        "Control",
+        "Linked"
+      ],
+      "hybrid": [
+        "Control",
+        "Unheard",
+        "Linked"
+      ]
+    },
+    {
+      "treatment": "disliked-track",
+      "legacy": [
+        "Control"
+      ],
+      "hybrid": [
+        "Control",
+        "Unheard"
+      ]
+    }
+  ]
+}

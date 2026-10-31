@@ -15,7 +15,7 @@ beforeEach(() => {
   mocks.history.mockImplementation(async () => [...history]);
   mocks.create.mockImplementation(async ({ data }) => { const row = { ...data, id: "feedback-" + (history.length + 1), createdAt: new Date() }; history.push(row); return row; });
   mocks.transaction.mockImplementation((task) => task({ $queryRaw: mocks.lock,
-    recommendationItem: { findUnique: mocks.item, update: mocks.update },
+    recommendationItem: { findUnique: mocks.item, update: mocks.update, findFirst: mocks.owned, updateMany: mocks.expose },
     recommendationSession: { update: mocks.sessionUpdate, findFirst: mocks.session },
     recommendationFeedback: { findMany: mocks.history, create: mocks.create } }));
 });

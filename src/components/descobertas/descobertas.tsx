@@ -33,6 +33,7 @@ interface Candidate {
   position: { proximity: number; fame: number } | null;
   rank: number;
   feedback?: Partial<Record<FeedbackChannel, FeedbackEntry>>;
+  sourceUrl?: string | null;
 }
 
 type Action = "liked" | "saved" | "known" | "skipped" | "disliked" | "mismatch" | "curious" | "unheard";
@@ -258,6 +259,7 @@ export function Descobertas() {
         setQueue((previous) => previous?.map((item) => item.id === current.id ? { ...item, feedback: states } : item) ?? null);
         if (action !== "retract") setDecided((previous) => ({ ...previous, [current.id]: action }));
         if (payload.currentRank != null) setIndex(payload.currentRank - 1);
+        if (payload.session) applySession(payload.session);
 
       } catch (cause) {
         setFeedbackError(cause instanceof Error ? cause.message : "A conexão falhou. Tenta responder de novo.");
@@ -266,7 +268,7 @@ export function Descobertas() {
         setSaving(false);
       }
     },
-    [current, sessionId, stop, busy, selection, note, aspects],
+    [current, sessionId, stop, busy, selection, note, aspects, applySession],
   );
 
   const toggleSound = useCallback(() => {
@@ -485,6 +487,7 @@ export function Descobertas() {
                     </a>
                   </>
                 )}
+                {current.sourceUrl && <> · <a href={current.sourceUrl} target="_blank" rel="noreferrer">referência no Last.fm ↗</a></>}
               </span>
             </div>
           </div>
@@ -551,6 +554,7 @@ export function Descobertas() {
             nesse canto.
           </p>
           <Mapa proximity={proximity} fame={fame} dots={dots} busy={busy || saving} onChange={move} onCommit={commit} />
+          {queue?.some((item) => !item.position) && <p className={styles.quiet}>Quando falta informação de público, a sugestão continua aqui, mas fica fora dos pontos do mapa.</p>}
           <Respostas inline label="Continuidade da descoberta">
             <Resposta onClick={() => void load(proximity, fame, "RESUME")} disabled={busy || saving || !sessionId}>retomar sessão</Resposta>
             <Resposta onClick={() => void load(proximity, fame, "MORE")} disabled={busy || saving || !sessionId}>buscar mais nesse canto</Resposta>

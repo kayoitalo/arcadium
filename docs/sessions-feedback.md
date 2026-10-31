@@ -1,6 +1,6 @@
 # Etapa 3 — continuidade e feedback
 
-Hipótese: retomar sem reiniciar, distinguir operações e interpretar corretamente o feedback evita repetição e ensina algo específico sobre cada faixa. Não se afirma melhora de descoberta por gênero nesta etapa; perfil e geração musical serão aprofundados na etapa 4.
+Hipótese: retomar sem reiniciar, distinguir operações e interpretar corretamente o feedback evita repetição e ensina algo específico sobre cada faixa. O PR 13 foi ampliado para reunir esta base e a primeira evolução musical da etapa 4, descrita em [motor híbrido](hybrid-discovery.md). Qualidade musical real continua dependendo da avaliação na preview.
 
 ## Comportamento
 
@@ -38,7 +38,7 @@ A lista de exportação continua usando o armazenamento local existente nesta et
 - `GET /api/recommendations/[sessionId]` recupera a sessão do proprietário. `PATCH` registra `EXPOSE` ou `MOVE` com posição esperada. Respostas de sessão incluem `currentRank`, `settings` e estado vigente de feedback por item.
 - Feedback aceita os tipos anteriores e os novos; `requestKey`, `revisesId`, `details` e `advance` são aditivos. Uma chamada antiga sem chave só repete sem escrever se ainda for o mesmo estado vigente; curtir, descurtir e curtir de novo gera revisões distintas.
 - Gravações e avanço ocorrem em transação com bloqueio da sessão. As chaves de busca e feedback e a revisão têm índices únicos. Campos legados ficam nulos, sem transformar avaliações antigas em um estado específico novo.
-- Versão do motor: `v2-session-memory`. Os pesos e as fontes não mudaram; foi retirado o efeito indevido do voto de faixa sobre o artista inteiro.
+- A base de memória/escopo da etapa 3 fica disponível no controle `v2-session-memory`. O padrão do PR ampliado é `v3-hybrid-1`, com perfil, busca por faixa e ranking da etapa 4. Sessões de uma versão não viram resultados novos da outra.
 
 ## Migration: aplicar primeiro na preview
 

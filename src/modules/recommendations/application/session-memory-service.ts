@@ -68,10 +68,13 @@ export class SessionMemoryService {
   }
 
   async expose(userId: string, sessionId: string, itemId: string) {
-    const item = await prisma.recommendationItem.findFirst({ where: { id: itemId, sessionId, session: { userId } }, select: { id: true } });
-    if (!item) throw new DiscoveryConflict("Indicação não encontrada.", 404);
-    await prisma.recommendationItem.updateMany({ where: { id: item.id, exposedAt: null }, data: { exposedAt: new Date() } });
-    return { success: true };
+    return prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "RecommendationSession" WHERE "id" = ${sessionId} AND "userId" = ${userId} FOR UPDATE`;
+      const item = await tx.recommendationItem.findFirst({ where: { id: itemId, sessionId, session: { userId } }, select: { id: true } });
+      if (!item) throw new DiscoveryConflict("Indicação não encontrada.", 404);
+      await tx.recommendationItem.updateMany({ where: { id: item.id, exposedAt: null }, data: { exposedAt: new Date() } });
+      return { success: true };
+    });
   }
 
   async move(userId: string, sessionId: string, rank: number, expectedRank: number) {
