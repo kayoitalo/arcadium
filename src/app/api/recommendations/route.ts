@@ -5,6 +5,8 @@ import { RecommendationService } from "@/modules/recommendations/application/rec
 import type { RecommendationMode, RecommendationContext } from "@/modules/recommendations/domain/recommendation.types";
 
 export const dynamic = "force-dynamic";
+/** Cold previews share Apple's paced catalog queue. */
+export const maxDuration = 60;
 
 export async function GET(request: Request) {
   const access = await authorizeApi(request);

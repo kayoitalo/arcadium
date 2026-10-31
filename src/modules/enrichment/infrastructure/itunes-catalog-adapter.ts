@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { compatibleRecording } from "@/lib/music/recording-match";
 import { filterGenreTags } from "../domain/genre-tags";
 import type { AlbumCoverFallbackProvider, CoverArtResult } from "../domain/cover-art-provider.interface";
 
@@ -8,8 +9,8 @@ import type { AlbumCoverFallbackProvider, CoverArtResult } from "../domain/cover
  * faixa, o ano de lançamento, um gênero e o link para o Apple Music.
  *
  * A Apple fala em ~20 chamadas por minuto. Toda chamada passa por uma
- * fila compartilhada que respeita esse ritmo; quem precisa de rajada
- * curta (as prévias de uma sessão de descobertas) pede intervalo zero.
+ * fila por processo, compartilhada entre prévias e enriquecimento.
+ * Instâncias serverless diferentes ainda têm filas independentes.
  */
 
 /** ~19 chamadas por minuto: abaixo do limite, com folga. */
@@ -38,7 +39,7 @@ const trackSchema = z.object({
   artworkUrl100: z.string().optional(),
 });
 
-const responseSchema = z.object({ results: z.array(z.unknown()).default([]) });
+const responseSchema = z.object({ results: z.array(z.unknown()) });
 
 export interface CatalogAlbum {
   collectionId: string;
@@ -182,13 +183,13 @@ export class ItunesCatalogAdapter implements AlbumCoverFallbackProvider {
   constructor(private options: { country?: string; minIntervalMs?: number } = {}) {}
 
   /** A loja muda o catálogo: há discos que só existem fora da loja americana. */
-  private get country(): string {
+  get storefront(): string {
     return (this.options.country ?? process.env.ITUNES_COUNTRY ?? "BR").toUpperCase();
   }
 
   private async request(path: "search" | "lookup", params: Record<string, string>): Promise<unknown[]> {
     // lang=en_us: os gêneros vêm em inglês, como as tags do resto do app
-    const query = new URLSearchParams({ ...params, country: this.country, lang: "en_us" });
+    const query = new URLSearchParams({ ...params, country: this.storefront, lang: "en_us" });
 
     return paced(this.options.minIntervalMs ?? CATALOG_INTERVAL_MS, async () => {
       const response = await fetch(`https://itunes.apple.com/${path}?${query}`, {
@@ -197,7 +198,8 @@ export class ItunesCatalogAdapter implements AlbumCoverFallbackProvider {
       });
       if (!response.ok) throw new Error(`iTunes ${path} returned HTTP ${response.status}`);
       const parsed = responseSchema.safeParse(await response.json());
-      return parsed.success ? parsed.data.results : [];
+      if (!parsed.success) throw new Error(`iTunes ${path} returned an invalid payload`);
+      return parsed.data.results;
     });
   }
 
@@ -250,7 +252,7 @@ export class ItunesCatalogAdapter implements AlbumCoverFallbackProvider {
     if (!artistName.trim() || !trackName.trim()) return null;
 
     const results = await this.request("search", {
-      term: `${artistName} ${searchable(trackName)}`,
+      term: `${artistName} ${trackName}`,
       entity: "song",
       limit: "10",
     });
@@ -258,7 +260,7 @@ export class ItunesCatalogAdapter implements AlbumCoverFallbackProvider {
     const match = results
       .map((result) => trackSchema.safeParse(result))
       .flatMap((parsed) => (parsed.success ? [parsed.data] : []))
-      .find((track) => sameArtist(artistName, track.artistName) && sameTitle(trackName, track.trackName));
+      .find((track) => compatibleRecording({ artistName, trackName }, track));
 
     return match ? toCatalogTrack(match) : null;
   }

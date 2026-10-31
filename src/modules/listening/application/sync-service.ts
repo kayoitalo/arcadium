@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { generateProviderEventKey } from "../domain/event-key";
 import { ListeningHistoryProvider, ListenItem } from "../domain/listening-provider.interface";
 import { normalizeText } from "../domain/normalization";
+import { catalogIdentityKey, catalogMatch } from "../domain/catalog-identity";
 
 export class ListeningSyncService {
   constructor(private provider: ListeningHistoryProvider) {}
@@ -149,32 +150,39 @@ export class ListeningSyncService {
       where: { normalizedName: { in: uniqueNormalizedArtists } },
     });
 
+    // Positive cross-entity evidence only. Keep the original identifier for
+    // review; never repair a historical artist by matching its name.
+    const suspects = existingArtists.filter((artist) => artist.mbid && items.some((item) =>
+      normalizeText(item.rawArtistName) === artist.normalizedName
+      && item.recordingMbid === artist.mbid && item.artistMbid !== artist.mbid));
+    if (suspects.length) await prisma.artist.updateMany({
+      where: { id: { in: suspects.map((artist) => artist.id) } },
+      data: { metadataStatus: "IDENTITY_REVIEW" },
+    });
+
     const artistMap = new Map<string, string>();
-    existingArtists.forEach((a: { id: string; normalizedName: string }) => artistMap.set(a.normalizedName, a.id));
-
-    const missingArtists = items.filter((i: ListenItem) => !artistMap.has(normalizeText(i.rawArtistName)));
-    if (missingArtists.length > 0) {
-      const missingMap = new Map<string, ListenItem>();
-      missingArtists.forEach((i: ListenItem) => {
-        const norm = normalizeText(i.rawArtistName);
-        if (!missingMap.has(norm)) missingMap.set(norm, i);
-      });
-
-      for (const [norm, item] of Array.from(missingMap.entries())) {
+    for (const item of items) {
+      const key = catalogIdentityKey(item.rawArtistName, item.artistMbid);
+      if (artistMap.has(key)) continue;
+      const found = catalogMatch(existingArtists.filter((artist) => !suspects.includes(artist)
+        && artist.metadataStatus !== "IDENTITY_REVIEW"), item.rawArtistName, item.artistMbid);
+      if (found) {
+        artistMap.set(key, found.id);
+      } else {
         const created = await prisma.artist.create({
           data: {
             name: item.rawArtistName,
-            normalizedName: norm,
-            mbid: item.mbid,
+            normalizedName: normalizeText(item.rawArtistName),
+            mbid: item.artistMbid,
           },
         });
-        artistMap.set(norm, created.id);
+        artistMap.set(key, created.id);
       }
     }
 
     const trackKeySet = new Set<string>();
     items.forEach((i: ListenItem) => {
-      const artistId = artistMap.get(normalizeText(i.rawArtistName));
+      const artistId = artistMap.get(catalogIdentityKey(i.rawArtistName, i.artistMbid));
       if (artistId) {
         trackKeySet.add(`${artistId}|${normalizeText(i.rawTrackName)}`);
       }
@@ -190,17 +198,20 @@ export class ListeningSyncService {
     });
 
     const trackMap = new Map<string, string>();
-    existingTracks.forEach((t: { id: string; artistId: string; normalizedName: string }) => trackMap.set(`${t.artistId}|${t.normalizedName}`, t.id));
+    for (const item of items) {
+      const artistId = artistMap.get(catalogIdentityKey(item.rawArtistName, item.artistMbid));
+      const found = catalogMatch(existingTracks.filter((track) => track.artistId === artistId), item.rawTrackName, item.recordingMbid);
+      if (found) trackMap.set(`${artistId}|${catalogIdentityKey(item.rawTrackName, item.recordingMbid)}`, found.id);
+    }
 
-    const missingTracksMap = new Map<string, { artistId: string; rawTrackName: string; normTrack: string }>();
+    const missingTracksMap = new Map<string, { artistId: string; rawTrackName: string; normTrack: string; mbid?: string }>();
     items.forEach((i: ListenItem) => {
-      const normArtist = normalizeText(i.rawArtistName);
       const normTrack = normalizeText(i.rawTrackName);
-      const artistId = artistMap.get(normArtist);
+      const artistId = artistMap.get(catalogIdentityKey(i.rawArtistName, i.artistMbid));
       if (artistId) {
-        const key = `${artistId}|${normTrack}`;
+        const key = `${artistId}|${catalogIdentityKey(i.rawTrackName, i.recordingMbid)}`;
         if (!trackMap.has(key) && !missingTracksMap.has(key)) {
-          missingTracksMap.set(key, { artistId, rawTrackName: i.rawTrackName, normTrack });
+          missingTracksMap.set(key, { artistId, rawTrackName: i.rawTrackName, normTrack, mbid: i.recordingMbid });
         }
       }
     });
@@ -211,6 +222,7 @@ export class ListeningSyncService {
           artistId: missing.artistId,
           name: missing.rawTrackName,
           normalizedName: missing.normTrack,
+          mbid: missing.mbid,
         },
       });
       trackMap.set(key, created.id);
@@ -222,7 +234,7 @@ export class ListeningSyncService {
     if (albumItems.length > 0) {
       const albumKeySet = new Set<string>();
       albumItems.forEach((i: ListenItem) => {
-        const artistId = artistMap.get(normalizeText(i.rawArtistName));
+        const artistId = artistMap.get(catalogIdentityKey(i.rawArtistName, i.artistMbid));
         if (artistId) {
           albumKeySet.add(`${artistId}|${normalizeText(i.rawAlbumName!)}`);
         }
@@ -237,16 +249,20 @@ export class ListeningSyncService {
             }),
           },
         });
-        existingAlbums.forEach((a: { id: string; artistId: string; normalizedName: string }) => albumMap.set(`${a.artistId}|${a.normalizedName}`, a.id));
+        for (const item of albumItems) {
+          const artistId = artistMap.get(catalogIdentityKey(item.rawArtistName, item.artistMbid));
+          const found = catalogMatch(existingAlbums.filter((album) => album.artistId === artistId), item.rawAlbumName!, item.releaseMbid);
+          if (found) albumMap.set(`${artistId}|${catalogIdentityKey(item.rawAlbumName!, item.releaseMbid)}`, found.id);
+        }
 
-        const missingAlbumsMap = new Map<string, { artistId: string; rawAlbumName: string; normAlbum: string }>();
+        const missingAlbumsMap = new Map<string, { artistId: string; rawAlbumName: string; normAlbum: string; mbid?: string }>();
         albumItems.forEach((i: ListenItem) => {
-          const artistId = artistMap.get(normalizeText(i.rawArtistName));
+          const artistId = artistMap.get(catalogIdentityKey(i.rawArtistName, i.artistMbid));
           const normAlbum = normalizeText(i.rawAlbumName!);
           if (artistId && normAlbum) {
-            const key = `${artistId}|${normAlbum}`;
+            const key = `${artistId}|${catalogIdentityKey(i.rawAlbumName!, i.releaseMbid)}`;
             if (!albumMap.has(key) && !missingAlbumsMap.has(key)) {
-              missingAlbumsMap.set(key, { artistId, rawAlbumName: i.rawAlbumName!, normAlbum });
+              missingAlbumsMap.set(key, { artistId, rawAlbumName: i.rawAlbumName!, normAlbum, mbid: i.releaseMbid });
             }
           }
         });
@@ -257,6 +273,7 @@ export class ListeningSyncService {
               artistId: missing.artistId,
               name: missing.rawAlbumName,
               normalizedName: missing.normAlbum,
+              mbid: missing.mbid,
             },
           });
           albumMap.set(key, created.id);
@@ -265,12 +282,10 @@ export class ListeningSyncService {
     }
 
     const eventRecords = items.map((item: ListenItem) => {
-      const normArtist = normalizeText(item.rawArtistName);
-      const normTrack = normalizeText(item.rawTrackName);
       const normAlbum = item.rawAlbumName ? normalizeText(item.rawAlbumName) : null;
-      const artistId = artistMap.get(normArtist);
-      const trackId = artistId ? trackMap.get(`${artistId}|${normTrack}`) : undefined;
-      const albumId = artistId && normAlbum ? albumMap.get(`${artistId}|${normAlbum}`) : undefined;
+      const artistId = artistMap.get(catalogIdentityKey(item.rawArtistName, item.artistMbid));
+      const trackId = artistId ? trackMap.get(`${artistId}|${catalogIdentityKey(item.rawTrackName, item.recordingMbid)}`) : undefined;
+      const albumId = artistId && normAlbum ? albumMap.get(`${artistId}|${catalogIdentityKey(item.rawAlbumName!, item.releaseMbid)}`) : undefined;
 
       const eventKey = generateProviderEventKey(
         userId,

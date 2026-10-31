@@ -12,6 +12,14 @@ export interface TrackPreview {
   artworkUrl?: string;
   /** A faixa no Apple Music: quem oferece a prévia ganha o link junto. */
   appleMusicUrl?: string;
+  /** Guarda a entidade devolvida; texto compatível não confirma um MBID. */
+  identity?: {
+    source: "itunes";
+    sourceId: string;
+    artistName: string;
+    trackName: string;
+    match: "compatible-text-v1";
+  };
 }
 
 export interface PreviewProvider {

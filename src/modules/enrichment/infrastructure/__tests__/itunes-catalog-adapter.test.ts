@@ -142,7 +142,8 @@ describe("ItunesCatalogAdapter", () => {
     expect(await catalog().searchTrack("Linkin Park", "Numb")).toBeNull();
 
     respond([song({ trackName: "Numb (Live)" })]);
-    expect((await catalog().searchTrack("Linkin Park", "Numb"))?.trackId).toBe("10");
+    expect(await catalog().searchTrack("Linkin Park", "Numb")).toBeNull();
+    expect((await catalog().searchTrack("Linkin Park", "Numb - Live"))?.trackId).toBe("10");
   });
 
   it("throws on HTTP errors so the album stays in the queue", async () => {

@@ -72,6 +72,9 @@ describe("SpotifyAdapter", () => {
     expect(result).not.toBeNull();
     expect(result?.id).toBe("playlist-12345");
     expect(result?.webUrl).toBe("https://open.spotify.com/playlist/playlist-12345");
+    expect(fetch).toHaveBeenCalledWith("https://api.spotify.com/v1/me/playlists", expect.objectContaining({
+      method: "POST", body: JSON.stringify({ name: "Arcadium Test Playlist", description: "Test description", public: false }),
+    }));
   });
 
   it("batches track URIs in chunks of 100 when adding to playlist", async () => {
@@ -87,6 +90,23 @@ describe("SpotifyAdapter", () => {
     expect(result.addedCount).toBe(150);
 
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    expect(fetch).toHaveBeenNthCalledWith(1, "https://api.spotify.com/v1/playlists/playlist-12345/items", expect.objectContaining({
+      body: JSON.stringify({ uris: trackUris.slice(0, 100) }),
+    }));
+    expect(fetch).toHaveBeenNthCalledWith(2, "https://api.spotify.com/v1/playlists/playlist-12345/items", expect.objectContaining({
+      body: JSON.stringify({ uris: trackUris.slice(100) }),
+    }));
+  });
+
+  it("searches beyond a wrong version and rejects tribute performers", async () => {
+    vi.mocked(fetch).mockResolvedValue({ ok: true, json: async () => ({ tracks: { items: [
+      { name: "Dreams (Live)", artists: [{ name: "Fleetwood Mac" }], uri: "spotify:track:live" },
+      { name: "Dreams", artists: [{ name: "Fleetwood Mac Tribute" }], uri: "spotify:track:tribute" },
+      { name: "Dreams", artists: [{ name: "Fleetwood Mac" }], uri: "spotify:track:studio" },
+    ] } }) } as Response);
+    expect((await adapter.searchTrackUri("Dreams", "Fleetwood Mac", "token")).uri).toBe("spotify:track:studio");
+    const url = new URL(String(vi.mocked(fetch).mock.calls[0][0]));
+    expect(url.searchParams.get("limit")).toBe("10");
   });
 });
 

@@ -3,7 +3,9 @@ export interface ListenItem {
   rawTrackName: string;
   rawAlbumName?: string;
   playedAtUtcSeconds: number;
-  mbid?: string;
+  artistMbid?: string;
+  recordingMbid?: string;
+  releaseMbid?: string;
 }
 
 export interface ListenPage {

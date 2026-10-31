@@ -12,6 +12,8 @@ export interface ExportResponse {
   totalItems: number;
   resolvedCount: number;
   unresolvedCount: number;
+  addedCount?: number;
+  partial?: boolean;
   items: Array<{
     artistName: string;
     trackName: string;
@@ -66,7 +68,7 @@ export class SpotifyService {
     if (accessToken && spotifyUserId && validUris.length > 0) {
       const playlist = await this.adapter.createPlaylist(accessToken, spotifyUserId, playlistTitle, description);
       if (playlist) {
-        await this.adapter.addTracksToPlaylist(accessToken, playlist.id, validUris);
+        const { addedCount } = await this.adapter.addTracksToPlaylist(accessToken, playlist.id, validUris);
         return {
           mode: "SPOTIFY_API",
           playlistTitle,
@@ -74,6 +76,8 @@ export class SpotifyService {
           totalItems: tracks.length,
           resolvedCount,
           unresolvedCount,
+          addedCount,
+          partial: addedCount < validUris.length,
           items: resolvedItems,
         };
       }

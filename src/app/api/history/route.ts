@@ -2,6 +2,7 @@ import { authorizeApi } from "@/lib/security/api-auth";
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { previewPath } from "@/lib/music/preview-path";
 
 export const dynamic = "force-dynamic";
 
@@ -70,7 +71,7 @@ export async function GET(request: Request) {
           rawAlbumName: true,
           provider: true,
           album: { select: { coverUrl: true } },
-          track: { select: { previewUrl: true, appleMusicUrl: true } },
+          track: { select: { id: true, previewUrl: true, appleMusicUrl: true } },
         },
       }),
       hourHistogram(user.id, user.timezone, search),
@@ -83,7 +84,7 @@ export async function GET(request: Request) {
         ...event,
         coverUrl: album?.coverUrl ?? null,
         // prévia e link vêm do catálogo da Apple, quando a faixa já foi casada
-        previewUrl: track?.previewUrl ?? null,
+        previewUrl: track?.previewUrl ? previewPath(track.id) : null,
         appleMusicUrl: track?.appleMusicUrl ?? null,
       })),
       page,

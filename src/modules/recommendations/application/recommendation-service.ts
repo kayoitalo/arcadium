@@ -8,6 +8,7 @@ import type { SimilarArtistProvider } from "../domain/similar-artist-provider.in
 import { LastFmSimilarArtistProvider } from "../infrastructure/lastfm-similar-adapter";
 import type { PreviewProvider, TrackPreview } from "../domain/preview-provider.interface";
 import { ItunesPreviewAdapter } from "../infrastructure/itunes-preview-adapter";
+import { compatiblePreviewIdentity } from "../domain/preview-identity";
 import type { TrackCoverProvider } from "@/modules/enrichment/domain/cover-art-provider.interface";
 import { LastFmCoverAdapter } from "@/modules/enrichment/infrastructure/lastfm-cover-adapter";
 import {
@@ -44,7 +45,10 @@ function toSessionResult(session: {
     mode: session.mode as RecommendationMode,
     context: session.context,
     algorithmVersion: session.algorithmVersion,
-    items: session.items.map((item) => ({
+    items: session.items.map((item) => {
+      const previewIdentity = compatiblePreviewIdentity((item.scoreComponents as any)?.previewIdentity,
+        { artistName: item.artistName, trackName: item.trackName });
+      return {
       id: item.id,
       artistName: item.artistName,
       trackName: item.trackName,
@@ -57,10 +61,12 @@ function toSessionResult(session: {
       status: item.status,
       reason: item.reason,
       coverUrl: item.coverUrl ?? null,
-      previewUrl: item.previewUrl ?? null,
-      appleMusicUrl: item.appleMusicUrl ?? null,
+      previewIdentity,
+      previewUrl: previewIdentity ? item.previewUrl ?? null : null,
+      appleMusicUrl: previewIdentity ? item.appleMusicUrl ?? null : null,
       position: (item.scoreComponents as any)?.position ?? null,
-    })),
+      };
+    }),
   };
 }
 
@@ -97,6 +103,7 @@ export interface SessionResult {
     reason: string | null;
     coverUrl: string | null;
     previewUrl: string | null;
+    previewIdentity: TrackPreview["identity"] | null;
     appleMusicUrl: string | null;
     position: { proximity: number; fame: number } | null;
   }>;
@@ -163,7 +170,10 @@ export class RecommendationService {
             genre: candidate.genre || null,
             score: candidate.score,
             noveltyScore: candidate.noveltyScore,
-            scoreComponents: { ...candidate.components, position: candidate.position } as any,
+            scoreComponents: {
+              ...candidate.components, position: candidate.position,
+              previewIdentity: previews.get(coverKey(candidate))?.identity ?? null,
+            } as any,
             rank: idx + 1,
             status: "PENDING",
             reason: candidate.reason,

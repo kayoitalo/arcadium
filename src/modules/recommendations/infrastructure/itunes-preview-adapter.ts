@@ -9,27 +9,35 @@ interface CacheEntry {
 /** O catálogo não muda de hora em hora; uma sessão inteira reusa o mesmo lote. */
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const cache = new Map<string, CacheEntry>();
+const inFlight = new Map<string, Promise<TrackPreview | null>>();
 
-function cacheKey(artistName: string, trackName: string): string {
-  return `${artistName.toLowerCase()}|${trackName.toLowerCase()}`;
+function cacheKey(storefront: string, artistName: string, trackName: string): string {
+  return JSON.stringify([storefront, artistName.toLowerCase(), trackName.toLowerCase()]);
 }
 
 /**
  * Prévia de 30s de uma sugestão, pelo catálogo da Apple. Exige o mesmo
  * artista e o mesmo título — tocar outra música com o nome desta no
- * cartão seria pior do que não tocar nada. Uma sessão tem ~12 faixas,
- * então aqui vale a rajada curta, sem a fila de ritmo do lote.
+ * cartão seria pior do que não tocar nada. Compartilha a fila do catálogo.
  */
 export class ItunesPreviewAdapter implements PreviewProvider {
-  constructor(private catalog = new ItunesCatalogAdapter({ minIntervalMs: 0 })) {}
+  constructor(private catalog = new ItunesCatalogAdapter()) {}
 
   async findPreview(artistName: string, trackName: string): Promise<TrackPreview | null> {
     if (!artistName.trim() || !trackName.trim()) return null;
 
-    const key = cacheKey(artistName, trackName);
+    const key = cacheKey(this.catalog.storefront, artistName, trackName);
     const cached = cache.get(key);
     if (cached && cached.expiresAt > Date.now()) return cached.value;
+    const pending = inFlight.get(key);
+    if (pending) return pending;
+    const request = this.lookup(key, artistName, trackName);
+    inFlight.set(key, request);
+    try { return await request; }
+    finally { inFlight.delete(key); }
+  }
 
+  private async lookup(key: string, artistName: string, trackName: string): Promise<TrackPreview | null> {
     let result: TrackPreview | null = null;
 
     try {
@@ -39,6 +47,11 @@ export class ItunesPreviewAdapter implements PreviewProvider {
           url: track.previewUrl,
           artworkUrl: track.artworkUrl ?? undefined,
           appleMusicUrl: track.appleMusicUrl ?? undefined,
+          identity: {
+            source: "itunes", sourceId: track.trackId,
+            artistName: track.artistName, trackName: track.name,
+            match: "compatible-text-v1",
+          },
         };
       }
     } catch (error) {
@@ -47,6 +60,8 @@ export class ItunesPreviewAdapter implements PreviewProvider {
         `[ItunesPreview] falhou para "${artistName} - ${trackName}":`,
         error instanceof Error ? error.message : error,
       );
+      // Falha temporária não é ausência de prévia por 24 horas.
+      throw error;
     }
 
     cache.set(key, { value: result, expiresAt: Date.now() + CACHE_TTL_MS });

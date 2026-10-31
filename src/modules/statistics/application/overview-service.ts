@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { previewPath } from "@/lib/music/preview-path";
 import { loadArtistGenres } from "./artist-genres";
 import { decadeDistribution, type DecadeDistribution } from "./decades";
 
@@ -327,7 +328,7 @@ export class OverviewService {
       return {
         id: canonical?.id ?? null, title: item.rawAlbumName!, artistName: item.rawArtistName,
         plays: item._count.id, coverUrl: canonical?.coverUrl ?? undefined,
-        previewUrl: preview?.previewUrl ?? undefined,
+        previewUrl: preview?.previewUrl ? previewPath(preview.id) : undefined,
         previewTrack: preview?.name,
         appleMusicUrl: canonical?.appleMusicUrl ?? undefined,
       };

@@ -39,6 +39,8 @@ interface ExportResult {
   playlistUrl?: string;
   mode?: string;
   resolvedCount?: number;
+  addedCount?: number;
+  partial?: boolean;
   totalItems?: number;
   m3uPayload?: string;
   error?: string;
@@ -501,7 +503,9 @@ export function Descobertas() {
             {result && !result.error && (
               <p>
                 {result.mode === "SPOTIFY_API"
-                  ? "A playlist já tá na tua conta."
+                  ? result.partial
+                    ? `A playlist foi criada, mas só ${result.addedCount ?? 0} faixas foram adicionadas. Parte do envio falhou.`
+                    : "A playlist já tá na tua conta."
                   : "Baixa a lista e abre no teu player, ou conecta o Spotify em ajustes pra eu criar a playlist direto."}
               </p>
             )}
