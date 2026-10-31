@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "observedOn": "2026-10-30",
+  "timezone": "America/Sao_Paulo",
+  "livePublicProbe": true,
+  "usesPersonalHistory": false,
+  "reference": {
+    "artist": "Radiohead",
+    "track": "Paranoid Android"
+  },
+  "provider": "lastfm",
+  "method": "track.getsimilar",
+  "attempts": 1,
+  "status": 200,
+  "apiErrorCode": null,
+  "resultCount": 5,
+  "completeNames": 5,
+  "maximumRawMatch": 1,
+  "latencyMs": 784
+}

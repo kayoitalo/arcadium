@@ -194,6 +194,9 @@ model RecommendationSession {
   profilePeriod    String   @default("30d")
   algorithmVersion String   @default("v1")
   status           String   @default("ACTIVE")
+  currentRank      Int?
+  requestKey       String?
+  requestFingerprint String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -202,6 +205,7 @@ model RecommendationSession {
   exports PlaylistExport[]
 
   @@index([userId, createdAt(sort: Desc)])
+  @@unique([userId, requestKey])
 }
 
 model RecommendationItem {
@@ -222,6 +226,7 @@ model RecommendationItem {
   coverUrl        String?
   previewUrl      String?
   appleMusicUrl   String?
+  exposedAt       DateTime?
   createdAt       DateTime @default(now())
 
   session  RecommendationSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -236,6 +241,12 @@ model RecommendationFeedback {
   userId    String
   type      String
   note      String?
+  channel   String?
+  revision  Int?
+  requestKey String?
+  revisesId String?
+  details   Json?
+  entity    Json?
   createdAt DateTime @default(now())
 
   item RecommendationItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
@@ -243,6 +254,8 @@ model RecommendationFeedback {
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([itemId])
+  @@unique([itemId, userId, requestKey])
+  @@unique([itemId, userId, revision])
 }
 
 model AIAnalysisRun {

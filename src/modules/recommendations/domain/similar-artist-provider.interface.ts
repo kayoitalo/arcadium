@@ -2,12 +2,14 @@ export interface SimilarArtist {
   name: string;
   /** 0..1 — o quanto o provedor considera este artista próximo da semente. */
   match: number;
+  rawMatch?: number;
 }
 
 export interface ExternalTrack {
   artistName: string;
   trackName: string;
 }
+export interface SimilarTrack extends ExternalTrack { rank: number; rawMatch?: number }
 
 /**
  * Fonte de candidatos que vive FORA do banco do usuário.
@@ -29,4 +31,7 @@ export interface SimilarArtistProvider {
   getSimilarArtists(artistName: string, limit: number): Promise<SimilarArtist[]>;
   getTopTracks(artistName: string, limit: number): Promise<ExternalTrack[]>;
   getArtistReach(artistName: string): Promise<ArtistReach | null>;
+  getSimilarTracks?(artistName: string, trackName: string, limit: number): Promise<SimilarTrack[]>;
+  beginDiscoveryWindow?(durationMs: number): void;
+  getDiagnostics?(): { externalAttempts: number; cacheHits: number; failures: number; coalesced: number; skippedAfterFailure: number; deadlineStops: number };
 }
