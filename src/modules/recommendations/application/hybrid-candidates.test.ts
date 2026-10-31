@@ -20,6 +20,8 @@ describe("bounded candidate generation", () => {
     expect(result.filter((item) => item.source === "similar_artist" || item.source === "top_artist_deep_cut")).toHaveLength(18);
     expect(result.some((item) => item.source === "top_artist_deep_cut")).toBe(true);
     expect(result.find((item) => item.source === "similar_track")?.evidence?.[0].rawMatch).toBe(10.95);
+    const measured = provider.getArtistReach.mock.calls as unknown as string[][];
+    expect(measured.map(([name]) => name)).toEqual(["A", "Seed 0 neighbor", "A0", "Seed 1 neighbor", "B0", "Seed 2 neighbor"]);
   });
   it("merges the same track's sources without conflating remixes or summing provider scores", () => {
     const one = { artistName: "Band", trackName: "Song", source: "similar_track" as const, evidence: [{ kind: "track_similarity" as const, source: "lastfm" as const, rawMatch: 10.95 }] };

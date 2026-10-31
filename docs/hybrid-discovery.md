@@ -23,10 +23,10 @@ As referências alternam regiões do histórico e artistas distintos, procurando
 1. Reunir opções do catálogo local sem reduzir previamente a uma faixa por artista.
 2. Buscar vizinhos de até três artistas de regiões do histórico e faixas semelhantes a até quatro referências.
 3. Consultar até seis listas de três faixas: uma pode trazer outras músicas de um artista conhecido; as demais ampliam os vizinhos. Conferir o artista efetivamente retornado.
-4. Acrescentar dados de público para até seis artistas. Os demais permanecem desconhecidos nessa dimensão.
+4. Acrescentar dados de público para até seis artistas, alternando famílias de artista/faixa e referências distintas. Os demais permanecem desconhecidos nessa dimensão; a primeira lista de similaridade não consome todas as consultas.
 5. Unir evidências da mesma faixa sem remover qualificadores de versão ou somar scores brutos dos provedores.
 6. Aplicar conhecimento, rejeição específica, repetição recente e identidade antes do ranking e do limite por artista.
-7. Ordenar pela compatibilidade documentada; somente depois compor uma indicação por artista e até oito faixas. Não ampliar o pedido silenciosamente para completar quantidade.
+7. Ordenar pela compatibilidade documentada; somente depois compor uma indicação por artista e até oito faixas. Cada referência sustenta no máximo três itens numa sessão de oito (em sessões menores, até dois, limitado ao tamanho pedido). Se uma candidata tem várias referências, pode usar outra com capacidade disponível. Não preencher com mais itens da referência saturada: uma sessão curta é preferível a uma única curtida dominar a descoberta.
 
 Similaridade por faixa é sinal específico daquela gravação textual; similaridade por artista continua sendo aproximação. Três faixas sem evidência individual distinta podem empatar: nesse caso a ordem do catálogo externo serve como desempate. Não se inventam diferenças de vocal, timbre, instrumentação, emoção, letra ou energia para explicar o desempate.
 
@@ -34,7 +34,7 @@ Uma revisita só entra com pelo menos três reproduções registradas e última 
 
 ## Ranking, explicação e aprendizado
 
-`v3-hybrid-1` usa pesos `hybrid-weights-1`; `scoring.ts` mantém pesos explícitos e componentes separados. A posição de cada relação na resposta é uma heurística de proximidade, não medição acústica nem probabilidade de gostar. O `match` bruto continua nas evidências com sua origem; não se presume uma escala comum para `artist.getSimilar` e `track.getSimilar`.
+`v3-hybrid-2` usa pesos `hybrid-weights-1`; a revisão 2 altera a composição por referência, distribuição das consultas de público e recuperação de capas, mantendo os pesos. `scoring.ts` mantém componentes separados. A posição de cada relação na resposta é uma heurística de proximidade, não medição acústica nem probabilidade de gostar. O `match` bruto continua nas evidências com sua origem; não se presume uma escala comum para `artist.getSimilar` e `track.getSimilar`.
 
 O ranking considera relações registradas, distribuição de gêneros, região do perfil, novidade, preferência explícita, metadados e controles existentes. Um dado de público ausente recebe tratamento neutro e não gera ponto de fama no mapa. O texto não o descreve como obscuro. Os modos continuam presets dos controles; exploração entre universos e filtros estritos de mood/gênero ficam para a etapa 6.
 
@@ -52,11 +52,19 @@ A fila pode ser recalculada **sem chamadas externas** quando há relação expl�
 | Last.fm: faixas semelhantes | 4 |
 | Last.fm: três opções por artista | 6 chamadas |
 | Last.fm: dados de público | 6 |
-| **Last.fm no híbrido** | **19 tentativas, antes de cache/coalescência** |
+| Last.fm: geração de candidatas | 19 tentativas, antes de cache/coalescência |
+| Last.fm: capa ausente nas finalistas | Até 4 adicionais, somente sem capa Apple/local |
+| **Last.fm no híbrido** | **Até 23 tentativas lógicas** |
 | Apple: prévias das finalistas | Até 8, na fila de catálogo existente |
 | IA adicional | 0 |
 
-Capas reutilizam a prévia Apple ou o catálogo local, sem mais chamadas Last.fm. O caminho anterior podia realizar 49 chamadas Last.fm no modo balanceado: cinco referências de artista, dezoito listas, dezoito consultas de público e oito capas. Esses são tetos do código, não consumo observado em produção nem cotas garantidas do provedor.
+Capas reutilizam a prévia Apple ou o catálogo local. Se ainda faltarem, até quatro finalistas consultam `track.getInfo` no Last.fm, sem depender da disponibilidade de áudio. Conferir artista, título e versão retornados, com autocorreção desligada. Cache positivo de 24 h, negativo confirmado de 1 h, coalescência, fila de capas com intervalo de 300 ms e pausa em falhas evitam buscas repetidas. Essa fila é distinta da geração de candidatas. O fallback para de iniciar trabalho após oito segundos próprios ou 45 segundos desde o início da população da sessão; uma chamada em andamento pode consumir seu timeout de seis segundos. Não acrescenta chamadas Apple nem IA. Uma sessão pode continuar sem capa/prévia.
+
+O caminho anterior podia realizar 49 chamadas Last.fm no modo balanceado: cinco referências de artista, dezoito listas, dezoito consultas de público e oito capas. Esses são tetos do código, não consumo observado em produção nem cotas garantidas do provedor. O diagnóstico do provedor de similaridade continua contando apenas suas chamadas, sem incluir o fallback de capas.
+
+Após relato de todas as sugestões sem mídia, as buscas públicas das faixas das capturas mostraram: Crydajam — Playground sem resultado nas lojas Apple BR/EUA; Le Knight Club — Boogie Shell sem correspondência correta nas mesmas lojas; LINKIN PARK — Numb com capa e prévia na BR. Isso confirma limitações desses exemplos, sem provar a causa de toda a sessão na Vercel. Não substituir versões para obter áudio nem excluir automaticamente músicas sem prévia.
+
+As entradas da interface passam a favorecer público maior (fama 75 no caminho próximo e 65 em outras conexões), mantendo proximidade 85/35. São heurísticas ajustáveis, não garantias de acessibilidade, popularidade da faixa ou disponibilidade de áudio. Reavaliar musicalmente na preview.
 
 As consultas de descoberta Last.fm compartilham fila por processo, com intervalo próprio de 300 ms e uma requisição em execução; não há retry automático. O híbrido para de iniciar consultas após uma janela de 20 segundos; a requisição já em andamento tem timeout de seis segundos. Isso deixa espaço para a fila Apple dentro do limite da rota. Cache de seis horas e coalescência reduzem chamadas repetidas. Falha temporária não é cacheada como catálogo vazio; HTTP 429/5xx e erros 11/16/29 pausam a fila, respeitando `Retry-After` quando informado.
 

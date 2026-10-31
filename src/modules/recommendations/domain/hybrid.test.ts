@@ -28,6 +28,17 @@ describe("multidimensional profile", () => {
   });
 });
 describe("selection and learning with fixed input", () => {
+  it("keeps one liked reference from filling the session with different artists", () => {
+    const p = profile();
+    p.feedbackMap.set(trackFeedbackKey("Seed", "Reference"), "LIKED");
+    const linked = Array.from({ length: 12 }, (_, index) => candidate("Linked " + index, "Song"));
+    const alternatives = Array.from({ length: 8 }, (_, index) => ({ ...candidate("Other " + index, "Song"),
+      evidence: [{ kind: "artist_similarity" as const, source: "lastfm" as const, seedArtist: "Reference " + index, rank: 1 }] }));
+    const result = composeSession(scoreAndRank([...linked, ...alternatives], p, "BALANCED"), 8);
+    expect(result).toHaveLength(8);
+    expect(result.filter((item) => item.artistName.startsWith("Linked"))).toHaveLength(3);
+    expect(composeSession(scoreAndRank(linked, p, "BALANCED"), 8)).toHaveLength(3);
+  });
   it("feedback changes the next choice through an evidenced track connection and withdrawal reverses it", () => {
     const p = profile();
     const linked = candidate("Z Linked", "Linked Song");

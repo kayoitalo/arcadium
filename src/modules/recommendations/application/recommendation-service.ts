@@ -224,6 +224,7 @@ export class RecommendationService {
   }
 
   private async populateSession(input: GenerateSessionInput, sessionId: string, avoid: Array<{ artistName: string; trackName: string }>): Promise<SessionResult> {
+    const generationStarted = Date.now();
     const { userId, mode, context, period = "30d", size = DEFAULT_SESSION_SIZE } = input;
     const dials = input.dials ?? MODE_DIALS[mode];
     const profile = await this.buildUserProfile(userId, period);
@@ -240,6 +241,9 @@ export class RecommendationService {
       this.resolveCovers(scored),
       this.resolvePreviews(scored),
     ]);
+    // Artwork is independent of audio availability. Only probe missing covers,
+    // for up to four final items; never perform another Apple search here.
+    if (this.strategy === "hybrid") await this.resolveFallbackCovers(scored, covers, previews, Math.min(Date.now() + 8_000, generationStarted + 45_000));
 
     const session = await prisma.recommendationSession.update({
       where: { id: sessionId },
@@ -715,6 +719,15 @@ export class RecommendationService {
    * A prévia é o que transforma a tela de sugestões em algo que se escuta
    * em vez de se ler. Buscamos só para os itens que sobraram na sessão.
    */
+  private async resolveFallbackCovers(candidates: ScoredCandidate[], covers: Map<string, string>, previews: Map<string, TrackPreview>, deadline = Date.now() + 8_000): Promise<void> {
+    const missing = candidates.filter((candidate) => !covers.has(coverKey(candidate)) && !previews.get(coverKey(candidate))?.artworkUrl).slice(0, 4);
+    for (const candidate of missing) {
+      if (Date.now() >= deadline) break;
+      const cover = await this.trackCovers.findTrackCover(candidate.artistName, candidate.trackName).catch(() => null);
+      if (cover?.url) covers.set(coverKey(candidate), cover.url);
+    }
+  }
+
   private async resolvePreviews(candidates: ScoredCandidate[]): Promise<Map<string, TrackPreview>> {
     const resolved = new Map<string, TrackPreview>();
 

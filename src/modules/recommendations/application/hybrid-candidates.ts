@@ -4,9 +4,7 @@ import { representativeArtists, type UserProfile } from "../domain/taste-profile
 import { trackFeedbackKey } from "../domain/feedback";
 import { sameRecordingText } from "@/lib/music/recording-match";
 
-/** Logical calls, cache misses can only reduce actual requests. Hybrid artwork
- * reuses Apple previews/local catalog, without extra Last.fm requests.
- */
+/** Candidate-generation calls only; artwork fallback has its own smaller cap. */
 export const HYBRID_BUDGET = { artistSeeds: 3, trackSeeds: 4, artistsWithTracks: 6, reachArtists: 6, maxCalls: 19 } as const;
 
 export function mergeCandidates(candidates: RawCandidate[]): RawCandidate[] {
@@ -64,7 +62,21 @@ export async function hybridExternalCandidates(provider: SimilarArtistProvider, 
     sourceArtistName: pick.evidence.seedArtist, evidence: [pick.evidence], providerRank: index + 1,
     });
   }
-  const reachNames = [...new Set(candidates.map((candidate) => candidate.artistName))].slice(0, HYBRID_BUDGET.reachArtists);
+  // Round robin across track seeds first, then alternate artist/track families.
+  // Flattening the candidate pool here spent all reach calls on the first track.
+  const trackNames: string[] = [];
+  for (let index = 0; index < 12; index++) for (const list of trackLists) {
+    const track = list.tracks[index];
+    if (track) trackNames.push(track.artistName);
+  }
+  const reachNames: string[] = [];
+  const usedReach = new Set<string>();
+  for (let index = 0; index < Math.max(picks.length, trackNames.length); index++) {
+    for (const name of [picks[index]?.name, trackNames[index]]) {
+      if (!name || usedReach.has(name.toLowerCase()) || reachNames.length >= HYBRID_BUDGET.reachArtists) continue;
+      usedReach.add(name.toLowerCase()); reachNames.push(name);
+    }
+  }
   const reaches = new Map(await Promise.all(reachNames.map(async (name) => [name,
     await provider.getArtistReach(name).catch(() => null)] as const)));
   return mergeCandidates(candidates).map((candidate) => ({ ...candidate, listeners: reaches.get(candidate.artistName)?.listeners }));

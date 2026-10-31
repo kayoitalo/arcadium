@@ -112,6 +112,6 @@ export interface ScoredCandidate extends RawCandidate {
   position: DiscoveryDials | null;
 }
 
-export const ALGORITHM_VERSION = "v3-hybrid-1";
+export const ALGORITHM_VERSION = "v3-hybrid-2";
 export const DEFAULT_SESSION_SIZE = 8;
 export const RECENT_RECOMMENDATION_COOLDOWN_DAYS = 14;

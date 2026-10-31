@@ -37,6 +37,7 @@ function service() {
   vi.spyOn(service as any, "generateCandidates").mockResolvedValue(candidates);
   vi.spyOn(service as any, "resolveCovers").mockResolvedValue(new Map());
   vi.spyOn(service as any, "resolvePreviews").mockResolvedValue(new Map());
+  vi.spyOn(service as any, "resolveFallbackCovers").mockResolvedValue(undefined);
   return service;
 }
 describe("explicit session operations", () => {
