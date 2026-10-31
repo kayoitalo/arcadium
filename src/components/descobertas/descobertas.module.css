@@ -13,6 +13,10 @@
 .entryIntro h1 { margin: 0; color: var(--tinta); font-size: clamp(48px, 6.7vw, 100px); font-variation-settings: "wdth" 68, "wght" 800; line-height: 1.01; letter-spacing: -.045em; }
 .entryIntro > p { margin: 0 0 10px; color: var(--tinta-2); font-size: 17px; line-height: 1.65; }
 .drawnWord { display: inline-block; position: relative; white-space: nowrap; }
+.drawnWord path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: entryStroke 900ms 220ms ease-out forwards; }
+.entryIntro small { display: block; margin-top: 14px; font-size: 12px; line-height: 1.5; color: var(--tinta-3); }
+@keyframes entryStroke { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .drawnWord path { animation: none; stroke-dashoffset: 0; } }
 .drawnWord svg { position: absolute; left: -2%; bottom: -10px; width: 104%; height: 19px; fill: none; stroke: var(--marca); stroke-width: 2; stroke-linecap: round; overflow: visible; }
 .entryChoices { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); border-top: 1px solid var(--fio-2); border-bottom: 1px solid var(--fio-2); }
 .entryChoice { display: grid; grid-template-columns: 22px minmax(0,1fr) 30px; align-items: start; gap: 20px; min-height: 166px; padding: 30px 28px 30px 0; background: transparent; border: 0; text-align: left; color: var(--tinta); font: inherit; cursor: pointer; transition: background 180ms; }

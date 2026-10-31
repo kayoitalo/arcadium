@@ -10,9 +10,9 @@ export function DiscoveryEntry({ busy, hasSession, currentRank, total, onChoose,
     <p className={styles.eyebrow}><span className={styles.smallRule} /> descoberta musical</p>
     <div className={styles.entryIntro}>
       <h1 id="discovery-entry-title">Hoje, a curiosidade<br />vai <span className={styles.drawnWord}>por onde?
-        <svg viewBox="0 0 440 22" preserveAspectRatio="none" aria-hidden="true"><path d="M3 14 C92 5 260 7 435 10 M63 20 C190 12 300 12 393 15" /></svg>
+        <svg viewBox="0 0 440 22" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M3 14 C92 5 260 7 435 10 M63 20 C190 12 300 12 393 15" /></svg>
       </span></h1>
-      <p>Eu encontro as pistas.<br />Você dá o próximo play.</p>
+      <p>Eu encontro as pistas.<br />Você dá o próximo play.<br /><small>Os dois caminhos partem do teu repertório.</small></p>
     </div>
     <div className={styles.entryChoices}>
       {DISCOVERY_ENTRIES.map((entry) => <button className={styles.entryChoice} key={entry.id} disabled={busy}
