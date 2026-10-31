@@ -237,13 +237,11 @@ export class RecommendationService {
     const ranked = this.strategy === "legacy" ? legacyScoreAndRank(filtered, profile, mode, dials) : scoreAndRank(filtered, profile, mode, dials);
     const scored = this.strategy === "legacy" ? ranked.slice(0, size) : composeSession(ranked, size);
 
-    const [covers, previews] = await Promise.all([
-      this.resolveCovers(scored),
-      this.resolvePreviews(scored),
-    ]);
+    const covers = await this.resolveCovers(scored);
+    const previews = this.strategy === "legacy" ? await this.resolvePreviews(scored) : new Map<string, TrackPreview>();
     // Artwork is independent of audio availability. Only probe missing covers,
     // for up to four final items; never perform another Apple search here.
-    if (this.strategy === "hybrid") await this.resolveFallbackCovers(scored, covers, previews, Math.min(Date.now() + 8_000, generationStarted + 45_000));
+    // Hybrid media loads separately for the visible item.
 
     const session = await prisma.recommendationSession.update({
       where: { id: sessionId },
