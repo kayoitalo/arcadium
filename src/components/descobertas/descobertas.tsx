@@ -6,7 +6,7 @@ import { useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Aviso } from "@/components/amigo/aviso";
-import { Capa, Fala, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
+import { Capa, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
 import { band, frame } from "@/components/amigo/gestures";
 import { boxOf, textLines } from "@/components/amigo/measure";
 import type { TraceGesture, WaveSpec } from "@/components/amigo/trace";
@@ -18,6 +18,9 @@ import { Mapa, type MapDot } from "./mapa";
 import { useSelection } from "./selection-provider";
 import { MAX_SELECTED_TRACKS, selectionKey } from "./selection";
 import styles from "./descobertas.module.css";
+import { DiscoveryEntry } from "./discovery-entry";
+import { DiscoveryTrack } from "./discovery-track";
+import { discoveryEntryLabel } from "./discovery-view";
 import { ASPECTS, feedbackChannel, type FeedbackEntry, type FeedbackChannel } from "@/modules/recommendations/domain/feedback";
 
 interface Candidate {
@@ -34,6 +37,7 @@ interface Candidate {
   rank: number;
   feedback?: Partial<Record<FeedbackChannel, FeedbackEntry>>;
   sourceUrl?: string | null;
+  isRevisit?: boolean;
 }
 
 type Action = "liked" | "saved" | "known" | "skipped" | "disliked" | "mismatch" | "curious" | "unheard";
@@ -81,6 +85,12 @@ export function Descobertas() {
   const reduced = Boolean(useReducedMotion());
   const [proximity, setProximity] = useState(55);
   const [fame, setFame] = useState(50);
+  const [draftProximity, setDraftProximity] = useState(55);
+  const [draftFame, setDraftFame] = useState(50);
+  const [choosing, setChoosing] = useState(true);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [collectionOpen, setCollectionOpen] = useState(false);
+  const headlineRef = useRef<HTMLHeadingElement>(null);
   const [queue, setQueue] = useState<Candidate[] | null>(null);
   const [index, setIndex] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -91,7 +101,6 @@ export function Descobertas() {
   const [aspects, setAspects] = useState<string[]>([]);
   const suggestionRef = useRef<HTMLElement>(null);
   const sessionRef = useRef<string | null>(null);
-  const bootstrapKey = useRef<string | null>(null);
   const pendingSearch = useRef<{ signature: string; key: string } | null>(null);
   const lastLoad = useRef<{ proximity: number; fame: number; operation: "BOOTSTRAP" | "RESUME" | "MORE" | "NEW_ENTRY" }>({ proximity: 55, fame: 50, operation: "BOOTSTRAP" });
   const pendingFeedback = useRef<{ signature: string; key: string } | null>(null);
@@ -121,7 +130,7 @@ export function Descobertas() {
     sessionRef.current = payload.sessionId ?? null;
     setIndex(Math.min(items.length, Math.max(0, (payload.currentRank ?? 1) - 1)));
     setDecided(Object.fromEntries(items.filter((item) => Object.values(item.feedback ?? {}).some((entry) => entry?.type !== "RETRACTED")).map((item) => [item.id, "known" as Action])));
-    if (payload.settings?.dials) { setProximity(payload.settings.dials.proximity); setFame(payload.settings.dials.fame); }
+    if (payload.settings?.dials) { setProximity(payload.settings.dials.proximity); setFame(payload.settings.dials.fame); setDraftProximity(payload.settings.dials.proximity); setDraftFame(payload.settings.dials.fame); }
   }, []);
 
   const load = useCallback(async (nextProximity: number, nextFame: number, operation: "BOOTSTRAP" | "RESUME" | "MORE" | "NEW_ENTRY" = "NEW_ENTRY") => {
@@ -129,6 +138,7 @@ export function Descobertas() {
     lastLoad.current = { proximity: nextProximity, fame: nextFame, operation };
     const token = ++requestRef.current;
     stop(); setBusy(true); setFailed(false); setLoadError(null); setFeedbackError(null);
+    if (operation !== "BOOTSTRAP") setChoosing(false);
     try {
       let response: Response;
       if (operation === "BOOTSTRAP") {
@@ -136,13 +146,16 @@ export function Descobertas() {
         if (!response.ok) throw new Error((await response.json()).error ?? "Não consegui retomar a sessão.");
         const existing = await response.json();
         if (token !== requestRef.current) return;
-        if (existing.sessionId) { applySession(existing); return; }
-        bootstrapKey.current ??= crypto.randomUUID();
+        if (existing.sessionId) {
+          applySession(existing);
+          setChoosing(!existing.items?.length || existing.currentRank > existing.items.length);
+        } else { applySession({ items: [] }); setChoosing(true); }
+        return;
       }
-      const action = operation === "BOOTSTRAP" ? "NEW_ENTRY" : operation;
-      const source = operation === "BOOTSTRAP" ? undefined : sessionRef.current ?? undefined;
+      const action = operation;
+      const source = sessionRef.current ?? undefined;
       const signature = JSON.stringify([action, source, nextProximity, nextFame]);
-      if (pendingSearch.current?.signature !== signature) pendingSearch.current = { signature, key: operation === "BOOTSTRAP" ? bootstrapKey.current! : crypto.randomUUID() };
+      if (pendingSearch.current?.signature !== signature) pendingSearch.current = { signature, key: crypto.randomUUID() };
       response = await privateFetch("/api/recommendations", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ operation: action, sessionId: source, requestKey: pendingSearch.current.key,
@@ -154,7 +167,7 @@ export function Descobertas() {
         if (payload.code === "GENERATION_FAILED") pendingSearch.current = null;
         throw new Error(payload.error ?? "Não consegui buscar agora.");
       }
-      pendingSearch.current = null; applySession(payload);
+      pendingSearch.current = null; applySession(payload); setMapOpen(false);
     } catch (cause) {
       if (token === requestRef.current) { setFailed(true); setLoadError(cause instanceof Error ? cause.message : "A conexão falhou."); }
     } finally { if (token === requestRef.current) setBusy(false); }
@@ -163,27 +176,43 @@ export function Descobertas() {
   useEffect(() => { void load(55, 50, "BOOTSTRAP"); return () => { requestRef.current += 1; }; }, [load]);
 
   const move = useCallback((nextProximity: number, nextFame: number) => {
-    setProximity(nextProximity);
-    setFame(nextFame);
+    setDraftProximity(nextProximity);
+    setDraftFame(nextFame);
   }, []);
 
   const commit = useCallback(
     (nextProximity: number, nextFame: number) => {
       if (savingRef.current) return;
       move(nextProximity, nextFame);
-      void load(nextProximity, nextFame, "NEW_ENTRY");
+
     },
-    [load, move],
+    [move],
   );
 
   const current = queue?.[index] ?? null;
   const finished = queue !== null && queue.length > 0 && index >= queue.length;
 
+  const showEntries = () => {
+    if (savingRef.current || busy) return;
+    stop(); setChoosing(true); setFailed(false); setLoadError(null); setFeedbackError(null);
+    setDraftProximity(proximity); setDraftFame(fame);
+    window.scrollTo({ top: 0, behavior: reduced ? "instant" : "smooth" });
+  };
+  const openMap = () => {
+    setMapOpen(true);
+    requestAnimationFrame(() => document.getElementById("mapa-descoberta")?.scrollIntoView({ behavior: reduced ? "instant" : "smooth", block: "start" }));
+  };
+  useEffect(() => {
+    if (choosing || busy || !current || !headlineRef.current) return;
+    headlineRef.current.tabIndex = -1;
+    headlineRef.current.focus({ preventScroll: true });
+  }, [current?.id, choosing, busy]);
+
   useEffect(() => { setNote(""); setAspects([]); }, [current?.id]);
 
   useEffect(() => {
     const element = suggestionRef.current;
-    if (!element || !current || !sessionId || busy || modalOpen || !("IntersectionObserver" in window)) return;
+    if (!element || !current || !sessionId || busy || modalOpen || choosing || !("IntersectionObserver" in window)) return;
     let visible = false;
     let sent = false;
     let sending = false;
@@ -203,7 +232,7 @@ export function Descobertas() {
     observer.observe(element);
     document.addEventListener("visibilitychange", expose);
     return () => { observer.disconnect(); document.removeEventListener("visibilitychange", expose); };
-  }, [current?.id, sessionId, busy, modalOpen]);
+  }, [current?.id, sessionId, busy, modalOpen, choosing]);
 
   const moveTo = async (nextIndex: number) => {
     if (!sessionId || savingRef.current || busy || !queue) return;
@@ -276,7 +305,7 @@ export function Descobertas() {
   }, [current, toggle]);
 
   useEffect(() => {
-    if (!current || modalOpen) return;
+    if (!current || modalOpen || choosing || busy) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return;
       const target = event.target instanceof Element ? event.target : null;
@@ -300,7 +329,7 @@ export function Descobertas() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [current, decide, modalOpen, toggleSound]);
+  }, [current, decide, modalOpen, choosing, busy, toggleSound]);
 
   /** As sugestões desta busca, nos mesmos eixos que você regulou. */
   const dots = useMemo<MapDot[]>(
@@ -378,8 +407,8 @@ export function Descobertas() {
 
   // ---------- onde o traço vai ----------
 
-  const showing = Boolean(current && !busy);
-  const headline = current ? `Escuta essa: ${current.trackName}, de ${current.artistName}.` : "";
+  const showing = Boolean(current && !busy && !choosing);
+
 
   const draw = (origin: DOMRect): PenDrawing | null => {
     if (!showing) return null;
@@ -412,18 +441,28 @@ export function Descobertas() {
   // ---------- o que aparece em cima ----------
 
   let top: React.ReactNode;
-  if (!queue && failed) {
+  if (choosing) {
+    top = <>
+      <DiscoveryEntry busy={busy || saving} hasSession={Boolean(sessionId && queue?.length)} currentRank={index + 1} total={queue?.length ?? 0}
+        onChoose={(nextProximity, nextFame) => void load(nextProximity, nextFame, "NEW_ENTRY")}
+        onResume={() => void load(proximity, fame, "RESUME")} onAdjust={openMap} />
+      {busy && <p className={styles.quiet} role="status">Recuperando tua última busca…</p>}
+      {loadError && <p className={styles.entryError} role="alert">{loadError} <button className={styles.textButton} onClick={() => void load(55, 50, "BOOTSTRAP")}>tentar novamente</button></p>}
+    </>;
+  } else if (!queue && failed) {
     top = (
       <Aviso headline="Me perdi procurando." narrative={loadError ?? "Não consegui montar as sugestões."}>
         <Resposta onClick={() => void load(lastLoad.current.proximity, lastLoad.current.fame, lastLoad.current.operation)}>tenta de novo</Resposta>
+        <Resposta onClick={showEntries}>escolher outro caminho</Resposta>
       </Aviso>
     );
   } else if (!queue || busy) {
-    top = <Aviso window="pra ouvir depois" headline="Peraí, tô procurando nesse canto do mapa." />;
+    top = <Aviso window="seguindo as tuas pistas" headline="Peraí. Tua próxima descoberta está a caminho." narrative="Estou cruzando referências e separando as indicações. Não precisa escolher mais nada agora." />;
   } else if (failed) {
     top = (
       <Aviso headline="Me perdi procurando." narrative={loadError ?? "Não consegui buscar nesse canto."}>
         <Resposta onClick={() => void load(lastLoad.current.proximity, lastLoad.current.fame, lastLoad.current.operation)}>tenta de novo</Resposta>
+        <Resposta onClick={showEntries}>escolher outro caminho</Resposta>
       </Aviso>
     );
   } else if (queue.length === 0) {
@@ -431,8 +470,8 @@ export function Descobertas() {
       <Aviso
         window="pra ouvir depois"
         headline="Nada novo nesse canto."
-        narrative="Mexe no mapa: mais pra esquerda ou mais pra baixo mora o que você ainda não ouviu."
-      />
+        narrative="As referências desta busca não renderam outra indicação. A gente pode tentar outro caminho."
+      ><Resposta onClick={showEntries}>escolher outro caminho</Resposta><Resposta onClick={openMap}>ajustar a busca</Resposta></Aviso>
     );
   } else if (finished || !current) {
     top = (
@@ -441,77 +480,44 @@ export function Descobertas() {
         headline={kept.length > 0 ? `Você separou ${kept.length}.` : "Chegamos ao fim desta busca."}
         narrative={
           kept.length > 0
-            ? "Leva pro Spotify agora, ou mexe no mapa que eu busco mais."
-            : "Mexe no mapa que eu procuro em outro canto."
+            ? "Tua pilha para depois está aqui. Dá para levar pro Spotify ou continuar descobrindo."
+            : "A gente pode seguir essas pistas ou escolher outro caminho."
         }
       >
         {kept.length > 0 && <Resposta onClick={() => void exportKept()}>levar {kept.length} pro Spotify</Resposta>}
         <Resposta onClick={() => void load(proximity, fame, "MORE")}>busca mais nesse canto</Resposta>
-        <Resposta onClick={() => void load(proximity, fame, "NEW_ENTRY")}>outra entrada</Resposta>
+        <Resposta onClick={showEntries}>escolher outro caminho</Resposta>
         {index > 0 && <Resposta onClick={() => void moveTo(index - 1)}>rever a anterior</Resposta>}
       </Aviso>
     );
   } else {
     top = (
       <div>
-        <section ref={suggestionRef} className={styles.block} aria-label="A sugestão da vez">
-          <Fala
-            level={1}
-            window={`pra ouvir depois · ${index + 1} de ${queue.length}`}
-            headline={headline}
-            narrative={current.reason}
-            markRef={markRef}
-            marked={pen.started.has(`grifo:${current.id}`)}
-            mark={[current.trackName]}
-          />
-          <div className={styles.record}>
-            <Capa
-              cover={{ url: current.coverUrl, title: current.albumName ?? current.trackName, artist: current.artistName }}
-              playing={sound.playing}
-              innerRef={coverRef}
-              className={styles.cover}
-              eager
-            />
-            <div className={styles.caption}>
-              <a className={styles.mapLink} href="#mapa-descoberta">ajustar o mapa · {kept.length} separadas ↓</a>
-              {current.albumName && <span className={styles.album}>{current.albumName}</span>}
-              <span className={styles.meta}>
-                {[current.genre && genreLabel(current.genre), current.previewUrl ? "prévia de 30s" : "sem prévia"]
-                  .filter(Boolean)
-                  .join(" · ")}
-                {current.appleMusicUrl && (
-                  <>
-                    {current.genre || !current.previewUrl ? " · " : ""}
-                    <a href={current.appleMusicUrl} target="_blank" rel="noreferrer">
-                      prévia do Apple Music ↗
-                    </a>
-                  </>
-                )}
-                {current.sourceUrl && <> · <a href={current.sourceUrl} target="_blank" rel="noreferrer">referência no Last.fm ↗</a></>}
-              </span>
-            </div>
-          </div>
-        </section>
+        <DiscoveryTrack title={current.trackName} artist={current.artistName} reason={current.reason} isRevisit={current.isRevisit}
+          sectionRef={suggestionRef} headlineRef={headlineRef} markRef={markRef} marked={pen.started.has("grifo:" + current.id)}
+          entryLabel={discoveryEntryLabel(proximity)} index={index} total={queue.length} onChangeEntry={showEntries}
+          onPlay={toggleSound} canPlay={Boolean(current.previewUrl)} playing={sound.playing} loading={sound.loading}
+          artwork={<Capa cover={{ url: current.coverUrl, title: current.albumName ?? current.trackName, artist: current.artistName }} playing={sound.playing} innerRef={coverRef} className={styles.cover} eager />}
+          metadata={<>{current.genre && <span>{genreLabel(current.genre)} · </span>}{current.previewUrl ? "prévia de 30s" : "sem prévia"}
+            {current.appleMusicUrl && <> · <a href={current.appleMusicUrl} target="_blank" rel="noreferrer">Apple Music ↗</a></>}
+            {current.sourceUrl && <> · <a href={current.sourceUrl} target="_blank" rel="noreferrer">referência no Last.fm ↗</a></>}
+          </>} />
+        <div className={styles.decisionBar}>
         <Respostas>
           <p className={styles.feedback} role={feedbackError || sound.error ? "alert" : "status"}>
             {feedbackError || sound.error || (saving ? "Guardando tua resposta…" : "O que você separar fica na lista, mesmo se mudar o mapa.")}
           </p>
-          <Resposta onClick={toggleSound} disabled={!current.previewUrl} pressed={sound.playing} hint="espaço">
-            {sound.loading ? "carregando prévia…" : sound.playing ? "para aí" : "toca aí"}
-          </Resposta>
           <Resposta onClick={() => void decide("liked")} hint="↑" disabled={saving || !selection.ready} primary>
             curti
           </Resposta>
           <Resposta onClick={() => void decide("saved")} hint="↓" disabled={saving || !selection.ready}>
             guardo pra depois
           </Resposta>
-          <Resposta onClick={() => void decide("known")} hint="K" disabled={saving}>
-            já conheço
-          </Resposta>
           <Resposta onClick={() => void decide("skipped")} hint="→" disabled={saving}>
             pula
           </Resposta>
         </Respostas>
+        </div>
         <details className={styles.review} key={current.id}>
           <summary>outras respostas ou revisar</summary>
           <p>Pular, ainda não ouvir e não ser o pedido não significam que você não gosta da música.</p>
@@ -523,6 +529,7 @@ export function Descobertas() {
             <label>Comentário opcional<textarea maxLength={2000} value={note} onChange={(event) => setNote(event.target.value)} /></label>
           </fieldset>
           <Respostas inline label="Outras respostas">
+            <Resposta onClick={() => void decide("known")} hint="K" disabled={saving}>já conheço</Resposta>
             <Resposta onClick={() => void decide("disliked")} disabled={saving}>não curti</Resposta>
             <Resposta onClick={() => void decide("mismatch")} disabled={saving}>não era o que pedi</Resposta>
             <Resposta onClick={() => void decide("curious")} disabled={saving}>fiquei curioso</Resposta>
@@ -535,6 +542,14 @@ export function Descobertas() {
           {index > 0 && <Resposta onClick={() => void moveTo(index - 1)} disabled={saving}>rever a anterior</Resposta>}
           {index < queue.length - 1 && <Resposta onClick={() => void moveTo(index + 1)} disabled={saving}>próxima sem avaliar</Resposta>}
         </details>
+        <div className={styles.continuity}>
+          <p><span>{String(index + 1).padStart(2, "0")}</span> de {String(queue.length).padStart(2, "0")} indicações <span className={styles.continuityNote}>· teu lugar fica guardado</span></p>
+          <div>
+            {index > 0 && <button className={styles.textButton} disabled={saving} onClick={() => void moveTo(index - 1)}>← anterior</button>}
+            <button className={styles.textButton} disabled={saving} onClick={() => void load(proximity, fame, "MORE")}>buscar mais nesse caminho ↗</button>
+            <button className={styles.textButton} disabled={saving} onClick={openMap}>ajustar caminho</button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -544,40 +559,15 @@ export function Descobertas() {
   return (
     <div ref={stageRef} className={styles.stage}>
       <div inert={modalOpen}>
+      <div className={styles.pageTools}><span>uma boa música pode abrir outro caminho.</span><button className={styles.textButton} onClick={() => {
+        setCollectionOpen(true); requestAnimationFrame(() => document.getElementById("colecao-descoberta")?.scrollIntoView({ behavior: reduced ? "instant" : "smooth" }));
+      }}>para depois <span className={styles.pillCount}>{kept.length}</span></button></div>
       {top}
 
-      <section id="mapa-descoberta" className={styles.map} aria-label="Onde ele procura">
+      <details id="colecao-descoberta" className={styles.collection} open={collectionOpen} onToggle={(event) => setCollectionOpen(event.currentTarget.open)}>
+        <summary><span>Para depois <span className={styles.pillCount}>{kept.length}</span></span><span aria-hidden="true">↘</span></summary>
         <div>
-          <h2 className={styles.mapTitle}>o mapa</h2>
-          <p className={styles.mapNote}>
-            Pra direita, mais perto do que você já ouve; pra cima, mais gente conhece. Arrasta a mira que eu procuro
-            nesse canto.
-          </p>
-          <Mapa proximity={proximity} fame={fame} dots={dots} busy={busy || saving} onChange={move} onCommit={commit} />
-          {queue?.some((item) => !item.position) && <p className={styles.quiet}>Quando falta informação de público, a sugestão continua aqui, mas fica fora dos pontos do mapa.</p>}
-          <Respostas inline label="Continuidade da descoberta">
-            <Resposta onClick={() => void load(proximity, fame, "RESUME")} disabled={busy || saving || !sessionId}>retomar sessão</Resposta>
-            <Resposta onClick={() => void load(proximity, fame, "MORE")} disabled={busy || saving || !sessionId}>buscar mais nesse canto</Resposta>
-            <Resposta onClick={() => void load(proximity, fame, "NEW_ENTRY")} disabled={busy || saving}>outra entrada</Resposta>
-          </Respostas>
-          <ul className={styles.corners} aria-label="Cantos do mapa">
-            {CORNERS.map((corner) => (
-              <li key={corner.label}>
-                <button
-                  type="button"
-                  disabled={busy || saving}
-                  aria-pressed={corner.proximity === proximity && corner.fame === fame}
-                  onClick={() => commit(corner.proximity, corner.fame)}
-                >
-                  {corner.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <h2 className={styles.mapTitle}>separadas</h2>
+          <p className={styles.mapNote}>O que você curtiu ou separou para ouvir depois. Essa pilha fica neste navegador.</p>
           {exported && exportHidden && <p className={styles.quiet} role="status">
             {exported === "running" ? "Levando tua lista pro Spotify… " : "A última exportação terminou. "}
             <button type="button" className={styles.remove} onClick={() => setExportHidden(false)}>ver {exported === "running" ? "andamento" : "resultado"}</button>
@@ -603,7 +593,27 @@ export function Descobertas() {
             </>
           )}
         </div>
-      </section>
+      </details>
+      <details id="mapa-descoberta" className={styles.adjustments} open={mapOpen} onToggle={(event) => setMapOpen(event.currentTarget.open)}>
+        <summary><span><span className={styles.eyebrow}>teu caminho, com mais detalhe</span><strong>Ajustar a descoberta</strong></span><span aria-hidden="true">↘</span></summary>
+        {mapOpen && <div className={styles.map}>
+          <div><h2 className={styles.mapTitle}>Qual é a distância da próxima pista?</h2>
+            <p className={styles.mapNote}>Mais perto das tuas referências ou um passo para fora. No outro eixo, o tamanho do público. Os ajustes só valem quando você iniciar a busca.</p>
+            <Mapa proximity={draftProximity} fame={draftFame} dots={dots} busy={busy || saving} onChange={move} onCommit={commit} />
+            {queue?.some((item) => !item.position) && <p className={styles.quiet}>Sugestões sem dados de público continuam na escuta, mas ficam fora dos pontos.</p>}
+          </div><div className={styles.mapAside}>
+            <p className={styles.eyebrow}>algumas direções possíveis</p>
+            <ul className={styles.corners} aria-label="Direções da descoberta">
+              {CORNERS.map((corner) => <li key={corner.label}><button type="button" disabled={busy || saving}
+                aria-pressed={corner.proximity === draftProximity && corner.fame === draftFame}
+                onClick={() => commit(corner.proximity, corner.fame)}>{corner.label}<span aria-hidden="true">↗</span></button></li>)}
+            </ul>
+            <p className={styles.mapNote}>As referências continuam vindo do teu repertório. É uma direção para procurar, sem garantia de gênero ou de popularidade.</p>
+            <Resposta primary disabled={busy || saving} onClick={() => void load(draftProximity, draftFame, "NEW_ENTRY")}>buscar por aqui →</Resposta>
+          </div>
+        </div>}
+      </details>
+
 
       <PenLayer pen={pen} signal={signal} reduced={reduced} />
       </div>

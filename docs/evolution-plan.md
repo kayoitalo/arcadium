@@ -18,7 +18,7 @@ Faixa por vez, contexto fundamentado e aprofundamentos opcionais. Álbuns podem 
 | 4 | Perfil longo/recente, similaridade por faixa, adequação antes de afinidade, diversidade depois das exclusões; efeito do feedback observável. | Incorporada ao PR 13 junto da etapa 3 por escolha do proprietário. Motor híbrido e comparação sintética implementados; qualidade musical, latência e migração continuam para avaliação isolada. Ver [motor e comparação](hybrid-discovery.md). |
 | 5 | ListenBrainz opt-in por gravação; contribuição exclusiva medida; fontes não compartilham uma escala artificial de score. | Pendente |
 | 6 | Três intenções, restrições sustentadas, curadoria versionada aprovada, redescobertas identificadas, jornadas e álbuns. | Pendente |
-| 7 | Comparar e escolher interface; coleção na conta, continuidade, mobile e timeline agrupada, feedback/contexto opcionais. | Pendente; escolha explícita entre alternativas antes da ativação |
+| 7 | Comparar e escolher interface; coleção na conta, continuidade, mobile e timeline agrupada, feedback/contexto opcionais. | Proprietário escolheu entrada por intenção com mapa opcional. Adaptação da Descoberta antecipada no PR 13; revisão visual na preview pendente. Coleção na conta e timeline ainda pendentes. Ver [interface](discovery-interface.md). |
 | 8 | Conversa dinâmica, retrato acumulado, histórico direto, convites contextualizados e menor repetição editorial. | Pendente |
 | 9 | Fontes culturais rastreáveis, pistas de escuta, reutilização e comparação Lite/Flash; contagem real de tentativas/tokens e reserva atômica. | Pendente |
 | 10 | Consultas, retenção, recuperação de falhas e avaliação acumulada; registrar ganhos e retirar hipóteses sem benefício. | Pendente |
