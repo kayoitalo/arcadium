@@ -8,7 +8,7 @@ O fluxo híbrido deixa de buscar oito prévias durante a geração. Cada item so
 
 ## Visual e significado
 
-O sublinhado de entrada ganha desenho progressivo, respeitando redução de movimento. Os controles atuais ainda são heurísticas de proximidade e popularidade. Exploração radical e seleção por mood não estão implementadas. A distinção musical entre as duas entradas ainda exige avaliação e refinamento; não declarar essa área concluída pela alteração de texto/animação.
+A entrada passa a usar Fala, usePen e PenLayer do sistema, com grifo medido sobre o texto e redução de movimento. O texto de cada caminho explica sua relação com o repertório; durante a escuta, essa intenção permanece visível. Os controles atuais ainda são heurísticas de proximidade e popularidade. Exploração radical e seleção por mood não estão implementadas. A distinção musical entre as duas entradas ainda exige avaliação; a alteração visual não comprova qualidade musical.
 
 ## ListenBrainz: sondagem isolada
 
@@ -18,7 +18,13 @@ O endpoint público por gravação foi confirmado no formulário oficial. Uma co
 
 `node scripts/evaluation/listenbrainz-probe.mjs <recording-mbid>` executa até três consultas explícitas, espaçadas, com timeout e interrupção em erro. Não lê banco, publica histórico ou salva payloads musicais completos. A saída contém somente contagens e métricas operacionais. A integração continua fora do motor padrão.
 
-Ainda pendentes: amostra representativa de gravações verificadas, contrato de respostas não vazias, avaliação de candidatas exclusivas/duplicadas, relevância e condições de reutilização. Só após isso implementar o adaptador opcional e comparar contra o controle. A sondagem não conclui a etapa 5.
+Uma segunda consulta pública, usando Roads / Portishead como referência do próprio site, retornou 100 linhas com o algoritmo `session_based_days_7500_session_300_contribution_5_threshold_15_limit_50_skip_30_top_n_listeners_1000`. O adaptador experimental valida gravação/referência, remove duplicações, limita a 20 candidatas e conserva score bruto separado. Não considera score uma probabilidade nem o soma ao Last.fm. Cache de uma hora, coalescência, espaçamento conservador e tratamento de limites reduzem chamadas. Filas são locais ao processo, sem garantia global entre ambientes.
+
+Para avaliação manual na preview, habilitar `ARCADIUM_LISTENBRAINZ_EXPERIMENT=true` e fazer POST autenticado em `/api/recommendations/experiment` com `recordingMbid` e `baselineSessionId`. A conta precisa ser proprietária da sessão antes de qualquer consulta. A resposta traz candidatas e sobreposição textual com a sessão; isso não confirma identidade entre fontes nem mede preferência. A rota não altera a sessão nem publica escutas. Desativada por padrão e sem inclusão automática no motor.
+
+Referências: [API e limites](https://listenbrainz.readthedocs.io/en/latest/users/api/index.html), [termos](https://listenbrainz.org/terms-of-service/) e [dataset público](https://labs.api.listenbrainz.org/similar-recordings). Licença aberta das escutas não transfere direitos sobre áudio ou capas. O experimento conserva apenas cache transitório de metadados e não copia áudio ou arte.
+
+Ainda pendentes para adoção padrão: amostra representativa com cobertura brasileira, comparação de interesse/candidatas exclusivas/duplicadas/custo e revisão de condições específicas do dataset. Uma referência pública com resultados não conclui a etapa 5 nem justifica ativar a fonte por padrão.
 
 ## Revisão necessária
 

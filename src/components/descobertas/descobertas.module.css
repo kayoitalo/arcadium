@@ -8,7 +8,8 @@
 .pillCount { display: inline-grid; place-items: center; min-width: 26px; min-height: 26px; padding: 0 5px; border: 1px solid var(--fio-2); border-radius: 50%; color: var(--tinta); font-size: 11px; font-variant-numeric: tabular-nums; }
 .eyebrow { display: flex; align-items: center; gap: 12px; margin: 0; color: var(--tinta-3); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; font-variation-settings: "wght" 540; }
 .smallRule { width: 26px; height: 1px; background: var(--tinta-3); }
-.entry { padding: clamp(38px, 7vh, 80px) 0 42px; }
+.entry { position: relative; isolation: isolate; padding: clamp(38px, 7vh, 80px) 0 42px; }
+.entryIntro h1 { white-space: pre-line; }
 .entryIntro { display: grid; grid-template-columns: minmax(0, 1fr) 230px; align-items: end; gap: 40px; padding: 28px 0 55px; }
 .entryIntro h1 { margin: 0; color: var(--tinta); font-size: clamp(48px, 6.7vw, 100px); font-variation-settings: "wdth" 68, "wght" 800; line-height: 1.01; letter-spacing: -.045em; }
 .entryIntro > p { margin: 0 0 10px; color: var(--tinta-2); font-size: 17px; line-height: 1.65; }
@@ -42,6 +43,7 @@
 .entryError button { margin-left: 12px; }
 /* Listening: the music and the narrator share the foreground. */
 .listening { position: relative; }
+.pathContext { margin: 4px 0 0; max-width: 65ch; color: var(--tinta-3); font-size: 13px; line-height: 1.6; }
 .sessionBar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 0 10px; }
 .barSlash { color: var(--fio-2); font-size: 15px; }
 .block { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); column-gap: clamp(36px, 7vw, 110px); align-items: center; padding: 40px 0 44px; min-height: 540px; }

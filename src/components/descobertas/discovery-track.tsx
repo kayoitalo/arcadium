@@ -15,6 +15,11 @@ export function DiscoveryTrack({ title, artist, reason, isRevisit, artwork, meta
       <span className={styles.eyebrow}>descoberta <span className={styles.barSlash}>/</span> {entryLabel}</span>
       <button className={styles.textButton} onClick={onChangeEntry}>trocar caminho ↗</button>
     </div>
+    <p className={styles.pathContext}>{entryLabel === "Perto do que eu gosto"
+      ? "Buscando novidades com ligações mais diretas ao teu repertório."
+      : entryLabel === "Outras conexões"
+        ? "Buscando ligações menos diretas. Pode haver novidades dentro dos gêneros que você já escuta."
+        : "Buscando a partir dos ajustes que você escolheu no mapa."}</p>
     <div className={styles.block}>
       <div className={styles.trackCopy}>
         <section ref={sectionRef} aria-label="A sugestão da vez">

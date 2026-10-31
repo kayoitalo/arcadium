@@ -1,17 +1,31 @@
 "use client";
 import { DISCOVERY_ENTRIES } from "./discovery-view";
 import styles from "./descobertas.module.css";
+import { useRef } from "react";
+import { useReducedMotion } from "framer-motion";
+import { Fala, PenLayer } from "@/components/amigo/fala";
+import { usePen } from "@/components/amigo/use-pen";
+import { textLines } from "@/components/amigo/measure";
+import { band } from "@/components/amigo/gestures";
 
 export function DiscoveryEntry({ busy, hasSession, currentRank, total, onChoose, onResume, onAdjust }: {
   busy: boolean; hasSession: boolean; currentRank: number; total: number;
   onChoose: (proximity: number, fame: number) => void; onResume: () => void; onAdjust: () => void;
 }) {
-  return <section className={styles.entry} aria-labelledby="discovery-entry-title">
+  const stage = useRef<HTMLElement>(null);
+  const signal = useRef<ArrayLike<number> | null>(null);
+  const mark = useRef<HTMLSpanElement>(null);
+  const reduced = Boolean(useReducedMotion());
+  const pen = usePen(stage, (origin) => {
+    if (!mark.current) return null;
+    const { lines, size } = textLines(mark.current, origin);
+    const { strokes, width } = band(lines, size);
+    return { gestures: [{ id: "entry-curiosity", layer: "under", strokes, width, cap: "butt" }], wave: null, notes: [] };
+  }, "entry-curiosity");
+  return <section ref={stage} className={styles.entry} aria-label="Escolher caminho de descoberta">
     <p className={styles.eyebrow}><span className={styles.smallRule} /> descoberta musical</p>
     <div className={styles.entryIntro}>
-      <h1 id="discovery-entry-title">Hoje, a curiosidade<br />vai <span className={styles.drawnWord}>por onde?
-        <svg viewBox="0 0 440 22" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M3 14 C92 5 260 7 435 10 M63 20 C190 12 300 12 393 15" /></svg>
-      </span></h1>
+      <Fala level={1} headline={"Hoje, a curiosidade\nvai por onde?"} mark={["por onde?"]} markRef={mark} marked={pen.started.has("entry-curiosity")} />
       <p>Eu encontro as pistas.<br />Você dá o próximo play.<br /><small>Os dois caminhos partem do teu repertório.</small></p>
     </div>
     <div className={styles.entryChoices}>
@@ -31,5 +45,6 @@ export function DiscoveryEntry({ busy, hasSession, currentRank, total, onChoose,
       <p><strong>A tua última busca continua aqui.</strong><span>{currentRank <= total ? `Você parou na indicação ${currentRank} de ${total}.` : "As indicações e respostas ficaram guardadas."}</span></p>
       <button onClick={onResume} disabled={busy}>continuar <span aria-hidden="true">→</span></button>
     </div>}
+    <PenLayer pen={pen} signal={signal} reduced={reduced} />
   </section>;
 }
