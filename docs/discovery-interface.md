@@ -5,7 +5,7 @@ Direção escolhida pelo proprietário: entrada pela intenção, com mapa opcion
 ## Comportamento
 
 - Sem sessão anterior, abrir Descoberta recupera o estado, mas não gera sugestões automaticamente. O usuário escolhe “Perto do que eu gosto” ou “Outras conexões”, presets de proximidade do motor atual.
-- Uma sessão em andamento reaparece na posição guardada, sem nova geração nem reprodução automática. Trocar caminho oferece outra entrada e permite retomar a anterior enquanto não iniciar uma nova.
+- Abrir Descoberta mantém a entrada por intenção, mesmo com uma sessão em andamento. A busca anterior é recuperada em segundo plano e oferecida em “continuar”; só esse clique retoma a posição guardada, sem nova geração nem reprodução automática. Trocar caminho oferece outra entrada e permite retomar a anterior enquanto não iniciar uma nova.
 - Faixa, artista, capa, motivo fundamentado e prévia ficam em destaque. Curti, guardo e pula são as respostas principais. Conhecer, curiosidade, inadequação, desagrado, aspectos e revisões ficam no aprofundamento opcional.
 - O mapa começa recolhido. Arrastar ou escolher um canto só altera o rascunho; “buscar por aqui” inicia uma nova sessão. Não há chamadas musicais a cada movimento.
 - A exposição é observada no cabeçalho da indicação, não em toda a composição visual, para não exigir que uma tela alta caiba no viewport do celular.

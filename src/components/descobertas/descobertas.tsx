@@ -148,7 +148,8 @@ export function Descobertas() {
         if (token !== requestRef.current) return;
         if (existing.sessionId) {
           applySession(existing);
-          setChoosing(!existing.items?.length || existing.currentRank > existing.items.length);
+          // Loading saved state must not choose a listening intention for the user.
+          setChoosing(true);
         } else { applySession({ items: [] }); setChoosing(true); }
         return;
       }
