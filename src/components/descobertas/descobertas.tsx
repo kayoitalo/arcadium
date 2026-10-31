@@ -18,6 +18,7 @@ import { Mapa, type MapDot } from "./mapa";
 import { useSelection } from "./selection-provider";
 import { MAX_SELECTED_TRACKS, selectionKey } from "./selection";
 import styles from "./descobertas.module.css";
+import { ASPECTS, feedbackChannel, type FeedbackEntry, type FeedbackChannel } from "@/modules/recommendations/domain/feedback";
 
 interface Candidate {
   id: string;
@@ -30,9 +31,11 @@ interface Candidate {
   genre: string | null;
   reason: string | null;
   position: { proximity: number; fame: number } | null;
+  rank: number;
+  feedback?: Partial<Record<FeedbackChannel, FeedbackEntry>>;
 }
 
-type Action = "liked" | "saved" | "known" | "skipped";
+type Action = "liked" | "saved" | "known" | "skipped" | "disliked" | "mismatch" | "curious" | "unheard";
 
 interface ExportResult {
   playlistTitle?: string;
@@ -50,10 +53,14 @@ const FEEDBACK_API: Record<Action, string> = {
   liked: "LIKED",
   saved: "SAVE_FOR_LATER",
   known: "ALREADY_KNOW",
-  skipped: "NOT_INTERESTED",
+  skipped: "SKIPPED",
+  disliked: "DISLIKED", mismatch: "REQUEST_MISMATCH", curious: "CURIOUS", unheard: "NOT_LISTENED",
 };
 
-const HOW: Record<Action, string> = { liked: "curtiu", saved: "guardou", known: "já conhecia", skipped: "pulou" };
+const HOW: Record<Action, string> = { liked: "curtiu", saved: "guardou", known: "já conhecia", skipped: "pulou",
+  disliked: "não curtiu", mismatch: "não era o pedido", curious: "ficou curioso", unheard: "ainda não ouviu" };
+const FEEDBACK_LABEL: Record<string, string> = { ...Object.fromEntries(Object.entries(FEEDBACK_API).map(([action, type]) => [type, HOW[action as Action]])), NOT_INTERESTED: "sem interesse (registro antigo)" };
+const ASPECT_LABEL: Record<string, string> = { VOCALS: "vocal", INSTRUMENTAL: "instrumental", LYRICS: "letra", RHYTHM: "ritmo", ATMOSPHERE: "atmosfera", OTHER: "outro" };
 
 /** Os cantos do mapa que valem a visita, ditos como ele diria. */
 const CORNERS = [
@@ -78,6 +85,15 @@ export function Descobertas() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [busy, setBusy] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const [aspects, setAspects] = useState<string[]>([]);
+  const suggestionRef = useRef<HTMLElement>(null);
+  const sessionRef = useRef<string | null>(null);
+  const bootstrapKey = useRef<string | null>(null);
+  const pendingSearch = useRef<{ signature: string; key: string } | null>(null);
+  const lastLoad = useRef<{ proximity: number; fame: number; operation: "BOOTSTRAP" | "RESUME" | "MORE" | "NEW_ENTRY" }>({ proximity: 55, fame: 50, operation: "BOOTSTRAP" });
+  const pendingFeedback = useRef<{ signature: string; key: string } | null>(null);
   const [decided, setDecided] = useState<Record<string, Action>>({});
   const [exported, setExported] = useState<"running" | ExportResult | null>(null);
   const [exportHidden, setExportHidden] = useState(false);
@@ -98,36 +114,52 @@ export function Descobertas() {
   const { stop, toggle } = sound;
   const signal = usePulse(stageRef, sound.playing, sound.read);
 
-  const load = useCallback(async (nextProximity: number, nextFame: number) => {
-    if (savingRef.current) return;
-    const token = ++requestRef.current;
-    setBusy(true);
-    setFailed(false);
-    setFeedbackError(null);
-    try {
-      const response = await privateFetch("/api/recommendations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "BALANCED", context: "GENERAL", proximity: nextProximity, fame: nextFame }),
-      });
-      if (!response.ok) throw new Error(`recommendations ${response.status}`);
-      const payload = (await response.json()) as { items?: Candidate[]; sessionId?: string };
-      // uma resposta antiga não pode sobrescrever a busca atual
-      if (token !== requestRef.current) return;
-      setQueue(payload.items ?? []);
-      setSessionId(payload.sessionId ?? null);
-      setIndex(0);
-      setDecided({});
-    } catch {
-      if (token === requestRef.current) setFailed(true);
-    } finally {
-      if (token === requestRef.current) setBusy(false);
-    }
+  const applySession = useCallback((payload: { items?: Candidate[]; sessionId?: string; currentRank?: number; settings?: { dials?: { proximity: number; fame: number } } }) => {
+    const items = payload.items ?? [];
+    setQueue(items); setSessionId(payload.sessionId ?? null);
+    sessionRef.current = payload.sessionId ?? null;
+    setIndex(Math.min(items.length, Math.max(0, (payload.currentRank ?? 1) - 1)));
+    setDecided(Object.fromEntries(items.filter((item) => Object.values(item.feedback ?? {}).some((entry) => entry?.type !== "RETRACTED")).map((item) => [item.id, "known" as Action])));
+    if (payload.settings?.dials) { setProximity(payload.settings.dials.proximity); setFame(payload.settings.dials.fame); }
   }, []);
 
-  useEffect(() => {
-    void load(55, 50);
-  }, [load]);
+  const load = useCallback(async (nextProximity: number, nextFame: number, operation: "BOOTSTRAP" | "RESUME" | "MORE" | "NEW_ENTRY" = "NEW_ENTRY") => {
+    if (savingRef.current) return;
+    lastLoad.current = { proximity: nextProximity, fame: nextFame, operation };
+    const token = ++requestRef.current;
+    stop(); setBusy(true); setFailed(false); setLoadError(null); setFeedbackError(null);
+    try {
+      let response: Response;
+      if (operation === "BOOTSTRAP") {
+        response = await privateFetch("/api/recommendations");
+        if (!response.ok) throw new Error((await response.json()).error ?? "Não consegui retomar a sessão.");
+        const existing = await response.json();
+        if (token !== requestRef.current) return;
+        if (existing.sessionId) { applySession(existing); return; }
+        bootstrapKey.current ??= crypto.randomUUID();
+      }
+      const action = operation === "BOOTSTRAP" ? "NEW_ENTRY" : operation;
+      const source = operation === "BOOTSTRAP" ? undefined : sessionRef.current ?? undefined;
+      const signature = JSON.stringify([action, source, nextProximity, nextFame]);
+      if (pendingSearch.current?.signature !== signature) pendingSearch.current = { signature, key: operation === "BOOTSTRAP" ? bootstrapKey.current! : crypto.randomUUID() };
+      response = await privateFetch("/api/recommendations", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ operation: action, sessionId: source, requestKey: pendingSearch.current.key,
+          mode: "BALANCED", context: "GENERAL", proximity: nextProximity, fame: nextFame }),
+      });
+      const payload = await response.json();
+      if (token !== requestRef.current) return;
+      if (!response.ok) {
+        if (payload.code === "GENERATION_FAILED") pendingSearch.current = null;
+        throw new Error(payload.error ?? "Não consegui buscar agora.");
+      }
+      pendingSearch.current = null; applySession(payload);
+    } catch (cause) {
+      if (token === requestRef.current) { setFailed(true); setLoadError(cause instanceof Error ? cause.message : "A conexão falhou."); }
+    } finally { if (token === requestRef.current) setBusy(false); }
+  }, [applySession, stop]);
+
+  useEffect(() => { void load(55, 50, "BOOTSTRAP"); return () => { requestRef.current += 1; }; }, [load]);
 
   const move = useCallback((nextProximity: number, nextFame: number) => {
     setProximity(nextProximity);
@@ -138,7 +170,7 @@ export function Descobertas() {
     (nextProximity: number, nextFame: number) => {
       if (savingRef.current) return;
       move(nextProximity, nextFame);
-      void load(nextProximity, nextFame);
+      void load(nextProximity, nextFame, "NEW_ENTRY");
     },
     [load, move],
   );
@@ -146,13 +178,54 @@ export function Descobertas() {
   const current = queue?.[index] ?? null;
   const finished = queue !== null && queue.length > 0 && index >= queue.length;
 
+  useEffect(() => { setNote(""); setAspects([]); }, [current?.id]);
+
+  useEffect(() => {
+    const element = suggestionRef.current;
+    if (!element || !current || !sessionId || busy || modalOpen || !("IntersectionObserver" in window)) return;
+    let visible = false;
+    let sent = false;
+    let sending = false;
+    const expose = async () => {
+      if (sent || sending || !visible || document.visibilityState !== "visible") return;
+      sending = true;
+      try {
+        const response = await privateFetch(`/api/recommendations/${sessionId}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ operation: "EXPOSE", itemId: current.id }),
+        });
+        sent = response.ok;
+      } catch { /* A failed observation is not a negative preference. */ }
+      finally { sending = false; }
+    };
+    const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting && entry.intersectionRatio >= 0.5; void expose(); }, { threshold: 0.5 });
+    observer.observe(element);
+    document.addEventListener("visibilitychange", expose);
+    return () => { observer.disconnect(); document.removeEventListener("visibilitychange", expose); };
+  }, [current?.id, sessionId, busy, modalOpen]);
+
+  const moveTo = async (nextIndex: number) => {
+    if (!sessionId || savingRef.current || busy || !queue) return;
+    savingRef.current = true; setSaving(true); setFeedbackError(null); stop();
+    try {
+      const response = await privateFetch(`/api/recommendations/${sessionId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ operation: "MOVE", rank: nextIndex + 1, expectedRank: index + 1 }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? "Não consegui mudar de posição.");
+      setIndex(payload.currentRank - 1);
+    } catch (cause) { setFeedbackError(cause instanceof Error ? cause.message : "A conexão falhou."); }
+    finally { savingRef.current = false; setSaving(false); }
+  };
+
   // outra faixa na frente: a anterior para de tocar
   useEffect(() => {
     stop();
   }, [current?.id, stop]);
 
   const decide = useCallback(
-    async (action: Action) => {
+    async (action: Action | "retract", revisesId?: string) => {
       if (!current || busy || savingRef.current || !selection.ready) return;
       if ((action === "liked" || action === "saved") && selection.items.length >= MAX_SELECTED_TRACKS && !selection.items.some((item) => selectionKey(item) === selectionKey(current))) {
         setFeedbackError("A lista está com 200 faixas. Leva pro Spotify ou remove uma antes de guardar mais.");
@@ -164,15 +237,28 @@ export function Descobertas() {
       stop();
       try {
         if (!sessionId) throw new Error("Não consegui identificar a busca. Tenta buscar de novo.");
-        const response = await privateFetch(`/api/recommendations/${sessionId}/feedback`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ itemId: current.id, type: FEEDBACK_API[action] }),
+        const type = action === "retract" ? "RETRACTED" : FEEDBACK_API[action];
+        const target = revisesId ?? current.feedback?.[feedbackChannel(type)]?.id;
+        const body = { itemId: current.id, type, note: note || undefined,
+          details: aspects.length ? { aspects: [...aspects].sort() } : undefined,
+          revisesId: target, advance: action !== "retract" };
+        const signature = JSON.stringify(body);
+        if (pendingFeedback.current?.signature !== signature) pendingFeedback.current = { signature, key: crypto.randomUUID() };
+        const response = await privateFetch("/api/recommendations/" + sessionId + "/feedback", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...body, requestKey: pendingFeedback.current.key }),
         });
-        if (!response.ok) throw new Error("Não consegui guardar tua resposta. Tenta de novo; a faixa continua aqui.");
-        if (action === "liked" || action === "saved") selection.add({ id: current.id, trackName: current.trackName, artistName: current.artistName, action });
-        setDecided((previous) => ({ ...previous, [current.id]: action }));
-        setIndex((value) => value + 1);
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error ?? "Não consegui guardar tua resposta. A faixa continua aqui.");
+        pendingFeedback.current = null;
+        const states = payload.states as Candidate["feedback"];
+        if (states?.collection?.type === "SAVE_FOR_LATER") selection.add({ ...current, action: "saved" });
+        else if (states?.preference?.type === "LIKED") selection.add({ ...current, action: "liked" });
+        else if (action === "disliked" || action === "retract") selection.remove({ ...current, action: "liked" });
+        setQueue((previous) => previous?.map((item) => item.id === current.id ? { ...item, feedback: states } : item) ?? null);
+        if (action !== "retract") setDecided((previous) => ({ ...previous, [current.id]: action }));
+        if (payload.currentRank != null) setIndex(payload.currentRank - 1);
+
       } catch (cause) {
         setFeedbackError(cause instanceof Error ? cause.message : "A conexão falhou. Tenta responder de novo.");
       } finally {
@@ -180,7 +266,7 @@ export function Descobertas() {
         setSaving(false);
       }
     },
-    [current, sessionId, stop, busy, selection.add, selection.ready, selection.items],
+    [current, sessionId, stop, busy, selection, note, aspects],
   );
 
   const toggleSound = useCallback(() => {
@@ -192,7 +278,7 @@ export function Descobertas() {
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return;
       const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest("input, textarea, select, [role='group']")) return;
+      if (target?.closest("input, textarea, select, details, [role='group']")) return;
       // num botão ou link com foco, espaço e Enter são dele
       if ((event.key === " " || event.key === "Enter") && target?.closest("button, a")) return;
       const key = event.key.toLowerCase();
@@ -326,16 +412,16 @@ export function Descobertas() {
   let top: React.ReactNode;
   if (!queue && failed) {
     top = (
-      <Aviso headline="Me perdi procurando." narrative="Deu erro do meu lado montando as sugestões. Tenta de novo?">
-        <Resposta onClick={() => void load(proximity, fame)}>tenta de novo</Resposta>
+      <Aviso headline="Me perdi procurando." narrative={loadError ?? "Não consegui montar as sugestões."}>
+        <Resposta onClick={() => void load(lastLoad.current.proximity, lastLoad.current.fame, lastLoad.current.operation)}>tenta de novo</Resposta>
       </Aviso>
     );
   } else if (!queue || busy) {
     top = <Aviso window="pra ouvir depois" headline="Peraí, tô procurando nesse canto do mapa." />;
   } else if (failed) {
     top = (
-      <Aviso headline="Me perdi procurando." narrative="Deu erro do meu lado nesse canto do mapa. Tenta de novo?">
-        <Resposta onClick={() => void load(proximity, fame)}>tenta de novo</Resposta>
+      <Aviso headline="Me perdi procurando." narrative={loadError ?? "Não consegui buscar nesse canto."}>
+        <Resposta onClick={() => void load(lastLoad.current.proximity, lastLoad.current.fame, lastLoad.current.operation)}>tenta de novo</Resposta>
       </Aviso>
     );
   } else if (queue.length === 0) {
@@ -350,7 +436,7 @@ export function Descobertas() {
     top = (
       <Aviso
         window="pra ouvir depois"
-        headline={kept.length > 0 ? `Você separou ${kept.length}.` : "Nenhuma passou no teste."}
+        headline={kept.length > 0 ? `Você separou ${kept.length}.` : "Chegamos ao fim desta busca."}
         narrative={
           kept.length > 0
             ? "Leva pro Spotify agora, ou mexe no mapa que eu busco mais."
@@ -358,13 +444,15 @@ export function Descobertas() {
         }
       >
         {kept.length > 0 && <Resposta onClick={() => void exportKept()}>levar {kept.length} pro Spotify</Resposta>}
-        <Resposta onClick={() => void load(proximity, fame)}>busca mais</Resposta>
+        <Resposta onClick={() => void load(proximity, fame, "MORE")}>busca mais nesse canto</Resposta>
+        <Resposta onClick={() => void load(proximity, fame, "NEW_ENTRY")}>outra entrada</Resposta>
+        {index > 0 && <Resposta onClick={() => void moveTo(index - 1)}>rever a anterior</Resposta>}
       </Aviso>
     );
   } else {
     top = (
       <div>
-        <section className={styles.block} aria-label="A sugestão da vez">
+        <section ref={suggestionRef} className={styles.block} aria-label="A sugestão da vez">
           <Fala
             level={1}
             window={`pra ouvir depois · ${index + 1} de ${queue.length}`}
@@ -421,6 +509,29 @@ export function Descobertas() {
             pula
           </Resposta>
         </Respostas>
+        <details className={styles.review} key={current.id}>
+          <summary>outras respostas ou revisar</summary>
+          <p>Pular, ainda não ouvir e não ser o pedido não significam que você não gosta da música.</p>
+          <fieldset disabled={saving}>
+            <legend>Quer contar o que chamou atenção? É opcional.</legend>
+            {ASPECTS.map((aspect) => <label key={aspect}>
+              <input type="checkbox" checked={aspects.includes(aspect)} onChange={(event) => setAspects((values) => event.target.checked ? [...values, aspect] : values.filter((value) => value !== aspect))} /> {ASPECT_LABEL[aspect]}
+            </label>)}
+            <label>Comentário opcional<textarea maxLength={2000} value={note} onChange={(event) => setNote(event.target.value)} /></label>
+          </fieldset>
+          <Respostas inline label="Outras respostas">
+            <Resposta onClick={() => void decide("disliked")} disabled={saving}>não curti</Resposta>
+            <Resposta onClick={() => void decide("mismatch")} disabled={saving}>não era o que pedi</Resposta>
+            <Resposta onClick={() => void decide("curious")} disabled={saving}>fiquei curioso</Resposta>
+            <Resposta onClick={() => void decide("unheard")} disabled={saving}>ainda não ouvi</Resposta>
+          </Respostas>
+          {Object.values(current.feedback ?? {}).filter((entry) => entry?.type !== "RETRACTED").map((entry) => entry && <p key={entry.id}>
+            Você registrou: {FEEDBACK_LABEL[entry.type] ?? "uma resposta anterior"}{entry.note ? ` — ${entry.note}` : ""}.{" "}
+            <button className={styles.remove} disabled={saving} type="button" onClick={() => void decide("retract", entry.id)}>retirar esta avaliação</button>
+          </p>)}
+          {index > 0 && <Resposta onClick={() => void moveTo(index - 1)} disabled={saving}>rever a anterior</Resposta>}
+          {index < queue.length - 1 && <Resposta onClick={() => void moveTo(index + 1)} disabled={saving}>próxima sem avaliar</Resposta>}
+        </details>
       </div>
     );
   }
@@ -440,6 +551,11 @@ export function Descobertas() {
             nesse canto.
           </p>
           <Mapa proximity={proximity} fame={fame} dots={dots} busy={busy || saving} onChange={move} onCommit={commit} />
+          <Respostas inline label="Continuidade da descoberta">
+            <Resposta onClick={() => void load(proximity, fame, "RESUME")} disabled={busy || saving || !sessionId}>retomar sessão</Resposta>
+            <Resposta onClick={() => void load(proximity, fame, "MORE")} disabled={busy || saving || !sessionId}>buscar mais nesse canto</Resposta>
+            <Resposta onClick={() => void load(proximity, fame, "NEW_ENTRY")} disabled={busy || saving}>outra entrada</Resposta>
+          </Respostas>
           <ul className={styles.corners} aria-label="Cantos do mapa">
             {CORNERS.map((corner) => (
               <li key={corner.label}>

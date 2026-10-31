@@ -9,8 +9,8 @@ describe("Recommendation Scoring Engine", () => {
     knownArtistNames: new Set(["deftones", "gojira", "radiohead", "muse"]),
     knownTrackKeys: new Set(["deftones|change", "gojira|stranded"]),
     feedbackMap: new Map([
-      ["muse", "DISLIKED"],
-      ["mastodon", "LIKED"],
+      [JSON.stringify(["muse", "hysteria"]), "DISLIKED"],
+      [JSON.stringify(["mastodon", "blood and thunder"]), "LIKED"],
     ]),
     totalPlays: 100,
     uniqueArtists: 4,
@@ -28,7 +28,7 @@ describe("Recommendation Scoring Engine", () => {
       expect(components.noveltyFit).toBe(0.0);
     });
 
-    it("rewards feedbackFit if artist is liked", () => {
+    it("rewards feedbackFit for the individually liked track", () => {
       const candidate: RawCandidate = {
         artistName: "Mastodon",
         trackName: "Blood and Thunder",
@@ -39,7 +39,7 @@ describe("Recommendation Scoring Engine", () => {
       expect(components.feedbackFit).toBe(0.9);
     });
 
-    it("penalizes feedbackFit if artist is disliked", () => {
+    it("penalizes feedbackFit for the individually disliked track", () => {
       const candidate: RawCandidate = {
         artistName: "Muse",
         trackName: "Hysteria",
@@ -48,6 +48,13 @@ describe("Recommendation Scoring Engine", () => {
 
       const components = computeComponents(candidate, mockProfile);
       expect(components.feedbackFit).toBe(0.0);
+    });
+    it("does not transfer a rejection to another song, live version, artist seed or genre", () => {
+      for (const candidate of [
+        { artistName: "Muse", trackName: "Starlight", source: "similar_artist" as const },
+        { artistName: "Muse", trackName: "Hysteria (Live)", source: "similar_artist" as const },
+        { artistName: "Other", trackName: "Song", sourceArtistName: "Muse", source: "similar_artist" as const },
+      ]) expect(computeComponents(candidate, mockProfile).feedbackFit).toBe(0.5);
     });
 
     it("computes genre similarity correctly", () => {

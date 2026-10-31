@@ -13,8 +13,8 @@ Faixa por vez, contexto fundamentado e aprofundamentos opcionais. Álbuns podem 
 | Etapa | Entrega e aceitação | Estado |
 | --- | --- | --- |
 | 1 | Avaliação reproduzível, capacidades e limites, cópia isolada, baseline. | PR 11 mergeado; preview testada e aprovada pelo proprietário. A amostra completa de fontes continua uma avaliação manual, não um resultado inferido dos testes. Ver [procedimento](evaluation-foundation.md). |
-| 2 | Identificadores por entidade, versões preservadas, integrações e limites corrigidos; prévia/feedback na gravação certa. | Implementação em revisão; validação musical/OAuth na preview pendente. Ver [alterações e limites](identity-integrations.md). |
-| 3 | Retomar/buscar mais/outra entrada distintos; feedback revisável com escopo correto e histórico preservado. | Pendente |
+| 2 | Identificadores por entidade, versões preservadas, integrações e limites corrigidos; prévia/feedback na gravação certa. | PR 12 mergeado após avaliação do proprietário. Ver [alterações e limites](identity-integrations.md). |
+| 3 | Retomar/buscar mais/outra entrada distintos; feedback revisável com escopo correto e histórico preservado. | Implementação em revisão. Requer migration aditiva primeiro na cópia isolada; aplicação e testes com banco real pendentes. Ver [procedimento](sessions-feedback.md). |
 | 4 | Perfil longo/recente, similaridade por faixa, adequação antes de afinidade, diversidade depois das exclusões; efeito do feedback observável. | Pendente |
 | 5 | ListenBrainz opt-in por gravação; contribuição exclusiva medida; fontes não compartilham uma escala artificial de score. | Pendente |
 | 6 | Três intenções, restrições sustentadas, curadoria versionada aprovada, redescobertas identificadas, jornadas e álbuns. | Pendente |

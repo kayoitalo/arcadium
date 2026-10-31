@@ -9,12 +9,15 @@ import { LastFmSimilarArtistProvider } from "../infrastructure/lastfm-similar-ad
 import type { PreviewProvider, TrackPreview } from "../domain/preview-provider.interface";
 import { ItunesPreviewAdapter } from "../infrastructure/itunes-preview-adapter";
 import { compatiblePreviewIdentity } from "../domain/preview-identity";
+import { DiscoveryConflict, effectiveFeedback, effectiveTrackFeedback, trackFeedbackKey } from "../domain/feedback";
+import { SessionMemoryService, type FeedbackOptions } from "./session-memory-service";
 import type { TrackCoverProvider } from "@/modules/enrichment/domain/cover-art-provider.interface";
 import { LastFmCoverAdapter } from "@/modules/enrichment/infrastructure/lastfm-cover-adapter";
 import {
   type RecommendationMode,
   type RecommendationContext,
   type FeedbackType,
+  type SessionOperation,
   type DiscoveryDials,
   MODE_DIALS,
   type RawCandidate,
@@ -38,6 +41,8 @@ function toSessionResult(session: {
   mode: string;
   context: string | null;
   algorithmVersion: string;
+  currentRank?: number | null;
+  profilePeriod?: string;
   items: Array<Record<string, any>>;
 }): SessionResult {
   return {
@@ -45,6 +50,8 @@ function toSessionResult(session: {
     mode: session.mode as RecommendationMode,
     context: session.context,
     algorithmVersion: session.algorithmVersion,
+    currentRank: session.currentRank ?? session.items.find((item) => item.status === "PENDING")?.rank ?? session.items.length + 1,
+    settings: sessionSettings(session.profilePeriod, session.mode, session.context),
     items: session.items.map((item) => {
       const previewIdentity = compatiblePreviewIdentity((item.scoreComponents as any)?.previewIdentity,
         { artistName: item.artistName, trackName: item.trackName });
@@ -59,6 +66,7 @@ function toSessionResult(session: {
       scoreComponents: item.scoreComponents,
       rank: item.rank,
       status: item.status,
+      feedback: effectiveFeedback(item.feedback ?? []),
       reason: item.reason,
       coverUrl: item.coverUrl ?? null,
       previewIdentity,
@@ -74,6 +82,15 @@ function coverKey(candidate: { artistName: string; trackName: string }): string 
   return `${candidate.artistName.toLowerCase()}|${candidate.trackName.toLowerCase()}`;
 }
 
+function sessionSettings(profilePeriod: string | undefined, mode: string, context: string | null) {
+  const [period = "30d", proximity, fame] = (profilePeriod ?? "30d").split(":");
+  return { period, mode: mode as RecommendationMode, context: (context ?? "GENERAL") as RecommendationContext,
+    dials: proximity != null && fame != null ? { proximity: Number(proximity), fame: Number(fame) } : MODE_DIALS[mode as RecommendationMode] };
+}
+
+const sessionInclude = (userId: string) => ({ items: { orderBy: { rank: "asc" as const },
+  include: { feedback: { where: { userId }, orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }] } } } });
+
 export interface GenerateSessionInput {
   userId: string;
   mode: RecommendationMode;
@@ -82,6 +99,9 @@ export interface GenerateSessionInput {
   size?: number;
   /** Onde a pessoa deixou os dois controles. Sem isso, usa o preset do modo. */
   dials?: DiscoveryDials;
+  operation?: SessionOperation;
+  sessionId?: string;
+  requestKey?: string;
 }
 
 export interface SessionResult {
@@ -89,6 +109,8 @@ export interface SessionResult {
   mode: RecommendationMode;
   context: string | null;
   algorithmVersion: string;
+  currentRank: number;
+  settings: ReturnType<typeof sessionSettings>;
   items: Array<{
     id: string;
     artistName: string;
@@ -100,6 +122,7 @@ export interface SessionResult {
     scoreComponents: any;
     rank: number;
     status: string;
+    feedback: ReturnType<typeof effectiveFeedback>;
     reason: string | null;
     coverUrl: string | null;
     previewUrl: string | null;
@@ -117,35 +140,81 @@ export class RecommendationService {
   ) {}
 
   async generateSession(input: GenerateSessionInput): Promise<SessionResult> {
+    const operation = input.operation ?? "AUTO";
+    let effective = input;
+    const source = input.sessionId ? await prisma.recommendationSession.findFirst({ where: { id: input.sessionId, userId: input.userId }, include: sessionInclude(input.userId) }) : null;
+    if (input.sessionId && !source) throw new DiscoveryConflict("Sessão não encontrada.", 404);
+    if (operation === "RESUME") {
+      if (source && source.status !== "ACTIVE") throw new DiscoveryConflict("Essa busca ainda não está disponível para retomar.");
+      if (source) return (await this.getSession(source.id, input.userId))!;
+      const latest = await this.getLatestSession(input.userId);
+      if (!latest) throw new DiscoveryConflict("Nenhuma sessão para retomar.", 404);
+      return latest;
+    }
+    if (operation === "MORE") {
+      if (!source) throw new DiscoveryConflict("Escolha a sessão para buscar mais.", 400);
+      if (source.status !== "ACTIVE") throw new DiscoveryConflict("A sessão original ainda não está pronta.");
+      if (source.algorithmVersion !== ALGORITHM_VERSION) throw new DiscoveryConflict("Essa sessão usa o motor anterior. Escolha outra entrada para iniciar uma nova busca.");
+      const settings = sessionSettings(source.profilePeriod, source.mode, source.context);
+      effective = { ...input, ...settings };
+    }
+    const { userId, mode, context, period = "30d", size = DEFAULT_SESSION_SIZE } = effective;
+    const dials = effective.dials ?? MODE_DIALS[mode];
+    const fingerprint = JSON.stringify({ operation, source: input.sessionId ?? null, mode,
+      context: context || "GENERAL", period, dials, size, algorithm: ALGORITHM_VERSION });
+    const replay = async () => {
+      const previous = await prisma.recommendationSession.findUnique({ where: { userId_requestKey: { userId, requestKey: input.requestKey! } } });
+      if (!previous || previous.requestFingerprint !== fingerprint) throw new DiscoveryConflict("Chave de busca já utilizada com outros parâmetros.");
+      if (previous.status === "GENERATING" && previous.updatedAt.getTime() < Date.now() - 5 * 60_000) {
+        await prisma.recommendationSession.updateMany({ where: { id: previous.id, status: "GENERATING", updatedAt: previous.updatedAt }, data: { status: "FAILED" } });
+        throw new DiscoveryConflict("A busca anterior foi interrompida. Inicie outra tentativa.", 409, "GENERATION_FAILED");
+      }
+      if (previous.status !== "ACTIVE") throw new DiscoveryConflict(previous.status === "GENERATING" ? "A busca ainda está em andamento. Tente novamente em alguns instantes." : "A busca falhou. Inicie outra tentativa.", 409, previous.status === "GENERATING" ? "GENERATION_PENDING" : "GENERATION_FAILED");
+      return (await this.getSession(previous.id, userId))!;
+    };
+    if (input.requestKey) {
+      const previous = await prisma.recommendationSession.findUnique({ where: { userId_requestKey: { userId, requestKey: input.requestKey } } });
+      if (previous) return replay();
+    }
+    if (operation === "AUTO") {
+      const reusable = await prisma.recommendationSession.findFirst({
+        where: { userId, mode, context: context || "GENERAL", status: "ACTIVE",
+          algorithmVersion: ALGORITHM_VERSION,
+          createdAt: { gte: new Date(Date.now() - SESSION_REUSE_WINDOW_MS) },
+          profilePeriod: [period, dials.proximity, dials.fame].join(":") },
+        orderBy: { createdAt: "desc" }, include: sessionInclude(userId),
+      });
+      if (reusable?.items.length) return toSessionResult(reusable);
+    }
+    let reservation;
+    try {
+      reservation = await prisma.recommendationSession.create({ data: {
+        userId, mode, context: context || "GENERAL", profilePeriod: [period, dials.proximity, dials.fame].join(":"),
+        algorithmVersion: ALGORITHM_VERSION, status: "GENERATING", currentRank: 1,
+        requestKey: input.requestKey, requestFingerprint: fingerprint,
+      } });
+    } catch (error) {
+      if (input.requestKey && (error as { code?: string }).code === "P2002") return replay();
+      throw error;
+    }
+    try {
+      const avoid = (source?.items ?? []).filter((item) => item.exposedAt || item.feedback?.length);
+      return await this.populateSession({ ...effective, dials }, reservation.id, avoid);
+    } catch (error) {
+      await prisma.recommendationSession.update({ where: { id: reservation.id }, data: { status: "FAILED" } }).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  private async populateSession(input: GenerateSessionInput, sessionId: string, avoid: Array<{ artistName: string; trackName: string }>): Promise<SessionResult> {
     const { userId, mode, context, period = "30d", size = DEFAULT_SESSION_SIZE } = input;
     const dials = input.dials ?? MODE_DIALS[mode];
-
-    // A página pede uma sessão a cada montagem e a cada troca de modo.
-    // Gerar tudo de novo queimaria o poço de candidatos e jogaria fora o
-    // feedback que a pessoa acabou de dar.
-    const reusable = await prisma.recommendationSession.findFirst({
-      where: {
-        userId,
-        mode,
-        context: context || "GENERAL",
-        status: "ACTIVE",
-        createdAt: { gte: new Date(Date.now() - SESSION_REUSE_WINDOW_MS) },
-        // os controles fazem parte da identidade da sessão
-        profilePeriod: `${period}:${dials.proximity}:${dials.fame}`,
-      },
-      orderBy: { createdAt: "desc" },
-      include: { items: { orderBy: { rank: "asc" } } },
-    });
-
-    if (reusable && reusable.items.length > 0) {
-      return toSessionResult({ ...reusable, items: await this.backfillCovers(reusable.items) });
-    }
-
     const profile = await this.buildUserProfile(userId, period);
 
     const rawCandidates = await this.generateCandidates(userId, profile, mode, dials);
 
-    const filtered = await this.applyExclusions(userId, rawCandidates, profile);
+    const excluded = new Set(avoid.map(coverKey));
+    const filtered = (await this.applyExclusions(userId, rawCandidates, profile)).filter((candidate) => !excluded.has(coverKey(candidate)));
 
     const scored = scoreAndRank(filtered, profile, mode, dials).slice(0, size);
 
@@ -154,7 +223,8 @@ export class RecommendationService {
       this.resolvePreviews(scored),
     ]);
 
-    const session = await prisma.recommendationSession.create({
+    const session = await prisma.recommendationSession.update({
+      where: { id: sessionId },
       data: {
         userId,
         mode,
@@ -185,7 +255,7 @@ export class RecommendationService {
           })),
         },
       },
-      include: { items: { orderBy: { rank: "asc" } } },
+      include: sessionInclude(userId),
     });
 
     return toSessionResult(session);
@@ -197,52 +267,15 @@ export class RecommendationService {
     feedbackType: FeedbackType,
     note?: string,
     sessionId?: string,
-  ): Promise<{ success: boolean }> {
-    return prisma.$transaction(async (tx) => {
-      // Serialize decisions for the same item, including concurrent retries.
-      await tx.$queryRaw`SELECT "id" FROM "RecommendationItem" WHERE "id" = ${itemId} FOR UPDATE`;
-      const item = await tx.recommendationItem.findUnique({
-        where: { id: itemId },
-        include: { session: true },
-      });
-
-      if (!item || item.session.userId !== userId || (sessionId && item.sessionId !== sessionId)) {
-        throw new Error("Recommendation item not found or unauthorized");
-      }
-
-      const existing = await tx.recommendationFeedback.findFirst({ where: { itemId, userId, type: feedbackType } });
-      if (existing) return { success: true };
-
-      const statusMap: Record<FeedbackType, string> = {
-        LIKED: "LIKED",
-        DISLIKED: "DISLIKED",
-        ALREADY_KNOW: "KNOWN",
-        NOT_INTERESTED: "NOT_INTERESTED",
-        SAVE_FOR_LATER: "SAVED",
-      };
-
-      await tx.recommendationItem.update({
-        where: { id: itemId },
-        data: { status: statusMap[feedbackType] },
-      });
-
-      await tx.recommendationFeedback.create({
-        data: {
-          itemId,
-          userId,
-          type: feedbackType,
-          note: note || null,
-        },
-      });
-
-      return { success: true };
-    });
+    options: FeedbackOptions = {},
+  ) {
+    return new SessionMemoryService().recordFeedback(userId, itemId, feedbackType, note, sessionId, options);
   }
 
   async getSession(sessionId: string, userId: string): Promise<SessionResult | null> {
     const session = await prisma.recommendationSession.findFirst({
       where: { id: sessionId, userId },
-      include: { items: { orderBy: { rank: "asc" } } },
+      include: sessionInclude(userId),
     });
 
     if (!session) return null;
@@ -254,7 +287,7 @@ export class RecommendationService {
     const session = await prisma.recommendationSession.findFirst({
       where: { userId, status: "ACTIVE" },
       orderBy: { createdAt: "desc" },
-      include: { items: { orderBy: { rank: "asc" } } },
+      include: sessionInclude(userId),
     });
 
     if (!session) return null;
@@ -265,7 +298,7 @@ export class RecommendationService {
   private async buildUserProfile(userId: string, period: string): Promise<UserProfile> {
 
     const durationDays = period === "7d" ? 7 : period === "1y" ? 365 : 30;
-    const since = new Date(Date.now() - durationDays * 24 * 60 * 60 * 1000);
+    const since = period === "all" ? new Date(0) : new Date(Date.now() - durationDays * 24 * 60 * 60 * 1000);
 
     const topArtistsGrouped = await prisma.listeningEvent.groupBy({
       by: ["rawArtistName"],
@@ -311,15 +344,16 @@ export class RecommendationService {
 
     const feedbackRecords = await prisma.recommendationFeedback.findMany({
       where: { userId },
-      include: { item: { select: { artistName: true } } },
+      include: { item: { select: { artistName: true, trackName: true } } },
       orderBy: { createdAt: "desc" },
     });
 
     const feedbackMap = new Map<string, FeedbackType>();
-    for (const fb of feedbackRecords) {
-      const key = fb.item.artistName.toLowerCase();
-      if (!feedbackMap.has(key)) {
-        feedbackMap.set(key, fb.type as FeedbackType);
+    for (const [key, states] of effectiveTrackFeedback(feedbackRecords)) {
+      if (states.preference) feedbackMap.set(key, states.preference.type as FeedbackType);
+      if (states.familiarity?.type === "ALREADY_KNOW") {
+        const item = states.familiarity.item;
+        knownTrackKeys.add(`${item.artistName.toLowerCase()}|${item.trackName.toLowerCase()}`);
       }
     }
 
@@ -658,21 +692,13 @@ export class RecommendationService {
     // gerada e nunca vista sumia com o candidato por duas semanas.
     const recentItems = await prisma.recommendationItem.findMany({
       where: {
-        session: { userId, createdAt: { gte: cooldownDate } },
-        feedback: { some: {} },
+        session: { userId },
+        OR: [{ exposedAt: { gte: cooldownDate } }, { feedback: { some: { userId, createdAt: { gte: cooldownDate } } } }],
       },
       select: { artistName: true, trackName: true },
     });
     const recentKeys = new Set(
       recentItems.map((i: any) => `${i.artistName.toLowerCase()}|${i.trackName.toLowerCase()}`)
-    );
-
-    const dislikedFeedback = await prisma.recommendationFeedback.findMany({
-      where: { userId, type: "DISLIKED" },
-      include: { item: { select: { artistName: true } } },
-    });
-    const dislikedArtists = new Set(
-      dislikedFeedback.map((f: any) => f.item.artistName.toLowerCase())
     );
 
     return candidates.filter((c) => {
@@ -682,7 +708,7 @@ export class RecommendationService {
 
       if (recentKeys.has(trackKey)) return false;
 
-      if (dislikedArtists.has(c.artistName.toLowerCase())) return false;
+      if (profile.feedbackMap.get(trackFeedbackKey(c.artistName, c.trackName)) === "DISLIKED") return false;
 
       return true;
     });

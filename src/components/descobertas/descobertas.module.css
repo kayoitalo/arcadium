@@ -225,3 +225,9 @@
     width: min(72vw, 320px);
   }
 }
+.review { margin-block: 1.5rem; color: var(--tinta-2); font-size: .9rem; }
+.review summary { cursor: pointer; padding-block: .75rem; }
+.review fieldset { border: 0; padding: .75rem 0; display: flex; flex-wrap: wrap; gap: .75rem; }
+.review label { display: inline-flex; gap: .35rem; align-items: center; }
+.review label:last-child { display: grid; flex-basis: 100%; min-width: 0; }
+.review textarea { display: block; width: min(100%, 28rem); min-height: 4rem; padding: .5rem; font: inherit; color: inherit; background: transparent; border: 1px solid currentColor; }

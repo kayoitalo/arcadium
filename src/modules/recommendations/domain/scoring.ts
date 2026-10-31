@@ -1,6 +1,7 @@
 
 
 import { genreLabel } from "@/lib/format/genre";
+import { trackFeedbackKey } from "./feedback";
 import {
   type DiscoveryDials,
   MODE_DIALS,
@@ -17,6 +18,7 @@ export interface UserProfile {
   topGenres: string[];
   knownArtistNames: Set<string>;
   knownTrackKeys: Set<string>;
+  /** Explicit preference by complete artist/track text; never an artist-wide vote. */
   feedbackMap: Map<string, FeedbackType>;
   totalPlays: number;
   uniqueArtists: number;
@@ -194,19 +196,10 @@ function computeNoveltyFit(candidate: RawCandidate, profile: UserProfile): numbe
 
 function computeFeedbackFit(candidate: RawCandidate, profile: UserProfile): number {
 
-  const artistFeedback = profile.feedbackMap.get(candidate.artistName.toLowerCase());
+  const trackFeedback = profile.feedbackMap.get(trackFeedbackKey(candidate.artistName, candidate.trackName));
 
-  if (artistFeedback === "LIKED") return 0.9;
-  if (artistFeedback === "SAVE_FOR_LATER") return 0.7;
-  if (artistFeedback === "NOT_INTERESTED") return 0.2;
-  if (artistFeedback === "DISLIKED") return 0.0;
-  if (artistFeedback === "ALREADY_KNOW") return 0.4;
-
-  if (candidate.sourceArtistName) {
-    const sourceFeedback = profile.feedbackMap.get(candidate.sourceArtistName.toLowerCase());
-    if (sourceFeedback === "LIKED") return 0.7;
-    if (sourceFeedback === "DISLIKED") return 0.2;
-  }
+  if (trackFeedback === "LIKED") return 0.9;
+  if (trackFeedback === "DISLIKED") return 0.0;
 
   return 0.5;
 }

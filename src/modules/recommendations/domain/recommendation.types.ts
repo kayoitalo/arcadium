@@ -3,7 +3,9 @@
 export type RecommendationMode = "SAFE" | "BALANCED" | "EXPERIMENTAL";
 export type RecommendationContext = "GENERAL" | "WORKING" | "STUDYING" | "EXERCISING" | "RELAXING";
 
-export type FeedbackType = "LIKED" | "DISLIKED" | "ALREADY_KNOW" | "NOT_INTERESTED" | "SAVE_FOR_LATER";
+export type FeedbackType = "LIKED" | "DISLIKED" | "ALREADY_KNOW" | "NOT_INTERESTED" | "SAVE_FOR_LATER"
+  | "SKIPPED" | "REQUEST_MISMATCH" | "CURIOUS" | "NOT_LISTENED" | "RETRACTED";
+export type SessionOperation = "AUTO" | "RESUME" | "MORE" | "NEW_ENTRY";
 
 export interface ScoreComponents {
   artistSimilarity: number;
@@ -94,6 +96,6 @@ export interface ScoredCandidate extends RawCandidate {
   position: DiscoveryDials;
 }
 
-export const ALGORITHM_VERSION = "v2-dials";
+export const ALGORITHM_VERSION = "v2-session-memory";
 export const DEFAULT_SESSION_SIZE = 8;
 export const RECENT_RECOMMENDATION_COOLDOWN_DAYS = 14;
