@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextResponse } from "next/server";
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), generate: vi.fn(), latest: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), generate: vi.fn(), latest: vi.fn(), history: vi.fn() }));
 vi.mock("@/lib/security/api-auth", () => ({ authorizeApi: mocks.auth }));
 vi.mock("@/modules/recommendations/application/recommendation-service", () => ({ RecommendationService: class {
-  generateSession = mocks.generate; getLatestSession = mocks.latest;
+  generateSession = mocks.generate; getLatestSession = mocks.latest; getRecentSessions = mocks.history;
 } }));
 import { GET, POST } from "./route";
 beforeEach(() => { vi.resetAllMocks(); mocks.auth.mockResolvedValue({ userId: "owner" }); });
@@ -24,5 +24,15 @@ describe("session API contract", () => {
     mocks.latest.mockRejectedValue(Object.assign(new Error(), { code: "P2022" }));
     const response = await GET(new Request("https://app.test/api/recommendations"));
     expect(response.status).toBe(503); expect((await response.json()).code).toBe("DISCOVERY_MIGRATION_REQUIRED");
+  });
+  it("loads an owner-bound private history and validates deepening references", async () => {
+    mocks.history.mockResolvedValue([]);
+    const response = await GET(new Request("https://app.test/api/recommendations?history=1"));
+    expect(mocks.history).toHaveBeenCalledExactlyOnceWith("owner");
+    expect(response.headers.get("Cache-Control")).toContain("no-store");
+    expect((await post({ operation: "DEEPEN", sessionId: "s", requestKey: crypto.randomUUID() })).status).toBe(400);
+    mocks.auth.mockResolvedValue({ response: NextResponse.json({}, { status: 401 }) });
+    await GET(new Request("https://app.test/api/recommendations?history=1"));
+    expect(mocks.history).toHaveBeenCalledOnce();
   });
 });

@@ -4,12 +4,21 @@ import { describe, expect, it } from "vitest";
 import { readFileSync, writeFileSync, readdirSync, mkdirSync } from "node:fs";
 import { DiscoveryEntry } from "./discovery-entry";
 import { DiscoveryTrack } from "./discovery-track";
+import { DiscoveryJourneyList } from "./discovery-history";
+import { DiscoveryDisclosure } from "./discovery-disclosure";
 import { discoveryEntryLabel, DISCOVERY_ENTRIES } from "./discovery-view";
 import styles from "./descobertas.module.css";
 import amigo from "../amigo/amigo.module.css";
 import shell from "../layout/app-shell.module.css";
 
 const noop = () => undefined;
+const journey = () => h(DiscoveryJourneyList, { busy: false, currentSessionId: "branch", onResume: noop,
+  sessions: [
+    { sessionId: "root", createdAt: "2026-11-01T12:00:00Z", intent: "DISCOVER", total: 8, currentRank: 3,
+      firstTrack: { artistName: "Maré Alta", trackName: "Do outro lado" }, journey: { action: "ENTRY", rootSessionId: "root" } },
+    { sessionId: "branch", createdAt: "2026-11-01T12:10:00Z", intent: "DISCOVER", total: 4, currentRank: 2, firstTrack: null,
+      journey: { action: "DEEPEN", rootSessionId: "root", parentSessionId: "root", anchor: { sourceSessionId: "root", sourceItemId: "one", artistName: "Maré Alta", trackName: "Do outro lado (Ao vivo — edição alternativa)" } } },
+  ] });
 const entry = () => h(DiscoveryEntry, { busy: false, hasSession: true, currentRank: 3, total: 8, onChoose: noop, onResume: noop, onAdjust: noop });
 const track = (canPlay = true, title = "Do outro lado") => h(DiscoveryTrack, {
   title, artist: "Maré Alta", reason: "Esta indicação parte de uma faixa que você curtiu. É uma referência fictícia para conferir o layout, sem consultar o teu histórico.",
@@ -23,11 +32,13 @@ describe("discovery visual contracts", () => {
   it("offers supported discovery entries and a real continuation, with no forced map", () => {
     const html = renderToStaticMarkup(entry());
     expect(html).toContain("Perto do que eu gosto"); expect(html).toContain("Outras conexões");
+    expect(html).toContain("Do meu repertório");
     expect(html).toContain("indicação 3 de 8"); expect(html).toContain("continuar");
     expect(html).not.toContain("Mapa de descoberta");
     expect(DISCOVERY_ENTRIES.every((item) => item.proximity >= 0 && item.proximity <= 100)).toBe(true);
     expect(discoveryEntryLabel(85)).toBe("Perto do que eu gosto");
     expect(discoveryEntryLabel(35)).toBe("Outras conexões");
+    expect(discoveryEntryLabel(35, "REPERTOIRE")).toBe("Do meu repertório");
   });
   it("preserves long track/version labels, source context and disabled playback when unavailable", () => {
     const title = "Uma faixa com um título bastante longo (Ao vivo — edição alternativa)";
@@ -35,6 +46,26 @@ describe("discovery visual contracts", () => {
     expect(html.replace(/<[^>]*>/g, "")).toContain(title); expect(html).toContain("Maré Alta"); expect(html).toContain("Por que essa?");
     expect(html).toContain("Sem prévia por aqui"); expect(html).toContain('disabled=""');
     expect(html).not.toContain("autoplay");
+  });
+  it("keeps optional responses out of the collapsed DOM and preserves native summary activation", () => {
+    const html = renderToStaticMarkup(h(DiscoveryDisclosure, { id: "review", summary: "Outras respostas", open: false, children: h("textarea") }));
+    expect(html).toContain("<details"); expect(html).toContain("<summary");
+    expect(html).toContain('aria-expanded="false"'); expect(html).toContain('aria-controls="review-body"');
+    expect(html).toContain('id="review-body"'); expect(html).toContain('inert=""');
+    expect(html).not.toContain("textarea");
+  });
+  it("exposes expanded content and its summary/body relationship on the first render", () => {
+    const html = renderToStaticMarkup(h(DiscoveryDisclosure, { id: "map", summary: "Mapa", open: true, children: h("button", null, "Buscar") }));
+    expect(html).toContain('open=""'); expect(html).toContain('aria-expanded="true"');
+    expect(html).toContain('aria-controls="map-body"'); expect(html).toContain('id="map-body"');
+    expect(html).toContain("Buscar"); expect(html).not.toContain('inert=""');
+  });
+  it("marks the selected history step with its live cursor without inventing legacy completion", () => {
+    const html = renderToStaticMarkup(h(DiscoveryJourneyList, { busy: false, currentSessionId: "current", currentRank: 3, onResume: noop,
+      sessions: ["current", "legacy"].map((sessionId) => ({ sessionId, createdAt: "2026-11-01T12:00:00Z", intent: null,
+        total: 4, currentRank: sessionId === "current" ? 1 : null, firstTrack: null, journey: null })) }));
+    expect(html).toContain('aria-current="step"'); expect(html).toContain("posição 3"); expect(html).toContain("você está aqui");
+    expect(html).not.toContain("posição 1"); expect(html).not.toContain("chegou ao fim");
   });
   it("can export isolated visual fixtures from the actual components and CSS", () => {
     if (process.env.ARCADIUM_VISUAL_REVIEW !== "true") return;
@@ -50,7 +81,7 @@ describe("discovery visual contracts", () => {
     const header = h("header", { className: shell.bar }, h("a", { className: shell.wordmark, href: "/entry.html" }, "arcadium"),
       h("nav", { className: shell.nav }, ...["Conversa", "Descoberta", "Retrato", "Histórico"].map((label) => h("a", { key: label, className: shell.link, "aria-current": label === "Descoberta" ? "page" : undefined, href: "/entry.html" }, label))));
     for (const [name, content] of [["entry", entry()], ["listening", track()], ["no-preview", track(false)],
-      ["long-title", track(true, "Uma faixa com um título bastante longo (Ao vivo — edição alternativa)")]] as const) {
+      ["long-title", track(true, "Uma faixa com um título bastante longo (Ao vivo — edição alternativa)")], ["journey", journey()]] as const) {
       const markup = renderToStaticMarkup(h("div", { className: shell.shell }, header,
         h("main", { className: shell.page }, h("div", { className: styles.pageTools }, h("span", null, "uma boa música pode abrir outro caminho."), h("span", null, "para depois · 3")), content)));
       writeFileSync(root + "/" + name + ".html", '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Arcadium — revisão visual</title><style>' + css + '</style><div class="review-note">Revisão visual · dados fictícios · sem banco, APIs ou áudio real · <a href="/entry.html">entrada</a> / <a href="/listening.html">escuta</a> / <a href="/mobile.html">celular</a></div>' + markup + '</html>');

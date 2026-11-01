@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ first: vi.fn(), unique: vi.fn(), create: vi.fn(), update: vi.fn(), recent: vi.fn(), updateMany: vi.fn() }));
+const mocks = vi.hoisted(() => ({ first: vi.fn(), unique: vi.fn(), create: vi.fn(), update: vi.fn(), recent: vi.fn(), updateMany: vi.fn(), many: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: {
-  recommendationSession: { findFirst: mocks.first, findUnique: mocks.unique, create: mocks.create, update: mocks.update, updateMany: mocks.updateMany },
+  recommendationSession: { findFirst: mocks.first, findUnique: mocks.unique, create: mocks.create, update: mocks.update, updateMany: mocks.updateMany, findMany: mocks.many },
   recommendationItem: { findMany: mocks.recent },
 } }));
 import { RecommendationService } from "./recommendation-service";
@@ -14,9 +14,14 @@ const source = () => ({ id: "source", userId: "owner", mode: "SAFE", context: "W
     exposedAt: index === 0 ? new Date() : null, reason: "original reason" })) });
 beforeEach(() => {
   vi.restoreAllMocks(); vi.resetAllMocks(); sessions = [];
-  mocks.first.mockImplementation(async ({ where }) => sessions.find((s) => s.userId === where.userId
+  mocks.first.mockImplementation(async ({ where, orderBy }) => {
+    const rows = sessions.filter((s) => s.userId === where.userId
     && (!where.id || s.id === where.id) && (!where.algorithmVersion || s.algorithmVersion === where.algorithmVersion)
-    && (!where.status || s.status === where.status)) ?? null);
+    && (!where.status || s.status === where.status));
+    if (Array.isArray(orderBy) && orderBy[0]?.lastOpenedAt) rows.sort((a, b) =>
+      (b.lastOpenedAt?.getTime() ?? 0) - (a.lastOpenedAt?.getTime() ?? 0) || b.createdAt.getTime() - a.createdAt.getTime());
+    return rows[0] ?? null;
+  });
   mocks.unique.mockImplementation(async ({ where }) => sessions.find((s) => s.userId === where.userId_requestKey.userId && s.requestKey === where.userId_requestKey.requestKey) ?? null);
   mocks.create.mockImplementation(async ({ data }) => {
     if (data.requestKey && sessions.some((s) => s.userId === data.userId && s.requestKey === data.requestKey)) throw Object.assign(new Error(), { code: "P2002" });
@@ -29,6 +34,11 @@ beforeEach(() => {
     Object.assign(row, { ...data, items: items ?? row.items }); return row;
   });
   mocks.recent.mockResolvedValue([]);
+  mocks.updateMany.mockImplementation(async ({ where, data }) => {
+    const row = sessions.find((s) => s.id === where.id && (!where.userId || s.userId === where.userId) && (!where.status || s.status === where.status));
+    if (!row || data.lastOpenedAt && row.lastOpenedAt && row.lastOpenedAt >= data.lastOpenedAt) return { count: 0 };
+    Object.assign(row, data); return { count: 1 };
+  });
 });
 function service() {
   const service = new RecommendationService();
@@ -93,6 +103,70 @@ describe("explicit session operations", () => {
     for (const operation of ["RESUME", "MORE"] as const) await expect(svc.generateSession({
       userId: "owner", mode: "SAFE", operation, sessionId: "source",
     })).rejects.toMatchObject({ status: 409 });
+    expect((svc as any).generateCandidates).not.toHaveBeenCalled();
+  });
+  it("deepens an owned item, preserves entry settings and lineage, and replays without new provider calls", async () => {
+    const original = source(); original.items[1].trackName = "Two (Live)"; sessions.push(original);
+    const svc = service();
+    const provider = { isConfigured: () => true, beginDiscoveryWindow: vi.fn(), getSimilarArtists: vi.fn(), getTopTracks: vi.fn(),
+      getArtistReach: vi.fn().mockResolvedValue(null), getSimilarTracks: vi.fn().mockResolvedValue([
+        { artistName: "Next", trackName: "Different (Live)", rank: 1 },
+      ]) };
+    (svc as any).similarArtists = provider;
+    const input = { userId: "owner", mode: "BALANCED" as const, operation: "DEEPEN" as const, sessionId: "source", sourceItemId: "1", requestKey: "branch" };
+    const result = await svc.generateSession(input);
+    expect(provider.getSimilarTracks).toHaveBeenCalledExactlyOnceWith("Band", "Two (Live)", 12);
+    expect(result.settings).toMatchObject({ period: "7d", mode: "SAFE", context: "WORKING", intent: "DISCOVER", dials: { proximity: 85, fame: 70 } });
+    expect(result.journey).toMatchObject({ rootSessionId: "source", parentSessionId: "source", anchor: { sourceItemId: "1", trackName: "Two (Live)" } });
+    expect(original.currentRank).toBe(2); expect(original.items[1].feedback).toEqual([]);
+    expect((await svc.generateSession(input)).sessionId).toBe(result.sessionId);
+    expect(provider.getSimilarTracks).toHaveBeenCalledOnce();
+    await expect(svc.generateSession({ ...input, sourceItemId: "2" })).rejects.toMatchObject({ status: 409 });
+    const more = await svc.generateSession({ userId: "owner", mode: "BALANCED", operation: "MORE", sessionId: result.sessionId, requestKey: "branch-more" });
+    expect(more.journey).toMatchObject({ rootSessionId: "source", parentSessionId: result.sessionId, anchor: { sourceItemId: "1" } });
+    expect(more.settings.intent).toBe("DISCOVER");
+    const entry = await svc.generateSession({ userId: "owner", mode: "SAFE", operation: "NEW_ENTRY", sessionId: result.sessionId, requestKey: "reset", intent: "CONNECTIONS" });
+    expect(entry.journey?.rootSessionId).toBe(entry.sessionId);
+    expect(entry.journey?.anchor).toBeUndefined();
+  });
+  it("checks source ownership, source status and item membership before any focused lookup", async () => {
+    sessions.push(source()); const svc = service();
+    const input = { userId: "owner", mode: "SAFE" as const, operation: "DEEPEN" as const, sessionId: "source", sourceItemId: "1", requestKey: "focus" };
+    await expect(svc.generateSession({ ...input, userId: "other" })).rejects.toMatchObject({ status: 404 });
+    await expect(svc.generateSession({ ...input, sourceItemId: "another-session-item" })).rejects.toMatchObject({ status: 404 });
+    sessions[0].status = "GENERATING";
+    await expect(svc.generateSession(input)).rejects.toMatchObject({ status: 409 });
+    expect(mocks.create).not.toHaveBeenCalled(); expect((svc as any).generateCandidates).not.toHaveBeenCalled();
+  });
+  it("selects known repertoire without external generation and preserves the intent on MORE", async () => {
+    const svc = service();
+    (svc as any).buildUserProfile.mockResolvedValue({ topArtistNames: [], topGenres: [], knownArtistNames: new Set(["band"]),
+      knownTrackKeys: new Set(["band|favorite (live)"]), feedbackMap: new Map(), totalPlays: 2, uniqueArtists: 1,
+      longTerm: { artists: [], genres: [], genreCoverage: 0, totalPlays: 2, tracks: [{ artistName: "Band", trackName: "Favorite (Live)", plays: 2, region: "long_term" }] } });
+    const result = await svc.generateSession({ userId: "owner", mode: "BALANCED", operation: "NEW_ENTRY", intent: "REPERTOIRE", requestKey: "repertoire" });
+    expect(result.items.map((item) => item.trackName)).toEqual(["Favorite (Live)"]);
+    expect(result.items[0].reason).toContain("2 reproduções registradas");
+    expect((svc as any).generateCandidates).not.toHaveBeenCalled();
+    const more = await svc.generateSession({ userId: "owner", mode: "BALANCED", operation: "MORE", sessionId: result.sessionId, requestKey: "repertoire-more", intent: "DISCOVER" });
+    expect(more.settings.intent).toBe("REPERTOIRE");
+  });
+  it("lists only the owner's recent active sessions and leaves legacy intentions unspecified", async () => {
+    const row = { ...source(), _count: { items: 3 } };
+    mocks.many.mockResolvedValue([row]);
+    const result = await service().getRecentSessions("owner");
+    expect(mocks.many).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "owner", status: "ACTIVE" }, take: 20 }));
+    expect(result[0]).toMatchObject({ sessionId: "source", intent: null, journey: null, currentRank: 2, total: 3 });
+    expect(mocks.create).not.toHaveBeenCalled(); expect(mocks.update).not.toHaveBeenCalled();
+  });
+  it("remembers an explicitly resumed older path across page bootstrap without changing progress", async () => {
+    const older = { ...source(), createdAt: new Date("2020-01-01"), lastOpenedAt: null };
+    const newer = { ...source(), id: "newer", createdAt: new Date("2021-01-01"), lastOpenedAt: new Date("2021-01-01") };
+    sessions.push(older, newer); const svc = service();
+    expect((await svc.getLatestSession("owner"))?.sessionId).toBe("newer");
+    await svc.generateSession({ userId: "owner", mode: "SAFE", operation: "RESUME", sessionId: "source" });
+    expect((await svc.getLatestSession("owner"))?.sessionId).toBe("source");
+    expect(older.currentRank).toBe(2); expect(older.createdAt).toEqual(new Date("2020-01-01"));
+    expect(mocks.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ userId: "owner", status: "ACTIVE" }), data: { lastOpenedAt: expect.any(Date) } }));
     expect((svc as any).generateCandidates).not.toHaveBeenCalled();
   });
 });

@@ -2,7 +2,7 @@
 
 import { privateFetch } from "@/lib/http/private-fetch";
 
-import { useReducedMotion } from "framer-motion";
+import { AnimatePresence, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Aviso } from "@/components/amigo/aviso";
@@ -21,6 +21,10 @@ import styles from "./descobertas.module.css";
 import { DiscoveryEntry } from "./discovery-entry";
 import { DiscoveryTrack } from "./discovery-track";
 import { discoveryEntryLabel } from "./discovery-view";
+import { DiscoveryHistory } from "./discovery-history";
+import { DiscoveryDisclosure } from "./discovery-disclosure";
+import { DiscoveryTransition, useDiscoveryScene } from "./discovery-transition";
+import type { DiscoveryContext, DiscoveryIntent } from "@/modules/recommendations/domain/discovery-intent";
 import { ASPECTS, feedbackChannel, type FeedbackEntry, type FeedbackChannel } from "@/modules/recommendations/domain/feedback";
 
 interface Candidate {
@@ -41,6 +45,9 @@ interface Candidate {
 }
 
 type Action = "liked" | "saved" | "known" | "skipped" | "disliked" | "mismatch" | "curious" | "unheard";
+type LoadOperation = "BOOTSTRAP" | "RESUME" | "MORE" | "NEW_ENTRY" | "DEEPEN";
+type SearchOptions = { intent?: DiscoveryIntent; itemId?: string; sessionId?: string };
+type Journey = DiscoveryContext["journey"] & { rootSessionId: string };
 
 interface ExportResult {
   playlistTitle?: string;
@@ -96,6 +103,9 @@ export function Descobertas() {
   const [queue, setQueue] = useState<Candidate[] | null>(null);
   const [index, setIndex] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [intent, setIntent] = useState<DiscoveryIntent | null>(null);
+  const intentRef = useRef<DiscoveryIntent>("DISCOVER");
+  const [journey, setJourney] = useState<Journey | null>(null);
   const [busy, setBusy] = useState(true);
   const [failed, setFailed] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -104,7 +114,7 @@ export function Descobertas() {
   const suggestionRef = useRef<HTMLElement>(null);
   const sessionRef = useRef<string | null>(null);
   const pendingSearch = useRef<{ signature: string; key: string } | null>(null);
-  const lastLoad = useRef<{ proximity: number; fame: number; operation: "BOOTSTRAP" | "RESUME" | "MORE" | "NEW_ENTRY" }>({ proximity: 55, fame: 50, operation: "BOOTSTRAP" });
+  const lastLoad = useRef<{ proximity: number; fame: number; operation: LoadOperation; options?: SearchOptions }>({ proximity: 55, fame: 50, operation: "BOOTSTRAP" });
   const pendingFeedback = useRef<{ signature: string; key: string } | null>(null);
   const [decided, setDecided] = useState<Record<string, Action>>({});
   const [exported, setExported] = useState<"running" | ExportResult | null>(null);
@@ -126,18 +136,22 @@ export function Descobertas() {
   const { stop, toggle } = sound;
   const signal = usePulse(stageRef, sound.playing, sound.read);
 
-  const applySession = useCallback((payload: { items?: Candidate[]; sessionId?: string; currentRank?: number; settings?: { dials?: { proximity: number; fame: number } } }) => {
+  const applySession = useCallback((payload: { items?: Candidate[]; sessionId?: string; currentRank?: number; journey?: Journey | null; settings?: { intent?: DiscoveryIntent | null; dials?: { proximity: number; fame: number } } }) => {
     const items = payload.items ?? [];
     setQueue(items); setSessionId(payload.sessionId ?? null);
     sessionRef.current = payload.sessionId ?? null;
+    setIntent(payload.settings?.intent ?? null); intentRef.current = payload.settings?.intent ?? "DISCOVER";
+    setJourney(payload.journey ?? null);
     setIndex(Math.min(items.length, Math.max(0, (payload.currentRank ?? 1) - 1)));
     setDecided(Object.fromEntries(items.filter((item) => Object.values(item.feedback ?? {}).some((entry) => entry?.type !== "RETRACTED")).map((item) => [item.id, "known" as Action])));
     if (payload.settings?.dials) { setProximity(payload.settings.dials.proximity); setFame(payload.settings.dials.fame); setDraftProximity(payload.settings.dials.proximity); setDraftFame(payload.settings.dials.fame); }
   }, []);
 
-  const load = useCallback(async (nextProximity: number, nextFame: number, operation: "BOOTSTRAP" | "RESUME" | "MORE" | "NEW_ENTRY" = "NEW_ENTRY") => {
+  const load = useCallback(async (nextProximity: number, nextFame: number, operation: LoadOperation = "NEW_ENTRY", options: SearchOptions = {}) => {
     if (savingRef.current) return;
-    lastLoad.current = { proximity: nextProximity, fame: nextFame, operation };
+    const nextIntent = options.intent ?? intentRef.current;
+    const source = options.sessionId ?? sessionRef.current ?? undefined;
+    lastLoad.current = { proximity: nextProximity, fame: nextFame, operation, options: { ...options, intent: nextIntent, sessionId: source } };
     const token = ++requestRef.current;
     stop(); setBusy(true); setFailed(false); setLoadError(null); setFeedbackError(null);
     if (operation !== "BOOTSTRAP") setChoosing(false);
@@ -156,12 +170,12 @@ export function Descobertas() {
         return;
       }
       const action = operation;
-      const source = sessionRef.current ?? undefined;
-      const signature = JSON.stringify([action, source, nextProximity, nextFame]);
+      const signature = JSON.stringify([action, source, nextProximity, nextFame, nextIntent, options.itemId]);
       if (pendingSearch.current?.signature !== signature) pendingSearch.current = { signature, key: crypto.randomUUID() };
       response = await privateFetch("/api/recommendations", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ operation: action, sessionId: source, requestKey: pendingSearch.current.key,
+          intent: nextIntent, sourceItemId: options.itemId,
           mode: "BALANCED", context: "GENERAL", proximity: nextProximity, fame: nextFame }),
       });
       const payload = await response.json();
@@ -193,8 +207,10 @@ export function Descobertas() {
   );
 
   const current = queue?.[index] ?? null;
+  const scene = useDiscoveryScene(current && sessionId && !choosing && !busy && !failed ? `${sessionId}:${current.id}` : null);
+  const changing = scene.identity !== null && !scene.ready;
   useEffect(() => {
-    if (choosing || busy || !sessionId || !current) return;
+    if (!scene.ready || choosing || busy || !sessionId || !current) return;
     if (current.previewUrl && current.coverUrl) { setMediaState("ready"); return; }
     const controller = new AbortController();
     const itemId = current.id;
@@ -211,11 +227,11 @@ export function Descobertas() {
       setMediaState(result.status);
     }).catch(() => { if (!controller.signal.aborted) setMediaState("error"); });
     return () => controller.abort();
-  }, [current?.id, sessionId, choosing, busy, mediaAttempt]);
+  }, [current?.id, sessionId, choosing, busy, mediaAttempt, scene.ready]);
   const finished = queue !== null && queue.length > 0 && index >= queue.length;
 
   const showEntries = () => {
-    if (savingRef.current || busy) return;
+    if (savingRef.current || busy || changing) return;
     stop(); setChoosing(true); setFailed(false); setLoadError(null); setFeedbackError(null);
     setDraftProximity(proximity); setDraftFame(fame);
     window.scrollTo({ top: 0, behavior: reduced ? "instant" : "smooth" });
@@ -225,21 +241,25 @@ export function Descobertas() {
     requestAnimationFrame(() => document.getElementById("mapa-descoberta")?.scrollIntoView({ behavior: reduced ? "instant" : "smooth", block: "start" }));
   };
   useEffect(() => {
-    if (choosing || busy || !current || !headlineRef.current) return;
-    headlineRef.current.tabIndex = -1;
-    headlineRef.current.focus({ preventScroll: true });
-  }, [current?.id, choosing, busy]);
+    if (!scene.ready || choosing || busy || modalOpen || !current || !headlineRef.current) return;
+    const headline = headlineRef.current;
+    headline.tabIndex = -1;
+    headline.focus({ preventScroll: true });
+    const rect = headline.getBoundingClientRect();
+    if (rect.top < 90 || rect.top > window.innerHeight / 2) headline.scrollIntoView({ behavior: reduced ? "instant" : "smooth", block: "start" });
+  }, [current?.id, choosing, busy, scene.ready, scene.visit, reduced]);
 
   useEffect(() => { setNote(""); setAspects([]); }, [current?.id]);
 
   useEffect(() => {
     const element = suggestionRef.current;
-    if (!element || !current || !sessionId || busy || modalOpen || choosing || !("IntersectionObserver" in window)) return;
+    if (!scene.ready || !element || !current || !sessionId || busy || modalOpen || choosing || !("IntersectionObserver" in window)) return;
+    let active = true;
     let visible = false;
     let sent = false;
     let sending = false;
     const expose = async () => {
-      if (sent || sending || !visible || document.visibilityState !== "visible") return;
+      if (!active || sent || sending || !visible || document.visibilityState !== "visible") return;
       sending = true;
       try {
         const response = await privateFetch(`/api/recommendations/${sessionId}`, {
@@ -253,11 +273,11 @@ export function Descobertas() {
     const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting && entry.intersectionRatio >= 0.5; void expose(); }, { threshold: 0.5 });
     observer.observe(element);
     document.addEventListener("visibilitychange", expose);
-    return () => { observer.disconnect(); document.removeEventListener("visibilitychange", expose); };
-  }, [current?.id, sessionId, busy, modalOpen, choosing]);
+    return () => { active = false; observer.disconnect(); document.removeEventListener("visibilitychange", expose); };
+  }, [current?.id, sessionId, busy, modalOpen, choosing, scene.ready, scene.visit]);
 
   const moveTo = async (nextIndex: number) => {
-    if (!sessionId || savingRef.current || busy || !queue) return;
+    if (!sessionId || savingRef.current || busy || changing || !queue) return;
     savingRef.current = true; setSaving(true); setFeedbackError(null); stop();
     try {
       const response = await privateFetch(`/api/recommendations/${sessionId}`, {
@@ -278,7 +298,7 @@ export function Descobertas() {
 
   const decide = useCallback(
     async (action: Action | "retract", revisesId?: string) => {
-      if (!current || busy || savingRef.current || !selection.ready) return;
+      if (!scene.ready || !current || busy || savingRef.current || !selection.ready) return;
       if ((action === "liked" || action === "saved") && selection.items.length >= MAX_SELECTED_TRACKS && !selection.items.some((item) => selectionKey(item) === selectionKey(current))) {
         setFeedbackError("A lista está com 200 faixas. Leva pro Spotify ou remove uma antes de guardar mais.");
         return;
@@ -319,15 +339,15 @@ export function Descobertas() {
         setSaving(false);
       }
     },
-    [current, sessionId, stop, busy, selection, note, aspects, applySession],
+    [current, sessionId, stop, busy, selection, note, aspects, applySession, scene.ready],
   );
 
   const toggleSound = useCallback(() => {
-    if (current?.previewUrl) toggle(current.previewUrl);
-  }, [current, toggle]);
+    if (scene.ready && current?.previewUrl) toggle(current.previewUrl);
+  }, [current, toggle, scene.ready]);
 
   useEffect(() => {
-    if (!current || modalOpen || choosing || busy) return;
+    if (!scene.ready || !current || modalOpen || choosing || busy) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return;
       const target = event.target instanceof Element ? event.target : null;
@@ -351,7 +371,7 @@ export function Descobertas() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [current, decide, modalOpen, choosing, busy, toggleSound]);
+  }, [current, decide, modalOpen, choosing, busy, toggleSound, scene.ready]);
 
   /** As sugestões desta busca, nos mesmos eixos que você regulou. */
   const dots = useMemo<MapDot[]>(
@@ -429,7 +449,7 @@ export function Descobertas() {
 
   // ---------- onde o traço vai ----------
 
-  const showing = Boolean(current && !busy && !choosing);
+  const showing = Boolean(scene.ready && current && !busy && !choosing && !failed);
 
 
   const draw = (origin: DOMRect): PenDrawing | null => {
@@ -458,7 +478,11 @@ export function Descobertas() {
     return { gestures, wave, notes: [] };
   };
 
-  const pen = usePen(stageRef, draw, `${showing ? current?.id : "-"}|${sound.playing ? "som" : ""}`);
+  const penSubject = `${scene.visit}:${current?.id}`;
+  const penPose = `${showing ? penSubject : "-"}|${sound.playing ? "som" : ""}`;
+  const pen = usePen(stageRef, draw, penPose);
+  const penInPlace = Boolean(showing && pen.plan?.key.startsWith(`${penSubject}|`));
+  useEffect(() => { pen.forget("grifo:"); }, [scene.visit, pen.forget]);
 
   // ---------- o que aparece em cima ----------
 
@@ -466,15 +490,15 @@ export function Descobertas() {
   if (choosing) {
     top = <>
       <DiscoveryEntry busy={busy || saving} hasSession={Boolean(sessionId && queue?.length)} currentRank={index + 1} total={queue?.length ?? 0}
-        onChoose={(nextProximity, nextFame) => void load(nextProximity, nextFame, "NEW_ENTRY")}
-        onResume={() => void load(proximity, fame, "RESUME")} onAdjust={openMap} />
+        onChoose={(nextProximity, nextFame, nextIntent) => void load(nextProximity, nextFame, "NEW_ENTRY", { intent: nextIntent })}
+        onResume={() => void load(proximity, fame, "RESUME")} onAdjust={() => { intentRef.current = "DISCOVER"; setIntent("DISCOVER"); openMap(); }} />
       {busy && <p className={styles.quiet} role="status">Recuperando tua última busca…</p>}
       {loadError && <p className={styles.entryError} role="alert">{loadError} <button className={styles.textButton} onClick={() => void load(55, 50, "BOOTSTRAP")}>tentar novamente</button></p>}
     </>;
   } else if (!queue && failed) {
     top = (
       <Aviso headline="Me perdi procurando." narrative={loadError ?? "Não consegui montar as sugestões."}>
-        <Resposta onClick={() => void load(lastLoad.current.proximity, lastLoad.current.fame, lastLoad.current.operation)}>tenta de novo</Resposta>
+        <Resposta onClick={() => void load(lastLoad.current.proximity, lastLoad.current.fame, lastLoad.current.operation, lastLoad.current.options)}>tenta de novo</Resposta>
         <Resposta onClick={showEntries}>escolher outro caminho</Resposta>
       </Aviso>
     );
@@ -483,7 +507,7 @@ export function Descobertas() {
   } else if (failed) {
     top = (
       <Aviso headline="Me perdi procurando." narrative={loadError ?? "Não consegui buscar nesse canto."}>
-        <Resposta onClick={() => void load(lastLoad.current.proximity, lastLoad.current.fame, lastLoad.current.operation)}>tenta de novo</Resposta>
+        <Resposta onClick={() => void load(lastLoad.current.proximity, lastLoad.current.fame, lastLoad.current.operation, lastLoad.current.options)}>tenta de novo</Resposta>
         <Resposta onClick={showEntries}>escolher outro caminho</Resposta>
       </Aviso>
     );
@@ -491,9 +515,10 @@ export function Descobertas() {
     top = (
       <Aviso
         window="pra ouvir depois"
-        headline="Nada novo nesse canto."
-        narrative="As referências desta busca não renderam outra indicação. A gente pode tentar outro caminho."
-      ><Resposta onClick={showEntries}>escolher outro caminho</Resposta><Resposta onClick={openMap}>ajustar a busca</Resposta></Aviso>
+        headline={intent === "REPERTOIRE" ? "Não encontrei uma seleção por aqui." : "Nada novo nesse canto."}
+        narrative={intent === "REPERTOIRE" ? "Não encontrei faixas elegíveis no teu histórico para esta seleção. Você pode voltar aos caminhos anteriores ou buscar novidades." : "As referências desta busca não renderam outra indicação. A gente pode tentar outro caminho."}
+      >{journey?.parentSessionId && <Resposta onClick={() => void load(proximity, fame, "RESUME", { sessionId: journey.parentSessionId })}>voltar ao passo anterior</Resposta>}
+        <Resposta onClick={showEntries}>escolher outro caminho</Resposta>{intent !== "REPERTOIRE" && <Resposta onClick={openMap}>ajustar a busca</Resposta>}</Aviso>
     );
   } else if (finished || !current) {
     top = (
@@ -515,9 +540,13 @@ export function Descobertas() {
   } else {
     top = (
       <div>
+        {journey?.parentSessionId && <div className={styles.journeyContext}>
+          {journey.anchor ? <>Este caminho parte de “{journey.anchor.trackName}”, de {journey.anchor.artistName}.</> : "Este passo continua uma busca anterior."}
+          {journey.parentSessionId && <> <button className={styles.textButton} disabled={busy || saving} onClick={() => void load(proximity, fame, "RESUME", { sessionId: journey.parentSessionId })}>voltar ao passo anterior →</button></>}
+        </div>}
         <DiscoveryTrack title={current.trackName} artist={current.artistName} reason={current.reason} isRevisit={current.isRevisit}
-          sectionRef={suggestionRef} headlineRef={headlineRef} markRef={markRef} marked={pen.started.has("grifo:" + current.id)}
-          entryLabel={discoveryEntryLabel(proximity)} index={index} total={queue.length} onChangeEntry={showEntries}
+          sectionRef={suggestionRef} headlineRef={headlineRef} markRef={markRef} marked={penInPlace && pen.started.has("grifo:" + current.id)}
+          entryLabel={discoveryEntryLabel(proximity, intent)} index={index} total={queue.length} onChangeEntry={showEntries}
           onPlay={toggleSound} canPlay={Boolean(current.previewUrl)} playing={sound.playing} loading={sound.loading || mediaState === "loading"}
           artwork={<Capa cover={{ url: current.coverUrl, title: current.albumName ?? current.trackName, artist: current.artistName }} playing={sound.playing} innerRef={coverRef} className={styles.cover} eager />}
           metadata={<>{current.genre && <span>{genreLabel(current.genre)} · </span>}{current.previewUrl ? "prévia de 30s" : mediaState === "loading" ? "buscando capa e prévia…" : mediaState === "error" ? "falha temporária na busca de mídia" : "prévia não encontrada no catálogo consultado"}
@@ -541,8 +570,7 @@ export function Descobertas() {
           </Resposta>
         </Respostas>
         </div>
-        <details className={styles.review} key={current.id}>
-          <summary>outras respostas ou revisar</summary>
+        <DiscoveryDisclosure className={styles.review} key={current.id} summary="outras respostas ou revisar">
           <p>Pular, ainda não ouvir e não ser o pedido não significam que você não gosta da música.</p>
           <fieldset disabled={saving}>
             <legend>Quer contar o que chamou atenção? É opcional.</legend>
@@ -564,13 +592,14 @@ export function Descobertas() {
           </p>)}
           {index > 0 && <Resposta onClick={() => void moveTo(index - 1)} disabled={saving}>rever a anterior</Resposta>}
           {index < queue.length - 1 && <Resposta onClick={() => void moveTo(index + 1)} disabled={saving}>próxima sem avaliar</Resposta>}
-        </details>
+        </DiscoveryDisclosure>
         <div className={styles.continuity}>
           <p><span>{String(index + 1).padStart(2, "0")}</span> de {String(queue.length).padStart(2, "0")} indicações <span className={styles.continuityNote}>· teu lugar fica guardado</span></p>
           <div>
+            <button className={styles.textButton} disabled={busy || saving} onClick={() => void load(proximity, fame, "DEEPEN", { itemId: current.id, intent: intent === "CONNECTIONS" ? "CONNECTIONS" : "DISCOVER" })}>buscar novidades a partir desta faixa ↗</button>
             {index > 0 && <button className={styles.textButton} disabled={saving} onClick={() => void moveTo(index - 1)}>← anterior</button>}
             <button className={styles.textButton} disabled={saving} onClick={() => void load(proximity, fame, "MORE")}>buscar mais nesse caminho ↗</button>
-            <button className={styles.textButton} disabled={saving} onClick={openMap}>ajustar caminho</button>
+            {intent !== "REPERTOIRE" && <button className={styles.textButton} disabled={saving} onClick={openMap}>ajustar caminho</button>}
           </div>
         </div>
       </div>
@@ -585,11 +614,15 @@ export function Descobertas() {
       <div className={styles.pageTools}><span>uma boa música pode abrir outro caminho.</span><button className={styles.textButton} onClick={() => {
         setCollectionOpen(true); requestAnimationFrame(() => document.getElementById("colecao-descoberta")?.scrollIntoView({ behavior: reduced ? "instant" : "smooth" }));
       }}>para depois <span className={styles.pillCount}>{kept.length}</span></button></div>
-      {top}
+      <AnimatePresence mode="wait" initial={false}>
+        {scene.identity !== null
+          ? <DiscoveryTransition key={scene.key} visit={scene.visit} onReady={scene.onReady}>{top}</DiscoveryTransition>
+          : <div key="other">{top}</div>}
+      </AnimatePresence>
+      <DiscoveryHistory currentSessionId={sessionId} currentRank={index + 1} busy={busy || saving || changing} onResume={(id) => void load(proximity, fame, "RESUME", { sessionId: id })} />
 
-      <details id="colecao-descoberta" className={styles.collection} open={collectionOpen} onToggle={(event) => setCollectionOpen(event.currentTarget.open)}>
-        <summary><span>Para depois <span className={styles.pillCount}>{kept.length}</span></span><span aria-hidden="true">↘</span></summary>
-        <div>
+      <DiscoveryDisclosure id="colecao-descoberta" className={styles.collection} bodyClassName={styles.disclosureContent} open={collectionOpen} onOpenChange={setCollectionOpen}
+        summary={<><span>Para depois <span className={styles.pillCount}>{kept.length}</span></span><span aria-hidden="true">↘</span></>}>
           <p className={styles.mapNote}>O que você curtiu ou separou para ouvir depois. Essa pilha fica neste navegador.</p>
           {exported && exportHidden && <p className={styles.quiet} role="status">
             {exported === "running" ? "Levando tua lista pro Spotify… " : "A última exportação terminou. "}
@@ -615,11 +648,9 @@ export function Descobertas() {
               </Respostas>
             </>
           )}
-        </div>
-      </details>
-      <details id="mapa-descoberta" className={styles.adjustments} open={mapOpen} onToggle={(event) => setMapOpen(event.currentTarget.open)}>
-        <summary><span><span className={styles.eyebrow}>teu caminho, com mais detalhe</span><strong>Ajustar a descoberta</strong></span><span aria-hidden="true">↘</span></summary>
-        {mapOpen && <div className={styles.map}>
+      </DiscoveryDisclosure>
+      {intent !== "REPERTOIRE" && <DiscoveryDisclosure id="mapa-descoberta" className={styles.adjustments} bodyClassName={styles.map} open={mapOpen} onOpenChange={setMapOpen}
+        summary={<><span><span className={styles.eyebrow}>teu caminho, com mais detalhe</span><strong>Ajustar a descoberta</strong></span><span aria-hidden="true">↘</span></>}>
           <div><h2 className={styles.mapTitle}>Qual é a distância da próxima pista?</h2>
             <p className={styles.mapNote}>Mais perto das tuas referências ou um passo para fora. No outro eixo, o tamanho do público. Os ajustes só valem quando você iniciar a busca.</p>
             <Mapa proximity={draftProximity} fame={draftFame} dots={dots} busy={busy || saving} onChange={move} onCommit={commit} />
@@ -634,11 +665,10 @@ export function Descobertas() {
             <p className={styles.mapNote}>As referências continuam vindo do teu repertório. É uma direção para procurar, sem garantia de gênero ou de popularidade.</p>
             <Resposta primary disabled={busy || saving} onClick={() => void load(draftProximity, draftFame, "NEW_ENTRY")}>buscar por aqui →</Resposta>
           </div>
-        </div>}
-      </details>
+      </DiscoveryDisclosure>}
 
 
-      <PenLayer pen={pen} signal={signal} reduced={reduced} />
+      {penInPlace && <PenLayer pen={pen} signal={signal} reduced={reduced} />}
       </div>
 
       {modalOpen && createPortal(

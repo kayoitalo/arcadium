@@ -11,6 +11,8 @@ export interface TasteSlice {
 }
 export interface TrackSeed { artistName: string; trackName: string; plays: number; lastPlayedAt?: string; region: "long_term" | "recent" | "feedback" }
 export interface UserProfile extends LegacyProfile {
+  /** A session request, not an inferred or persisted musical preference. */
+  explicitReference?: { artistName: string; trackName: string };
   longTerm?: TasteSlice;
   recent?: TasteSlice;
   trackSeeds?: TrackSeed[];

@@ -9,6 +9,7 @@ import { composeSession } from "../domain/composition";
 import { eligibleCandidates } from "../domain/eligibility";
 import { algorithmVersion, discoveryStrategy, type DiscoveryStrategy } from "../domain/strategy";
 import { hybridExternalCandidates, mergeCandidates } from "./hybrid-candidates";
+import { discoveryContextSchema, readDiscoveryContext, repertoireCandidates, type DiscoveryContext, type DiscoveryIntent } from "../domain/discovery-intent";
 import { isCollaborationOfKnownArtist, limitPerArtist } from "../domain/candidate-filters";
 import type { SimilarArtistProvider } from "../domain/similar-artist-provider.interface";
 import { LastFmSimilarArtistProvider } from "../infrastructure/lastfm-similar-adapter";
@@ -49,15 +50,21 @@ function toSessionResult(session: {
   algorithmVersion: string;
   currentRank?: number | null;
   profilePeriod?: string;
+  discoveryContext?: unknown;
   items: Array<Record<string, any>>;
 }): SessionResult {
+  const discovery = readDiscoveryContext(session.discoveryContext);
   return {
     sessionId: session.id,
     mode: session.mode as RecommendationMode,
     context: session.context,
     algorithmVersion: session.algorithmVersion,
     currentRank: session.currentRank ?? session.items.find((item) => item.status === "PENDING")?.rank ?? session.items.length + 1,
-    settings: sessionSettings(session.profilePeriod, session.mode, session.context),
+    settings: sessionSettings(session.profilePeriod, session.mode, session.context, session.discoveryContext),
+    journey: discovery ? {
+      ...discovery.journey,
+      rootSessionId: discovery.journey.rootSessionId ?? session.id,
+    } : null,
     items: session.items.map((item) => {
       const previewIdentity = compatiblePreviewIdentity((item.scoreComponents as any)?.previewIdentity,
         { artistName: item.artistName, trackName: item.trackName });
@@ -95,9 +102,10 @@ function coverKey(candidate: { artistName: string; trackName: string }): string 
   return `${candidate.artistName.toLowerCase()}|${candidate.trackName.toLowerCase()}`;
 }
 
-function sessionSettings(profilePeriod: string | undefined, mode: string, context: string | null) {
+function sessionSettings(profilePeriod: string | undefined, mode: string, context: string | null, discoveryContext?: unknown) {
   const [period = "30d", proximity, fame] = (profilePeriod ?? "30d").split(":");
   return { period, mode: mode as RecommendationMode, context: (context ?? "GENERAL") as RecommendationContext,
+    intent: readDiscoveryContext(discoveryContext)?.intent ?? null,
     dials: proximity != null && fame != null ? { proximity: Number(proximity), fame: Number(fame) } : MODE_DIALS[mode as RecommendationMode] };
 }
 
@@ -115,6 +123,9 @@ export interface GenerateSessionInput {
   operation?: SessionOperation;
   sessionId?: string;
   requestKey?: string;
+  intent?: DiscoveryIntent;
+  sourceItemId?: string;
+  discoveryContext?: DiscoveryContext;
 }
 
 export interface SessionResult {
@@ -124,6 +135,7 @@ export interface SessionResult {
   algorithmVersion: string;
   currentRank: number;
   settings: ReturnType<typeof sessionSettings>;
+  journey: (DiscoveryContext["journey"] & { rootSessionId: string }) | null;
   items: Array<{
     id: string;
     artistName: string;
@@ -157,28 +169,50 @@ export class RecommendationService {
   ) {}
 
   async generateSession(input: GenerateSessionInput): Promise<SessionResult> {
+    const openedAt = new Date();
     const operation = input.operation ?? "AUTO";
     let effective = input;
     const source = input.sessionId ? await prisma.recommendationSession.findFirst({ where: { id: input.sessionId, userId: input.userId }, include: sessionInclude(input.userId) }) : null;
     if (input.sessionId && !source) throw new DiscoveryConflict("Sessão não encontrada.", 404);
     if (operation === "RESUME") {
       if (source && source.status !== "ACTIVE") throw new DiscoveryConflict("Essa busca ainda não está disponível para retomar.");
-      if (source) return (await this.getSession(source.id, input.userId))!;
+      if (source) return this.resumeSession(source.id, input.userId, openedAt);
       const latest = await this.getLatestSession(input.userId);
       if (!latest) throw new DiscoveryConflict("Nenhuma sessão para retomar.", 404);
-      return latest;
+      return this.resumeSession(latest.sessionId, input.userId, openedAt);
     }
     if (operation === "MORE") {
       if (!source) throw new DiscoveryConflict("Escolha a sessão para buscar mais.", 400);
       if (source.status !== "ACTIVE") throw new DiscoveryConflict("A sessão original ainda não está pronta.");
       if (source.algorithmVersion !== algorithmVersion(this.strategy)) throw new DiscoveryConflict("Essa sessão usa outra versão do motor. Escolha outra entrada para iniciar uma nova busca.");
-      const settings = sessionSettings(source.profilePeriod, source.mode, source.context);
-      effective = { ...input, ...settings };
+      const settings = sessionSettings(source.profilePeriod, source.mode, source.context, source.discoveryContext);
+      effective = { ...input, ...settings, intent: settings.intent ?? "DISCOVER" };
     }
+    const previousContext = readDiscoveryContext(source?.discoveryContext);
+    let anchor = operation === "MORE" ? previousContext?.journey.anchor : undefined;
+    if (operation === "DEEPEN") {
+      if (!source || !input.sourceItemId || !input.requestKey) throw new DiscoveryConflict("Escolha uma indicação e uma chave de busca para aprofundar.", 400);
+      if (source.status !== "ACTIVE") throw new DiscoveryConflict("A sessão original ainda não está pronta.");
+      const item = source.items.find((row) => row.id === input.sourceItemId);
+      if (!item) throw new DiscoveryConflict("Indicação não encontrada nesta sessão.", 404);
+      if (input.intent === "REPERTOIRE") throw new DiscoveryConflict("Aprofundar uma faixa inicia uma busca por descobertas.", 400);
+      anchor = { sourceSessionId: source.id, sourceItemId: item.id, artistName: item.artistName, trackName: item.trackName };
+      const settings = sessionSettings(source.profilePeriod, source.mode, source.context, source.discoveryContext);
+      effective = { ...input, ...settings, intent: input.intent ?? (previousContext?.intent === "CONNECTIONS" ? "CONNECTIONS" : "DISCOVER") };
+    }
+    const intent = effective.intent ?? "DISCOVER";
+    if (this.strategy === "legacy" && (anchor || intent === "REPERTOIRE")) throw new DiscoveryConflict("Esse caminho precisa do motor híbrido. Você pode continuar nas buscas anteriores.", 409);
+    const continuing = Boolean(source && (operation === "MORE" || operation === "DEEPEN"));
+    const discovery: DiscoveryContext = { version: 1, intent, journey: {
+      action: operation === "DEEPEN" ? "DEEPEN" : operation === "MORE" ? "MORE" : "ENTRY",
+      ...(continuing ? { rootSessionId: previousContext?.journey.rootSessionId ?? source!.id, parentSessionId: source!.id } : {}),
+      ...(anchor ? { anchor } : {}),
+    } };
+    if (!discoveryContextSchema.safeParse(discovery).success) throw new DiscoveryConflict("Não consegui preservar a referência deste caminho. Escolha outra indicação.", 400);
     const { userId, mode, context, period = "30d", size = DEFAULT_SESSION_SIZE } = effective;
     const dials = effective.dials ?? MODE_DIALS[mode];
     const fingerprint = JSON.stringify({ operation, source: input.sessionId ?? null, mode,
-      context: context || "GENERAL", period, dials, size, algorithm: algorithmVersion(this.strategy) });
+      context: context || "GENERAL", period, dials, size, discovery, algorithm: algorithmVersion(this.strategy) });
     const replay = async () => {
       const previous = await prisma.recommendationSession.findUnique({ where: { userId_requestKey: { userId, requestKey: input.requestKey! } } });
       if (!previous || previous.requestFingerprint !== fingerprint) throw new DiscoveryConflict("Chave de busca já utilizada com outros parâmetros.");
@@ -198,10 +232,12 @@ export class RecommendationService {
         where: { userId, mode, context: context || "GENERAL", status: "ACTIVE",
           algorithmVersion: algorithmVersion(this.strategy),
           createdAt: { gte: new Date(Date.now() - SESSION_REUSE_WINDOW_MS) },
-          profilePeriod: [period, dials.proximity, dials.fame].join(":") },
+          profilePeriod: [period, dials.proximity, dials.fame].join(":"),
+          discoveryContext: { path: ["intent"], equals: intent } },
+        // Intent is part of reuse identity; a repertoire is never reused as novelty.
         orderBy: { createdAt: "desc" }, include: sessionInclude(userId),
       });
-      if (reusable?.items.length) return toSessionResult(reusable);
+      if (reusable?.items.length && readDiscoveryContext(reusable.discoveryContext)?.intent === intent) return this.resumeSession(reusable.id, userId, openedAt);
     }
     let reservation;
     try {
@@ -209,14 +245,17 @@ export class RecommendationService {
         userId, mode, context: context || "GENERAL", profilePeriod: [period, dials.proximity, dials.fame].join(":"),
         algorithmVersion: algorithmVersion(this.strategy), status: "GENERATING", currentRank: 1,
         requestKey: input.requestKey, requestFingerprint: fingerprint,
+        discoveryContext: discovery as any,
+        lastOpenedAt: openedAt,
       } });
     } catch (error) {
       if (input.requestKey && (error as { code?: string }).code === "P2002") return replay();
       throw error;
     }
     try {
-      const avoid = (source?.items ?? []).filter((item) => item.exposedAt || item.feedback?.length);
-      return await this.populateSession({ ...effective, dials }, reservation.id, avoid);
+      const avoid: Array<{ artistName: string; trackName: string }> = (source?.items ?? []).filter((item) => item.exposedAt || item.feedback?.length);
+      if (anchor) avoid.push({ artistName: anchor.artistName, trackName: anchor.trackName });
+      return await this.populateSession({ ...effective, dials, intent, discoveryContext: discovery }, reservation.id, avoid);
     } catch (error) {
       await prisma.recommendationSession.update({ where: { id: reservation.id }, data: { status: "FAILED" } }).catch(() => undefined);
       throw error;
@@ -227,15 +266,19 @@ export class RecommendationService {
     const generationStarted = Date.now();
     const { userId, mode, context, period = "30d", size = DEFAULT_SESSION_SIZE } = input;
     const dials = input.dials ?? MODE_DIALS[mode];
-    const profile = await this.buildUserProfile(userId, period);
+    const observedProfile = await this.buildUserProfile(userId, period);
+    const profile = input.discoveryContext?.journey.anchor
+      ? { ...observedProfile, explicitReference: input.discoveryContext.journey.anchor } : observedProfile;
 
-    const rawCandidates = await this.generateCandidates(userId, profile, mode, dials);
+    const rawCandidates = input.intent === "REPERTOIRE" ? repertoireCandidates(profile)
+      : input.discoveryContext?.journey.anchor ? await hybridExternalCandidates(this.similarArtists, profile, input.discoveryContext.journey.anchor)
+      : await this.generateCandidates(userId, profile, mode, dials);
 
     const excluded = new Set(avoid.map(coverKey));
-    const filtered = (await this.applyExclusions(userId, rawCandidates, profile)).filter((candidate) => !excluded.has(coverKey(candidate)));
+    const filtered = (await this.applyExclusions(userId, rawCandidates, profile, input.intent === "REPERTOIRE")).filter((candidate) => !excluded.has(coverKey(candidate)));
 
     const ranked = this.strategy === "legacy" ? legacyScoreAndRank(filtered, profile, mode, dials) : scoreAndRank(filtered, profile, mode, dials);
-    const scored = this.strategy === "legacy" ? ranked.slice(0, size) : composeSession(ranked, size);
+    const scored = this.strategy === "legacy" ? ranked.slice(0, size) : composeSession(ranked, size, Boolean(input.discoveryContext?.journey.anchor));
 
     const covers = await this.resolveCovers(scored);
     const previews = this.strategy === "legacy" ? await this.resolvePreviews(scored) : new Map<string, TrackPreview>();
@@ -327,7 +370,7 @@ export class RecommendationService {
         && trackFeedbackKey(evidence.seedArtist, evidence.seedTrack) === key))) return false;
       // Profile reads happen under the same session lock as feedback/exposure,
       // so an older refresh cannot overwrite a later decision or visible item.
-      const settings = sessionSettings(session.profilePeriod, session.mode, session.context);
+      const settings = sessionSettings(session.profilePeriod, session.mode, session.context, session.discoveryContext);
       const profile = await this.buildUserProfile(userId, settings.period);
       const ranked = scoreAndRank(pool.map(({ candidate }) => candidate), profile, settings.mode, settings.dials);
       const ordered = [...ranked.filter((item) => !item.isRevisit), ...ranked.filter((item) => item.isRevisit)];
@@ -356,16 +399,46 @@ export class RecommendationService {
     return toSessionResult(session);
   }
 
+  private async resumeSession(sessionId: string, userId: string, openedAt: Date): Promise<SessionResult> {
+    // Navigation is explicit and monotonic; it never changes cursor/feedback.
+    await prisma.recommendationSession.updateMany({
+      where: { id: sessionId, userId, status: "ACTIVE", OR: [{ lastOpenedAt: null }, { lastOpenedAt: { lt: openedAt } }] },
+      data: { lastOpenedAt: openedAt },
+    });
+    const session = await this.getSession(sessionId, userId);
+    if (!session) throw new DiscoveryConflict("Sessão não encontrada.", 404);
+    return session;
+  }
+
   async getLatestSession(userId: string): Promise<SessionResult | null> {
     const session = await prisma.recommendationSession.findFirst({
       where: { userId, status: "ACTIVE" },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ lastOpenedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }, { id: "desc" }],
       include: sessionInclude(userId),
     });
 
     if (!session) return null;
 
     return toSessionResult(session);
+  }
+
+  /** Bounded, owner-scoped navigation. Reading this list does not expose items
+   * or query musical providers. Older sessions retain unspecified intentions. */
+  async getRecentSessions(userId: string) {
+    const sessions = await prisma.recommendationSession.findMany({
+      where: { userId, status: "ACTIVE" }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 20,
+      select: { id: true, mode: true, context: true, profilePeriod: true, discoveryContext: true,
+        createdAt: true, currentRank: true, _count: { select: { items: true } },
+        items: { orderBy: { rank: "asc" }, take: 1, select: { artistName: true, trackName: true } } },
+    });
+    return sessions.map((session) => {
+      const discovery = readDiscoveryContext(session.discoveryContext);
+      return { sessionId: session.id, createdAt: session.createdAt.toISOString(),
+        currentRank: session.currentRank, total: session._count.items,
+        intent: discovery?.intent ?? null,
+        journey: discovery ? { ...discovery.journey, rootSessionId: discovery.journey.rootSessionId ?? session.id } : null,
+        firstTrack: session.items[0] ?? null };
+    });
   }
 
   private async buildUserProfile(userId: string, period: string): Promise<UserProfile> {
@@ -841,7 +914,8 @@ export class RecommendationService {
   private async applyExclusions(
     userId: string,
     candidates: RawCandidate[],
-    profile: UserProfile
+    profile: UserProfile,
+    allowKnown = false,
   ): Promise<RawCandidate[]> {
 
     const cooldownDate = new Date(
@@ -861,6 +935,6 @@ export class RecommendationService {
       recentItems.map((i: any) => `${i.artistName.toLowerCase()}|${i.trackName.toLowerCase()}`)
     );
 
-    return eligibleCandidates(candidates, profile, recentKeys);
+    return eligibleCandidates(candidates, profile, recentKeys, allowKnown);
   }
 }

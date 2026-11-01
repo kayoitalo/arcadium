@@ -1,5 +1,7 @@
 # Descoberta — entrada pela intenção
 
+Incremento seguinte em revisão após PR 15: terceira entrada de repertório local, aprofundamento por faixa e caminhos anteriores agrupados. Ver [escopo, limites e roteiro](intentions-journeys.md). Os dois caminhos de descoberta continuam os presets descritos abaixo.
+
 Atualização de 01/11/2026: o proprietário relatou aprovação manual visual/mobile e dos cenários de mídia/continuidade após os PRs 13–14. A seção de validação abaixo preserva o estado original da entrega, anterior a essa aprovação. Isso não comprova qualidade musical nem conclui as intenções/jornadas.
 
 Direção escolhida pelo proprietário: entrada pela intenção, com mapa opcional. Esta adaptação antecipa parte visual da etapa 7 no PR 13, aproveitando sessões e o motor das etapas 3–4. Não conclui as intenções e jornadas da etapa 6.

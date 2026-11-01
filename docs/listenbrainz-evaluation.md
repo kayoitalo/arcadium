@@ -26,7 +26,7 @@ Consulta explícita, no máximo três MBIDs distintos por execução:
 node scripts/evaluation/listenbrainz-probe.mjs --live 8a49dba0-253a-4535-b87f-78bb035336ce
 ```
 
-Não executar lotes em paralelo ou repetir um lote após limitação. O runner é sequencial, aguarda 1,1 s entre consultas, usa timeout de dez segundos e interrompe em erro HTTP/rede/contrato ou cabeçalho de cota esgotada, sem retry. Não carrega `.env`, credenciais ou banco. A saída padrão contém contagens de linhas recebidas, inválidas, referência errada, autorreferência, duplicações e seleção efetiva. `--show-candidates` revela explicitamente até vinte metadados para inspeção; guardar essa saída apenas localmente, por exemplo em `.next/evaluation/`, sem versionar payloads musicais ou resultados pessoais.
+Não executar lotes em paralelo ou repetir um lote após limitação. O runner é sequencial, aguarda 1,1 s entre consultas, usa timeout de dez segundos e interrompe em erro HTTP/rede/contrato ou cabeçalho de cota esgotada, sem retry. Não carrega `.env`, credenciais ou banco. A saída padrão contém contagens de linhas recebidas, inválidas, referência errada, autorreferência, duplicações e seleção efetiva. `--show-candidates` revela explicitamente até vinte metadados para inspeção; guardar essa saída apenas localmente, por exemplo em `.local/evaluation/`, sem versionar payloads musicais ou resultados pessoais.
 
 Uma única consulta pública Roads / Portishead na primeira sondagem registrada retornou HTTP 200: 100 linhas válidas e únicas, vinte selecionadas, 1.558 ms observados. Nessa sondagem foram iniciadas uma consulta ListenBrainz e uma consulta de identificação MusicBrainz; não houve consultas Last.fm, Apple ou IA. As consultas documentais no navegador não estão incluídas nesses contadores de runners. [Métricas derivadas](../scripts/evaluation/listenbrainz.public-probe.json). Esse controle positivo confirma contrato e disponibilidade nessa execução; não conclui cobertura brasileira, adequação, interesse ou ganho personalizado.
 
@@ -55,7 +55,7 @@ Esta rodada iniciou dez consultas externas, sequenciais e sem retry: três busca
 
 Usar a preview isolada existente, sem rodar simultaneamente os dois motores. Habilitar temporariamente `ARCADIUM_LISTENBRAINZ_EXPERIMENT=true` apenas na preview. Para uma sessão da própria conta, fazer o POST autenticado já existente em `/api/recommendations/experiment`, com `recordingMbid` conferido e `baselineSessionId`. Autenticação, origem e propriedade precedem a consulta externa; a rota não altera a sessão.
 
-Salvar o JSON da resposta localmente em `.next/evaluation/`, junto das anotações da referência, intenção/controles e momento da comparação. A sessão precisa representar a mesma intenção e o repertório relevante; a mera existência de uma sessão não prova equivalência entre os experimentos. O relatório compara as candidatas com as finalistas dessa sessão, não com todo o conjunto de candidatas que o motor descartou.
+Salvar o JSON da resposta localmente em `.local/evaluation/`, junto das anotações da referência, intenção/controles e momento da comparação. A sessão precisa representar a mesma intenção e o repertório relevante; a mera existência de uma sessão não prova equivalência entre os experimentos. O relatório compara as candidatas com as finalistas dessa sessão, não com todo o conjunto de candidatas que o motor descartou.
 
 Para cada candidata efetivamente experimentada, pode-se acrescentar ao objeto um campo `review`:
 
@@ -74,7 +74,7 @@ Valores: `adequacy` = `fits`, `misses` ou `unreviewed`; `interest` = `interested
 Resumo offline, sem banco/rede:
 
 ```powershell
-node scripts/evaluation/listenbrainz-assess.mjs .next/evaluation/experiment.json
+node scripts/evaluation/listenbrainz-assess.mjs .local/evaluation/experiment.json
 ```
 
 O resumo mantém denominadores separados para cada julgamento, recusa snapshots inconsistentes/duplicados ou de outro algoritmo e omite o ID da sessão. Não encontrar o mesmo texto na sessão significa **sem sobreposição textual observada**, não gravação inédita, identidade confirmada ou contribuição exclusiva. Aliases e versões exigem inspeção; medir ganho exclusivo requer comparar também as candidatas do controle, além das oito finalistas.

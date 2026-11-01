@@ -15,7 +15,7 @@ export function DiscoveryTrack({ title, artist, reason, isRevisit, artwork, meta
       <span className={styles.eyebrow}>descoberta <span className={styles.barSlash}>/</span> {entryLabel}</span>
       <button className={styles.textButton} onClick={onChangeEntry}>trocar caminho ↗</button>
     </div>
-    <p className={styles.pathContext}>{entryLabel === "Perto do que eu gosto"
+    <p className={styles.pathContext}>{entryLabel === "Do meu repertório" ? "Uma seleção do teu histórico. Não precisa ser novidade para valer o play." : entryLabel === "Perto do que eu gosto"
       ? "Buscando novidades com ligações mais diretas ao teu repertório."
       : entryLabel === "Outras conexões"
         ? "Buscando ligações menos diretas. Pode haver novidades dentro dos gêneros que você já escuta."
@@ -34,7 +34,7 @@ export function DiscoveryTrack({ title, artist, reason, isRevisit, artwork, meta
           <button className={styles.playButton} disabled={!canPlay} onClick={onPlay} aria-pressed={playing} aria-label={playing ? "Parar prévia" : "Ouvir prévia"}>
             <svg viewBox="0 0 24 24" aria-hidden="true">{playing ? <path d="M7 7h10v10H7z" /> : <path d="m9 5 11 7-11 7z" />}</svg>
           </button><div><strong>{loading ? "Abrindo a prévia…" : playing ? "Ouvindo agora" : canPlay ? "Dá o play" : "Sem prévia por aqui"}</strong>
-            <span>{canPlay ? "um primeiro encontro, em 30 segundos" : "a indicação continua valendo"}</span></div>
+            <span>{canPlay ? entryLabel === "Do meu repertório" ? "um reencontro, em 30 segundos" : "um trecho, em 30 segundos" : "a indicação continua valendo"}</span></div>
         </div>
         <div className={styles.meta}>{metadata}</div>
       </div>
