@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-01T19:17:58.400Z",
+  "algorithm": "session_based_days_7500_session_300_contribution_5_threshold_15_limit_50_skip_30_top_n_listeners_1000",
+  "scope": "Public bounded coverage pilot; no personal history, human judgments, raw provider scores, audio, artwork or full candidate payloads. Not a representative coverage estimate.",
+  "requests": {
+    "recordingSearch": 3,
+    "recordingMbidLookup": 1,
+    "listenbrainzSimilarity": 4,
+    "lastfmSimilarity": 2,
+    "total": 10
+  },
+  "cases": [
+    {
+      "id": "case-27",
+      "artist": "Kaatayra",
+      "track": "Inpariquipê",
+      "queriedRecordingMbid": "9f935ec0-0be1-4939-8399-a08a27a41e1d",
+      "listenbrainz": {
+        "status": "empty",
+        "httpStatus": 200,
+        "elapsedMs": 912,
+        "returnedRows": 0,
+        "selectedRows": 0,
+        "invalidRows": 0,
+        "wrongReferenceRows": 0
+      },
+      "lastfm": {
+        "status": "empty",
+        "selectedRows": 0,
+        "requestsStarted": 1,
+        "elapsedMs": 671
+      },
+      "interpretation": "No relations returned for this reference in these bounded provider queries. Not a popularity or musical-quality measure."
+    },
+    {
+      "id": "case-29",
+      "artist": "Sessa",
+      "track": "Grandeza",
+      "queriedRecordingMbid": "77322f13-fcd9-4ddf-a7f3-580adab838f2",
+      "listenbrainz": {
+        "status": "empty",
+        "httpStatus": 200,
+        "elapsedMs": 295,
+        "returnedRows": 0,
+        "selectedRows": 0,
+        "invalidRows": 0,
+        "wrongReferenceRows": 0
+      },
+      "lastfm": {
+        "status": "empty",
+        "selectedRows": 0,
+        "requestsStarted": 1,
+        "elapsedMs": 261
+      },
+      "interpretation": "No relations returned for this reference in these bounded provider queries. Not a popularity or musical-quality measure."
+    },
+    {
+      "id": "case-11",
+      "artist": "Nirvana",
+      "track": "About A Girl - Live",
+      "queriedRecordingMbid": "5a3c6008-0aad-4b44-97d2-800f49647dd2",
+      "listenbrainz": {
+        "status": "empty",
+        "httpStatus": 200,
+        "elapsedMs": 272,
+        "returnedRows": 0,
+        "selectedRows": 0,
+        "invalidRows": 0,
+        "wrongReferenceRows": 0
+      },
+      "interpretation": "Inconclusive for version coverage: legacy identifier maps to a canonical group; no conclusion about popularity or live-performance availability."
+    }
+  ],
+  "canonicalControl": {
+    "artist": "Nirvana",
+    "track": "About a Girl",
+    "representativeRelease": "Bleach",
+    "queriedRecordingMbid": "b2e623ea-378b-4479-bb75-fa202aacbfc9",
+    "status": "returned",
+    "httpStatus": 200,
+    "elapsedMs": 915,
+    "returnedRows": 100,
+    "selectedRows": 20,
+    "interpretation": "Relations for a provider canonical group; not a separate studio-performance measurement."
+  },
+  "versionMapping": {
+    "lookupHttpStatus": 200,
+    "originalRecordingMbid": "5a3c6008-0aad-4b44-97d2-800f49647dd2",
+    "resolvedRecordingMbid": "d550b70a-31cd-4c23-a7c3-0f1488b84417",
+    "canonicalRecordingMbid": "b2e623ea-378b-4479-bb75-fa202aacbfc9",
+    "representativeRelease": "Bleach",
+    "source": "https://labs.api.listenbrainz.org/recording-mbid-lookup/json?recording_mbid=5a3c6008-0aad-4b44-97d2-800f49647dd2",
+    "documentation": "https://musicbrainz.org/doc/Canonical_MusicBrainz_data"
+  },
+  "decision": "Keep the source opt-in and outside the default ranking. Do not silently replace requested versions with canonical groups. Additional representative coverage and controlled engine evaluation are required before adoption."
+}

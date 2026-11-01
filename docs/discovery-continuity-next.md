@@ -1,5 +1,7 @@
 # Próxima evolução — trabalho em revisão
 
+Atualização de 01/11/2026: PR 14 mergeado; proprietário relatou aprovação manual de mídia, continuidade e visual/mobile. As pendências de revisão ao final descrevem o estado anterior. A avaliação ListenBrainz não foi aprovada com esses testes; ver [procedimento e resultados atuais](listenbrainz-evaluation.md) e [continuidade](continuation.md).
+
 Base: PR 13 mergeado. Este incremento separa mídia da criação da sessão híbrida. O frontend pede mídia apenas da indicação atual, sem autoplay, e ignora respostas de uma faixa que saiu da tela. Falha de rede oferece nova tentativa; ausência no catálogo é informada separadamente.
 
 POST de mídia verifica conta, sessão e item antes das chamadas. A gravação deve manter artista/título/versão compatíveis. O salvamento bloqueia a sessão na mesma ordem das avaliações e preserva os demais componentes do item. Não muda cursor, ranking ou feedback. Reutilização de resultado e coalescência por processo reduzem consultas; não constituem reserva distribuída entre ambientes. Não há worker, fila externa nem migration nova.
@@ -16,7 +18,7 @@ Fonte oficial: https://labs.api.listenbrainz.org/similar-recordings
 
 O endpoint público por gravação foi confirmado no formulário oficial. Uma consulta ao MBID de exemplo da documentação retornou HTTP 200 e lista vazia. Isso confirma resposta do endpoint, não cobertura útil nem adequação ao gosto do proprietário.
 
-`node scripts/evaluation/listenbrainz-probe.mjs <recording-mbid>` executa até três consultas explícitas, espaçadas, com timeout e interrupção em erro. Não lê banco, publica histórico ou salva payloads musicais completos. A saída contém somente contagens e métricas operacionais. A integração continua fora do motor padrão.
+`node scripts/evaluation/listenbrainz-probe.mjs --live <recording-mbid>` executa até três consultas explícitas, espaçadas, com timeout e interrupção em erro. Sem `--live`, apenas planeja, sem rede. Não lê banco nem publica histórico. A saída padrão contém somente contagens e métricas operacionais; metadados limitados exigem `--show-candidates` e devem permanecer locais. A integração continua fora do motor padrão. Runner e adaptador compartilham o mesmo algoritmo na continuação atual.
 
 Uma segunda consulta pública, usando Roads / Portishead como referência do próprio site, retornou 100 linhas com o algoritmo `session_based_days_7500_session_300_contribution_5_threshold_15_limit_50_skip_30_top_n_listeners_1000`. O adaptador experimental valida gravação/referência, remove duplicações, limita a 20 candidatas e conserva score bruto separado. Não considera score uma probabilidade nem o soma ao Last.fm. Cache de uma hora, coalescência, espaçamento conservador e tratamento de limites reduzem chamadas. Filas são locais ao processo, sem garantia global entre ambientes.
 

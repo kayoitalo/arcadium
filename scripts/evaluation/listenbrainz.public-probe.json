@@ -1,0 +1,26 @@
+{
+  "algorithm": "session_based_days_7500_session_300_contribution_5_threshold_15_limit_50_skip_30_top_n_listeners_1000",
+  "source": "ListenBrainz Labs",
+  "mode": "live",
+  "observedAt": "2026-11-01T18:31:28.334Z",
+  "requestedSeeds": 1,
+  "requestsStarted": 1,
+  "stopReason": null,
+  "completedSeeds": 1,
+  "scope": "Public coverage only; no baseline comparison, personalized relevance or ranking claim.",
+  "report": [
+    {
+      "recordingMbid": "8a49dba0-253a-4535-b87f-78bb035336ce",
+      "status": "returned",
+      "httpStatus": 200,
+      "elapsedMs": 1558,
+      "returnedRows": 100,
+      "invalidRows": 0,
+      "wrongReferenceRows": 0,
+      "selfRows": 0,
+      "duplicateRows": 0,
+      "validUniqueRows": 100,
+      "selectedRows": 20
+    }
+  ]
+}
