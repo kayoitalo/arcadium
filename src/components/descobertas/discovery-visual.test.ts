@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync, readdirSync, mkdirSync } from "node:fs";
 import { DiscoveryEntry } from "./discovery-entry";
 import { DiscoveryTrack } from "./discovery-track";
 import { DiscoveryJourneyList } from "./discovery-history";
+import { DiscoveryDisclosure } from "./discovery-disclosure";
 import { discoveryEntryLabel, DISCOVERY_ENTRIES } from "./discovery-view";
 import styles from "./descobertas.module.css";
 import amigo from "../amigo/amigo.module.css";
@@ -45,6 +46,26 @@ describe("discovery visual contracts", () => {
     expect(html.replace(/<[^>]*>/g, "")).toContain(title); expect(html).toContain("Maré Alta"); expect(html).toContain("Por que essa?");
     expect(html).toContain("Sem prévia por aqui"); expect(html).toContain('disabled=""');
     expect(html).not.toContain("autoplay");
+  });
+  it("keeps optional responses out of the collapsed DOM and preserves native summary activation", () => {
+    const html = renderToStaticMarkup(h(DiscoveryDisclosure, { id: "review", summary: "Outras respostas", open: false, children: h("textarea") }));
+    expect(html).toContain("<details"); expect(html).toContain("<summary");
+    expect(html).toContain('aria-expanded="false"'); expect(html).toContain('aria-controls="review-body"');
+    expect(html).toContain('id="review-body"'); expect(html).toContain('inert=""');
+    expect(html).not.toContain("textarea");
+  });
+  it("exposes expanded content and its summary/body relationship on the first render", () => {
+    const html = renderToStaticMarkup(h(DiscoveryDisclosure, { id: "map", summary: "Mapa", open: true, children: h("button", null, "Buscar") }));
+    expect(html).toContain('open=""'); expect(html).toContain('aria-expanded="true"');
+    expect(html).toContain('aria-controls="map-body"'); expect(html).toContain('id="map-body"');
+    expect(html).toContain("Buscar"); expect(html).not.toContain('inert=""');
+  });
+  it("marks the selected history step with its live cursor without inventing legacy completion", () => {
+    const html = renderToStaticMarkup(h(DiscoveryJourneyList, { busy: false, currentSessionId: "current", currentRank: 3, onResume: noop,
+      sessions: ["current", "legacy"].map((sessionId) => ({ sessionId, createdAt: "2026-11-01T12:00:00Z", intent: null,
+        total: 4, currentRank: sessionId === "current" ? 1 : null, firstTrack: null, journey: null })) }));
+    expect(html).toContain('aria-current="step"'); expect(html).toContain("posição 3"); expect(html).toContain("você está aqui");
+    expect(html).not.toContain("posição 1"); expect(html).not.toContain("chegou ao fim");
   });
   it("can export isolated visual fixtures from the actual components and CSS", () => {
     if (process.env.ARCADIUM_VISUAL_REVIEW !== "true") return;

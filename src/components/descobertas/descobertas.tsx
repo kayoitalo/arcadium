@@ -2,7 +2,7 @@
 
 import { privateFetch } from "@/lib/http/private-fetch";
 
-import { useReducedMotion } from "framer-motion";
+import { AnimatePresence, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Aviso } from "@/components/amigo/aviso";
@@ -22,6 +22,8 @@ import { DiscoveryEntry } from "./discovery-entry";
 import { DiscoveryTrack } from "./discovery-track";
 import { discoveryEntryLabel } from "./discovery-view";
 import { DiscoveryHistory } from "./discovery-history";
+import { DiscoveryDisclosure } from "./discovery-disclosure";
+import { DiscoveryTransition, useDiscoveryScene } from "./discovery-transition";
 import type { DiscoveryContext, DiscoveryIntent } from "@/modules/recommendations/domain/discovery-intent";
 import { ASPECTS, feedbackChannel, type FeedbackEntry, type FeedbackChannel } from "@/modules/recommendations/domain/feedback";
 
@@ -205,8 +207,10 @@ export function Descobertas() {
   );
 
   const current = queue?.[index] ?? null;
+  const scene = useDiscoveryScene(current && sessionId && !choosing && !busy && !failed ? `${sessionId}:${current.id}` : null);
+  const changing = scene.identity !== null && !scene.ready;
   useEffect(() => {
-    if (choosing || busy || !sessionId || !current) return;
+    if (!scene.ready || choosing || busy || !sessionId || !current) return;
     if (current.previewUrl && current.coverUrl) { setMediaState("ready"); return; }
     const controller = new AbortController();
     const itemId = current.id;
@@ -223,11 +227,11 @@ export function Descobertas() {
       setMediaState(result.status);
     }).catch(() => { if (!controller.signal.aborted) setMediaState("error"); });
     return () => controller.abort();
-  }, [current?.id, sessionId, choosing, busy, mediaAttempt]);
+  }, [current?.id, sessionId, choosing, busy, mediaAttempt, scene.ready]);
   const finished = queue !== null && queue.length > 0 && index >= queue.length;
 
   const showEntries = () => {
-    if (savingRef.current || busy) return;
+    if (savingRef.current || busy || changing) return;
     stop(); setChoosing(true); setFailed(false); setLoadError(null); setFeedbackError(null);
     setDraftProximity(proximity); setDraftFame(fame);
     window.scrollTo({ top: 0, behavior: reduced ? "instant" : "smooth" });
@@ -237,21 +241,25 @@ export function Descobertas() {
     requestAnimationFrame(() => document.getElementById("mapa-descoberta")?.scrollIntoView({ behavior: reduced ? "instant" : "smooth", block: "start" }));
   };
   useEffect(() => {
-    if (choosing || busy || !current || !headlineRef.current) return;
-    headlineRef.current.tabIndex = -1;
-    headlineRef.current.focus({ preventScroll: true });
-  }, [current?.id, choosing, busy]);
+    if (!scene.ready || choosing || busy || modalOpen || !current || !headlineRef.current) return;
+    const headline = headlineRef.current;
+    headline.tabIndex = -1;
+    headline.focus({ preventScroll: true });
+    const rect = headline.getBoundingClientRect();
+    if (rect.top < 90 || rect.top > window.innerHeight / 2) headline.scrollIntoView({ behavior: reduced ? "instant" : "smooth", block: "start" });
+  }, [current?.id, choosing, busy, scene.ready, scene.visit, reduced]);
 
   useEffect(() => { setNote(""); setAspects([]); }, [current?.id]);
 
   useEffect(() => {
     const element = suggestionRef.current;
-    if (!element || !current || !sessionId || busy || modalOpen || choosing || !("IntersectionObserver" in window)) return;
+    if (!scene.ready || !element || !current || !sessionId || busy || modalOpen || choosing || !("IntersectionObserver" in window)) return;
+    let active = true;
     let visible = false;
     let sent = false;
     let sending = false;
     const expose = async () => {
-      if (sent || sending || !visible || document.visibilityState !== "visible") return;
+      if (!active || sent || sending || !visible || document.visibilityState !== "visible") return;
       sending = true;
       try {
         const response = await privateFetch(`/api/recommendations/${sessionId}`, {
@@ -265,11 +273,11 @@ export function Descobertas() {
     const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting && entry.intersectionRatio >= 0.5; void expose(); }, { threshold: 0.5 });
     observer.observe(element);
     document.addEventListener("visibilitychange", expose);
-    return () => { observer.disconnect(); document.removeEventListener("visibilitychange", expose); };
-  }, [current?.id, sessionId, busy, modalOpen, choosing]);
+    return () => { active = false; observer.disconnect(); document.removeEventListener("visibilitychange", expose); };
+  }, [current?.id, sessionId, busy, modalOpen, choosing, scene.ready, scene.visit]);
 
   const moveTo = async (nextIndex: number) => {
-    if (!sessionId || savingRef.current || busy || !queue) return;
+    if (!sessionId || savingRef.current || busy || changing || !queue) return;
     savingRef.current = true; setSaving(true); setFeedbackError(null); stop();
     try {
       const response = await privateFetch(`/api/recommendations/${sessionId}`, {
@@ -290,7 +298,7 @@ export function Descobertas() {
 
   const decide = useCallback(
     async (action: Action | "retract", revisesId?: string) => {
-      if (!current || busy || savingRef.current || !selection.ready) return;
+      if (!scene.ready || !current || busy || savingRef.current || !selection.ready) return;
       if ((action === "liked" || action === "saved") && selection.items.length >= MAX_SELECTED_TRACKS && !selection.items.some((item) => selectionKey(item) === selectionKey(current))) {
         setFeedbackError("A lista está com 200 faixas. Leva pro Spotify ou remove uma antes de guardar mais.");
         return;
@@ -331,15 +339,15 @@ export function Descobertas() {
         setSaving(false);
       }
     },
-    [current, sessionId, stop, busy, selection, note, aspects, applySession],
+    [current, sessionId, stop, busy, selection, note, aspects, applySession, scene.ready],
   );
 
   const toggleSound = useCallback(() => {
-    if (current?.previewUrl) toggle(current.previewUrl);
-  }, [current, toggle]);
+    if (scene.ready && current?.previewUrl) toggle(current.previewUrl);
+  }, [current, toggle, scene.ready]);
 
   useEffect(() => {
-    if (!current || modalOpen || choosing || busy) return;
+    if (!scene.ready || !current || modalOpen || choosing || busy) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return;
       const target = event.target instanceof Element ? event.target : null;
@@ -363,7 +371,7 @@ export function Descobertas() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [current, decide, modalOpen, choosing, busy, toggleSound]);
+  }, [current, decide, modalOpen, choosing, busy, toggleSound, scene.ready]);
 
   /** As sugestões desta busca, nos mesmos eixos que você regulou. */
   const dots = useMemo<MapDot[]>(
@@ -441,7 +449,7 @@ export function Descobertas() {
 
   // ---------- onde o traço vai ----------
 
-  const showing = Boolean(current && !busy && !choosing);
+  const showing = Boolean(scene.ready && current && !busy && !choosing && !failed);
 
 
   const draw = (origin: DOMRect): PenDrawing | null => {
@@ -470,7 +478,11 @@ export function Descobertas() {
     return { gestures, wave, notes: [] };
   };
 
-  const pen = usePen(stageRef, draw, `${showing ? current?.id : "-"}|${sound.playing ? "som" : ""}`);
+  const penSubject = `${scene.visit}:${current?.id}`;
+  const penPose = `${showing ? penSubject : "-"}|${sound.playing ? "som" : ""}`;
+  const pen = usePen(stageRef, draw, penPose);
+  const penInPlace = Boolean(showing && pen.plan?.key.startsWith(`${penSubject}|`));
+  useEffect(() => { pen.forget("grifo:"); }, [scene.visit, pen.forget]);
 
   // ---------- o que aparece em cima ----------
 
@@ -533,7 +545,7 @@ export function Descobertas() {
           {journey.parentSessionId && <> <button className={styles.textButton} disabled={busy || saving} onClick={() => void load(proximity, fame, "RESUME", { sessionId: journey.parentSessionId })}>voltar ao passo anterior →</button></>}
         </div>}
         <DiscoveryTrack title={current.trackName} artist={current.artistName} reason={current.reason} isRevisit={current.isRevisit}
-          sectionRef={suggestionRef} headlineRef={headlineRef} markRef={markRef} marked={pen.started.has("grifo:" + current.id)}
+          sectionRef={suggestionRef} headlineRef={headlineRef} markRef={markRef} marked={penInPlace && pen.started.has("grifo:" + current.id)}
           entryLabel={discoveryEntryLabel(proximity, intent)} index={index} total={queue.length} onChangeEntry={showEntries}
           onPlay={toggleSound} canPlay={Boolean(current.previewUrl)} playing={sound.playing} loading={sound.loading || mediaState === "loading"}
           artwork={<Capa cover={{ url: current.coverUrl, title: current.albumName ?? current.trackName, artist: current.artistName }} playing={sound.playing} innerRef={coverRef} className={styles.cover} eager />}
@@ -558,8 +570,7 @@ export function Descobertas() {
           </Resposta>
         </Respostas>
         </div>
-        <details className={styles.review} key={current.id}>
-          <summary>outras respostas ou revisar</summary>
+        <DiscoveryDisclosure className={styles.review} key={current.id} summary="outras respostas ou revisar">
           <p>Pular, ainda não ouvir e não ser o pedido não significam que você não gosta da música.</p>
           <fieldset disabled={saving}>
             <legend>Quer contar o que chamou atenção? É opcional.</legend>
@@ -581,7 +592,7 @@ export function Descobertas() {
           </p>)}
           {index > 0 && <Resposta onClick={() => void moveTo(index - 1)} disabled={saving}>rever a anterior</Resposta>}
           {index < queue.length - 1 && <Resposta onClick={() => void moveTo(index + 1)} disabled={saving}>próxima sem avaliar</Resposta>}
-        </details>
+        </DiscoveryDisclosure>
         <div className={styles.continuity}>
           <p><span>{String(index + 1).padStart(2, "0")}</span> de {String(queue.length).padStart(2, "0")} indicações <span className={styles.continuityNote}>· teu lugar fica guardado</span></p>
           <div>
@@ -603,12 +614,15 @@ export function Descobertas() {
       <div className={styles.pageTools}><span>uma boa música pode abrir outro caminho.</span><button className={styles.textButton} onClick={() => {
         setCollectionOpen(true); requestAnimationFrame(() => document.getElementById("colecao-descoberta")?.scrollIntoView({ behavior: reduced ? "instant" : "smooth" }));
       }}>para depois <span className={styles.pillCount}>{kept.length}</span></button></div>
-      {top}
-      <DiscoveryHistory currentSessionId={sessionId} busy={busy || saving} onResume={(id) => void load(proximity, fame, "RESUME", { sessionId: id })} />
+      <AnimatePresence mode="wait" initial={false}>
+        {scene.identity !== null
+          ? <DiscoveryTransition key={scene.key} visit={scene.visit} onReady={scene.onReady}>{top}</DiscoveryTransition>
+          : <div key="other">{top}</div>}
+      </AnimatePresence>
+      <DiscoveryHistory currentSessionId={sessionId} currentRank={index + 1} busy={busy || saving || changing} onResume={(id) => void load(proximity, fame, "RESUME", { sessionId: id })} />
 
-      <details id="colecao-descoberta" className={styles.collection} open={collectionOpen} onToggle={(event) => setCollectionOpen(event.currentTarget.open)}>
-        <summary><span>Para depois <span className={styles.pillCount}>{kept.length}</span></span><span aria-hidden="true">↘</span></summary>
-        <div>
+      <DiscoveryDisclosure id="colecao-descoberta" className={styles.collection} bodyClassName={styles.disclosureContent} open={collectionOpen} onOpenChange={setCollectionOpen}
+        summary={<><span>Para depois <span className={styles.pillCount}>{kept.length}</span></span><span aria-hidden="true">↘</span></>}>
           <p className={styles.mapNote}>O que você curtiu ou separou para ouvir depois. Essa pilha fica neste navegador.</p>
           {exported && exportHidden && <p className={styles.quiet} role="status">
             {exported === "running" ? "Levando tua lista pro Spotify… " : "A última exportação terminou. "}
@@ -634,11 +648,9 @@ export function Descobertas() {
               </Respostas>
             </>
           )}
-        </div>
-      </details>
-      {intent !== "REPERTOIRE" && <details id="mapa-descoberta" className={styles.adjustments} open={mapOpen} onToggle={(event) => setMapOpen(event.currentTarget.open)}>
-        <summary><span><span className={styles.eyebrow}>teu caminho, com mais detalhe</span><strong>Ajustar a descoberta</strong></span><span aria-hidden="true">↘</span></summary>
-        {mapOpen && <div className={styles.map}>
+      </DiscoveryDisclosure>
+      {intent !== "REPERTOIRE" && <DiscoveryDisclosure id="mapa-descoberta" className={styles.adjustments} bodyClassName={styles.map} open={mapOpen} onOpenChange={setMapOpen}
+        summary={<><span><span className={styles.eyebrow}>teu caminho, com mais detalhe</span><strong>Ajustar a descoberta</strong></span><span aria-hidden="true">↘</span></>}>
           <div><h2 className={styles.mapTitle}>Qual é a distância da próxima pista?</h2>
             <p className={styles.mapNote}>Mais perto das tuas referências ou um passo para fora. No outro eixo, o tamanho do público. Os ajustes só valem quando você iniciar a busca.</p>
             <Mapa proximity={draftProximity} fame={draftFame} dots={dots} busy={busy || saving} onChange={move} onCommit={commit} />
@@ -653,11 +665,10 @@ export function Descobertas() {
             <p className={styles.mapNote}>As referências continuam vindo do teu repertório. É uma direção para procurar, sem garantia de gênero ou de popularidade.</p>
             <Resposta primary disabled={busy || saving} onClick={() => void load(draftProximity, draftFame, "NEW_ENTRY")}>buscar por aqui →</Resposta>
           </div>
-        </div>}
-      </details>}
+      </DiscoveryDisclosure>}
 
 
-      <PenLayer pen={pen} signal={signal} reduced={reduced} />
+      {penInPlace && <PenLayer pen={pen} signal={signal} reduced={reduced} />}
       </div>
 
       {modalOpen && createPortal(

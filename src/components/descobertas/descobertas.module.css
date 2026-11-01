@@ -53,6 +53,7 @@
 .trackCounter i { display: inline-block; width: 30px; height: 1px; background: var(--fio-2); margin: 0 6px; }
 .trackSpeech h1 { max-width: 13ch; font-size: clamp(44px, 5.7vw, 84px); font-variation-settings: "wdth" 70, "wght" 780; line-height: 1.04; letter-spacing: -.035em; overflow-wrap: anywhere; }
 .trackSpeech h1:focus { outline: none; }
+.trackSpeech h1 { scroll-margin-top: 100px; }
 .artist { margin: 18px 0 32px; color: var(--tinta-2); font-size: clamp(18px, 1.8vw, 25px); font-variation-settings: "wdth" 90, "wght" 430; }
 .reason { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 13px; max-width: 46ch; }
 .reasonMark { padding-top: 1px; color: var(--marca); font-size: 22px; }
@@ -97,6 +98,8 @@
 .journeyGroup li > div { min-width: 0; overflow-wrap: anywhere; }
 .journeyGroup p { margin: 6px 0; font-size: 14px; color: var(--tinta-2); }
 .journeyGroup small { color: var(--tinta-3); font-size: 12px; }
+.journeyGroup li[aria-current="step"] { border-bottom-color: var(--fio-2); }
+.currentPath { color: var(--marca); }
 .journeyGroup button { flex-shrink: 0; align-self: center; }
 .journeyContext { margin: 0 0 20px; padding: 14px 0; border-bottom: 1px solid var(--fio); color: var(--tinta-2); font-size: 14px; overflow-wrap: anywhere; }
 /* Collection and the map open only when invited. */
@@ -105,8 +108,9 @@
 .collection > summary::-webkit-details-marker, .adjustments > summary::-webkit-details-marker { display: none; }
 .collection > summary > span:first-child { display: inline-flex; align-items: center; gap: 14px; font-size: 15px; }
 .collection > summary > span:last-child, .adjustments > summary > span:last-child { font-size: 23px; color: var(--tinta-3); }
-.collection[open] > summary > span:last-child, .adjustments[open] > summary > span:last-child { transform: rotate(180deg); }
-.collection > div { padding: 0 0 34px; }
+.collection > summary > span:last-child, .adjustments > summary > span:last-child { transition: transform 180ms ease-out; }
+.collection[data-expanded="true"] > summary > span:last-child, .adjustments[data-expanded="true"] > summary > span:last-child { transform: rotate(180deg); }
+.disclosureContent { padding: 0 0 34px; }
 .adjustments { margin-bottom: 60px; }
 .adjustments > summary .eyebrow { margin-bottom: 8px; font-size: 10px; }
 .adjustments > summary strong { display: block; font-size: 17px; font-weight: 500; }
@@ -134,6 +138,11 @@
 .dialog p { margin: 16px 0 0; color: var(--tinta-2); font-size: 15px; line-height: 1.65; }
 .dialog p[data-kind="erro"] { color: var(--erro); }
 @keyframes quietIn { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+ .entryArrow, .collection > summary > span:last-child, .adjustments > summary > span:last-child { transition: none; }
+ .entryChoice:hover .entryArrow { transform: none; }
+ .overlay { animation: none; }
+}
 @media (max-width: 900px) {
  .entryChoices { grid-template-columns: minmax(0,1fr); }
  .entryChoice + .entryChoice { border-left: 0; border-top: 1px solid var(--fio-2); padding-left: 0; }

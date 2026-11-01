@@ -23,7 +23,7 @@ Faixa por vez, contexto fundamentado e aprofundamentos opcionais. Álbuns podem 
 | 9 | Fontes culturais rastreáveis, pistas de escuta, reutilização e comparação Lite/Flash; contagem real de tentativas/tokens e reserva atômica. | Pendente |
 | 10 | Consultas, retenção, recuperação de falhas e avaliação acumulada; registrar ganhos e retirar hipóteses sem benefício. | Pendente |
 
-PRs pequenos devem entregar ganhos identificáveis, mantendo o motor atual como referência e dados legados legíveis. Não ativar mudanças dependentes de migrations em produção antes da validação isolada. Não presumir merge ou deploy autorizado por abrir um PR.
+Em 01/11/2026, o proprietário autorizou PRs maiores, agrupando etapas e assuntos. Cada bloco deve entregar ganhos identificáveis e ter critérios de revisão claros, mantendo o motor atual como referência e dados legados legíveis. Não ativar mudanças dependentes de migrations em produção antes da validação isolada. Não presumir merge ou deploy autorizado por abrir um PR.
 
 ## Regras de execução
 

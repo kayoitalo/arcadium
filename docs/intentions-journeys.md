@@ -14,6 +14,8 @@ Hipótese: separar descoberta de repertório conhecido e permitir aprofundar uma
 
 Uma seleção de repertório pode iniciar uma descoberta a partir de uma de suas faixas; o botão declara essa troca de objetivo. Ajustes de proximidade/público ficam nos caminhos de descoberta. A interface mantém narrador/caneta, apresentação de uma faixa por vez, aprofundamentos opcionais e ausência de autoplay.
 
+O proprietário autorizou acrescentar neste mesmo PR o acabamento de movimento e navegação: transição curta entre faixas, expansão suave dos quatro painéis, foco/caneta/exposição sincronizados, posição atual no histórico e lista preservada em erro de atualização. Ver [fluidez e cenários de revisão](discovery-motion.md).
+
 ## Contrato e continuidade
 
 `intent` aceita `DISCOVER`, `CONNECTIONS` e `REPERTOIRE`. Os dois primeiros preservam a base musical existente; `REPERTOIRE` usa somente dados locais de reprodução. A intenção fica separada de modo/contexto, controles e preferência musical.
@@ -40,7 +42,7 @@ Migration `20261101000000_discovery_journeys`: apenas `ADD COLUMN discoveryConte
 
 Testes cobrem repertório conhecido sem geração externa, rejeição/exposição ainda respeitadas, referência exata, orçamento de sete chamadas, fonte vazia, autorização/membro da sessão, preservação da posição original, idempotência, linhagem de MORE/DEEPEN/NEW_ENTRY, legado sem intenção inventada e histórico por proprietário. Banco/provedores são simulados nesses testes; não certificam concorrência PostgreSQL real.
 
-Validação local: 401 testes em 74 arquivos, tipos e build passaram. O fluxo autenticado, a migration no PostgreSQL isolado e a escuta real continuam para revisão na preview.
+Validação local após o acabamento de movimento: 404 testes em 74 arquivos, tipos e build passaram. O runner de navegador passou seis grupos de cenários em cada configuração (desktop, mobile e movimento reduzido), além de Enter/Espaço nativos no mapa. Respostas e áudio são simulados; o fluxo autenticado, a migration no PostgreSQL isolado e a escuta real continuam para revisão na preview.
 
 As fixtures usam os componentes/CSS/fontes reais, dados fictícios e nenhum banco/áudio/API. Foram inspecionadas capturas desktop e dentro de iframe de 390 px no Chrome headless, incluindo três entradas e histórico de caminho. É QA de layout estático; caneta animada, teclado, reprodução e navegação real continuam para a preview.
 
@@ -52,5 +54,6 @@ As fixtures usam os componentes/CSS/fontes reais, dados fictícios e nenhum banc
 4. Usar **voltar ao passo anterior** e conferir posição e respostas originais. Uma nova busca não deve inventar curtida/curiosidade pela referência.
 5. Abrir **Caminhos anteriores**, retomar outro passo e recarregar/navegar para outra página. Conferir persistência, isolamento da conta, mobile, foco/teclado, títulos longos e ausência de autoplay.
 6. Testar repetição da requisição e duas abas: sem sessão duplicada para a mesma chave, avanço indevido ou sobrescrita da sessão original. Registrar qualquer diferença observada no PostgreSQL da cópia.
+7. Seguir o [roteiro de movimento e acessibilidade](discovery-motion.md): troca curta de faixa, caneta/foco corretos, painéis e histórico, retomada do mesmo item, falha de rede sem avanço, cliques rápidos, ausência de autoplay e movimento reduzido.
 
 Portas de entrada por território com curadoria aprovada, seleção estrita por mood/gênero, jornadas de álbum em ordem, coleção na conta e timeline completa permanecem pendentes. Não foram substituídas por promessas nos textos desta interface.
