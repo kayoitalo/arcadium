@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "scope": "Public evaluation plan, not personal history, measured popularity or approved product curation. Null MBIDs are unverified and must not be queried.",
+  "cases": [
+    { "id": "lb-01", "category": "reference", "artist": "Portishead", "track": "Roads", "recordingMbid": "8a49dba0-253a-4535-b87f-78bb035336ce", "identitySource": "https://acousticbrainz.org/8a49dba0-253a-4535-b87f-78bb035336ce", "identityNote": "Recording metadata only; no acoustic attributes used. Reference used by the existing experiment." },
+    { "id": "case-01", "category": "reference", "artist": "Fleetwood Mac", "track": "Dreams", "recordingMbid": null },
+    { "id": "case-02", "category": "reference", "artist": "Michael Jackson", "track": "Billie Jean", "recordingMbid": null },
+    { "id": "case-05", "category": "brazil", "artist": "Chico Science & Nação Zumbi", "track": "A Cidade", "recordingMbid": null },
+    { "id": "case-07", "category": "brazil", "artist": "Cartola", "track": "O Mundo É um Moinho", "recordingMbid": null },
+    { "id": "case-08", "category": "brazil", "artist": "BaianaSystem", "track": "Lucro (Descomprimindo)", "recordingMbid": null },
+    { "id": "case-10", "category": "brazil", "artist": "Pablo", "track": "Porque Homem Não Chora", "recordingMbid": null },
+    { "id": "case-11", "category": "live", "artist": "Nirvana", "track": "About A Girl - Live", "recordingMbid": null, "identityNote": "Choose and document the particular performance; do not substitute a studio recording." },
+    { "id": "case-15", "category": "remaster", "artist": "Fleetwood Mac", "track": "Dreams - 2004 Remaster", "recordingMbid": null, "identityNote": "Document recording and release edition separately; a remaster may reuse a recording MBID." },
+    { "id": "case-18", "category": "remix", "artist": "Tame Impala", "track": "Let It Happen - Soulwax Remix", "recordingMbid": null },
+    { "id": "case-27", "category": "coverage-probe", "artist": "Kaatayra", "track": "Inpariquipê", "recordingMbid": null },
+    { "id": "case-29", "category": "coverage-probe", "artist": "Sessa", "track": "Grandeza", "recordingMbid": null }
+  ]
+}

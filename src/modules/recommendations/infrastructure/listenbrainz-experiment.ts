@@ -1,23 +1,25 @@
-import { z } from "zod";
-
-export const LISTENBRAINZ_ALGORITHM = "session_based_days_7500_session_300_contribution_5_threshold_15_limit_50_skip_30_top_n_listeners_1000";
-const uuid = z.string().uuid();
-const candidate = z.object({ recording_mbid: uuid, recording_name: z.string().min(1), artist_credit_name: z.string().min(1),
-  reference_mbid: uuid, score: z.number().finite().nonnegative() });
-export type ListenBrainzCandidate = { recordingMbid: string; trackName: string; artistName: string; source: "listenbrainz";
-  referenceMbid: string; rawScore: number; algorithm: string };
+import { LISTENBRAINZ_ALGORITHM, parseListenBrainzCandidates, recordingMbidSchema } from "./listenbrainz-contract.mjs";
+export { LISTENBRAINZ_ALGORITHM } from "./listenbrainz-contract.mjs";
+export type ListenBrainzCandidate = ReturnType<typeof parseListenBrainzCandidates>["candidates"][number];
+export const LISTENBRAINZ_CACHE_LIMIT = 100;
 const cache = new Map<string, { expires: number; candidates: ListenBrainzCandidate[] }>();
 const pending = new Map<string, Promise<ListenBrainzCandidate[]>>();
 let queue: Promise<unknown> = Promise.resolve();
 let nextAt = 0;
 let unavailableUntil = 0;
 
+function pruneCache() {
+  const now = Date.now();
+  for (const [id, entry] of cache) if (entry.expires <= now) cache.delete(id);
+}
+
 /** Explicit experimental lookup; never publishes listens or reads the user database. */
 export class ListenBrainzExperiment {
   constructor(private enabled = process.env.ARCADIUM_LISTENBRAINZ_EXPERIMENT === "true") {}
   async candidates(recordingMbid: string): Promise<ListenBrainzCandidate[]> {
     if (!this.enabled) return [];
-    uuid.parse(recordingMbid);
+    recordingMbid = recordingMbidSchema.parse(recordingMbid);
+    pruneCache();
     const stored = cache.get(recordingMbid);
     if (stored && stored.expires > Date.now()) return stored.candidates;
     const running = pending.get(recordingMbid);
@@ -40,13 +42,9 @@ export class ListenBrainzExperiment {
         unavailableUntil = Date.now() + Math.max(30_000, Number.isFinite(seconds) ? seconds * 1000 : 0);
         throw new Error(`ListenBrainz HTTP ${response.status}`);
       }
-      const rows = z.array(z.unknown()).parse(await response.json());
-      const found = rows.map((row) => candidate.safeParse(row)).flatMap((row) => row.success ? [row.data] : []);
-      const candidates = [...new Map(found.filter((row) => row.reference_mbid === recordingMbid && row.recording_mbid !== recordingMbid)
-        .map((row) => [row.recording_mbid, { recordingMbid: row.recording_mbid, trackName: row.recording_name,
-          artistName: row.artist_credit_name, source: "listenbrainz" as const, referenceMbid: recordingMbid,
-          rawScore: row.score, algorithm: LISTENBRAINZ_ALGORITHM }])).values()].slice(0, 20);
-      if (rows.length && !candidates.length) throw new Error("ListenBrainz retornou um contrato incompatível");
+      const { candidates } = parseListenBrainzCandidates(await response.json(), recordingMbid);
+      pruneCache();
+      while (cache.size >= LISTENBRAINZ_CACHE_LIMIT) cache.delete(cache.keys().next().value!);
       cache.set(recordingMbid, { candidates, expires: Date.now() + 3_600_000 });
       return candidates;
     });

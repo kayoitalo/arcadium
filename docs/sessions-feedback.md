@@ -1,5 +1,7 @@
 # Etapa 3 — continuidade e feedback
 
+Atualização de 01/11/2026: PR 13 mergeado; proprietário relatou aprovação manual dos cenários de continuidade. Após confirmação do destino, a migration de sessões foi aplicada em produção e `migrate status` confirmou as dez migrations em dia. As indicações abaixo de migration não executada registram o desenvolvimento original. A pedido do proprietário, foi preparado [fluxo de migrations no deploy](deployment-migrations.md), mantendo preview isolada e revisão aditiva.
+
 Hipótese: retomar sem reiniciar, distinguir operações e interpretar corretamente o feedback evita repetição e ensina algo específico sobre cada faixa. O PR 13 foi ampliado para reunir esta base e a primeira evolução musical da etapa 4, descrita em [motor híbrido](hybrid-discovery.md). Qualidade musical real continua dependendo da avaliação na preview.
 
 ## Comportamento
