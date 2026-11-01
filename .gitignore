@@ -6,6 +6,7 @@
 /.next/
 /out/
 /build
+.local/evaluation/
 *.tsbuildinfo
 
 # Environment files

@@ -7,10 +7,11 @@ import { Fala, PenLayer } from "@/components/amigo/fala";
 import { usePen } from "@/components/amigo/use-pen";
 import { textLines } from "@/components/amigo/measure";
 import { band } from "@/components/amigo/gestures";
+import type { DiscoveryIntent } from "@/modules/recommendations/domain/discovery-intent";
 
 export function DiscoveryEntry({ busy, hasSession, currentRank, total, onChoose, onResume, onAdjust }: {
   busy: boolean; hasSession: boolean; currentRank: number; total: number;
-  onChoose: (proximity: number, fame: number) => void; onResume: () => void; onAdjust: () => void;
+  onChoose: (proximity: number, fame: number, intent: DiscoveryIntent) => void; onResume: () => void; onAdjust: () => void;
 }) {
   const stage = useRef<HTMLElement>(null);
   const signal = useRef<ArrayLike<number> | null>(null);
@@ -26,11 +27,11 @@ export function DiscoveryEntry({ busy, hasSession, currentRank, total, onChoose,
     <p className={styles.eyebrow}><span className={styles.smallRule} /> descoberta musical</p>
     <div className={styles.entryIntro}>
       <Fala level={1} headline={"Hoje, a curiosidade\nvai por onde?"} mark={["por onde?"]} markRef={mark} marked={pen.started.has("entry-curiosity")} />
-      <p>Eu encontro as pistas.<br />Você dá o próximo play.<br /><small>Os dois caminhos partem do teu repertório.</small></p>
+      <p>Eu encontro as pistas.<br />Você dá o próximo play.<br /><small>Descobrir uma novidade ou voltar ao que já faz parte de você.</small></p>
     </div>
     <div className={styles.entryChoices}>
       {DISCOVERY_ENTRIES.map((entry) => <button className={styles.entryChoice} key={entry.id} disabled={busy}
-        onClick={() => onChoose(entry.proximity, entry.fame)}>
+        onClick={() => onChoose(entry.proximity, entry.fame, entry.intent)}>
         <span className={styles.entryNumber}>{entry.number}</span>
         <span><strong>{entry.title}</strong><span className={styles.entryDescription}>{entry.description}</span></span>
         <span className={styles.entryArrow} aria-hidden="true">↗</span>

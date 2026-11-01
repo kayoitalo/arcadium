@@ -1,5 +1,7 @@
 # Etapas 3 e 4 — primeira evolução musical completa
 
+Revisão seguinte em andamento após PR 15: `v3-hybrid-3` preserva os pesos e acrescenta intenção de repertório local, referência explícita e linhagem de jornadas. O caminho geral mantém os tetos abaixo; um aprofundamento usa até sete chamadas lógicas e a geração de repertório não usa provedores musicais. Ver [contrato e limites](intentions-journeys.md).
+
 O proprietário escolheu reunir continuidade, feedback e motor musical no PR 13. O objetivo é avaliar uma experiência utilizável: sugestões influenciadas por histórico e avaliações, com retomada e justificativas rastreáveis na interface existente. Fontes novas, jornadas e reformulação visual ampla continuam fora desta entrega.
 
 ## Limitações confirmadas do motor anterior

@@ -9,6 +9,10 @@ export async function GET(request: Request) {
   const access = await authorizeApi(request);
   if (access.response) return access.response;
   try {
+    if (new URL(request.url).searchParams.get("history") === "1") {
+      const sessions = await new RecommendationService().getRecentSessions(access.userId);
+      return NextResponse.json({ sessions }, { headers: { "Cache-Control": "private, no-store" } });
+    }
     const session = await new RecommendationService().getLatestSession(access.userId);
     return NextResponse.json(session || { items: [] }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) { return discoveryError(error); }

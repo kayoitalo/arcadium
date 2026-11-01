@@ -1,17 +1,21 @@
 import { z } from "zod";
 import { ASPECTS, FEEDBACK_TYPES } from "./feedback";
+import { DISCOVERY_INTENTS } from "./discovery-intent";
 const id = z.string().min(1).max(100);
 const dial = z.number().finite().transform((value) => Math.min(100, Math.max(0, Math.round(value))));
 export const sessionRequest = z.object({
-  operation: z.enum(["AUTO", "RESUME", "MORE", "NEW_ENTRY"]).default("AUTO"),
+  operation: z.enum(["AUTO", "RESUME", "MORE", "NEW_ENTRY", "DEEPEN"]).default("AUTO"),
   sessionId: id.optional(), requestKey: z.uuid().optional(),
+  intent: z.enum(DISCOVERY_INTENTS).optional(), sourceItemId: id.optional(),
   mode: z.enum(["SAFE", "BALANCED", "EXPERIMENTAL"]).default("BALANCED"),
   context: z.enum(["GENERAL", "WORKING", "STUDYING", "EXERCISING", "RELAXING"]).default("GENERAL"),
   period: z.enum(["7d", "30d", "1y", "all"]).default("30d"),
   proximity: dial.optional(), fame: dial.optional(),
 }).superRefine((value, ctx) => {
-  if ((value.operation === "MORE" || value.operation === "NEW_ENTRY") && !value.requestKey) ctx.addIssue({ code: "custom", message: "Nova busca precisa de requestKey." });
+  if (["MORE", "NEW_ENTRY", "DEEPEN"].includes(value.operation) && !value.requestKey) ctx.addIssue({ code: "custom", message: "Nova busca precisa de requestKey." });
   if (value.operation === "MORE" && !value.sessionId) ctx.addIssue({ code: "custom", message: "Buscar mais precisa da sessão original." });
+  if (value.operation === "DEEPEN" && (!value.sessionId || !value.sourceItemId)) ctx.addIssue({ code: "custom", message: "Aprofundar precisa da sessão e indicação originais." });
+  if (value.sourceItemId && value.operation !== "DEEPEN") ctx.addIssue({ code: "custom", message: "A referência precisa da operação de aprofundamento." });
 });
 export const feedbackRequest = z.object({
   itemId: id, type: z.enum(FEEDBACK_TYPES), note: z.string().trim().max(2000).optional(),

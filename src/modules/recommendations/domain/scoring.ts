@@ -13,6 +13,8 @@ export const RANKING_VERSION = "hybrid-weights-1";
 function relations(candidate: RawCandidate, profile: UserProfile) {
   return (candidate.evidence ?? []).filter((evidence) => {
     if (!evidence.seedArtist || !evidence.seedTrack) return true;
+    if (profile.explicitReference && trackFeedbackKey(profile.explicitReference.artistName, profile.explicitReference.trackName)
+      === trackFeedbackKey(evidence.seedArtist, evidence.seedTrack)) return true;
     return profile.feedbackMap.get(trackFeedbackKey(evidence.seedArtist, evidence.seedTrack)) !== "DISLIKED";
   });
 }
@@ -63,6 +65,8 @@ export function calculateScore(components: ScoreComponents, _mode: Recommendatio
 }
 export function buildEvidenceReason(candidate: RawCandidate, profile: UserProfile): string {
   const evidence = relations(candidate, profile);
+  const repertoire = evidence.find((entry) => entry.kind === "history_repertoire");
+  if (repertoire) return `Do teu repertório: há ${repertoire.playCount} reproduções registradas desta faixa.`;
   if (candidate.isRevisit) {
     const last = evidence.find((entry) => entry.kind === "history_revisit")?.lastPlayedAt;
     return "Revisita: esta faixa apareceu mais de uma vez no teu histórico" + (last ? "; a última reprodução registrada foi em " + last.slice(0, 10) : "") + ".";

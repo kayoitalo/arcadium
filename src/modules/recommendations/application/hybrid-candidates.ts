@@ -22,11 +22,12 @@ export function mergeCandidates(candidates: RawCandidate[]): RawCandidate[] {
   return [...merged.values()];
 }
 
-export async function hybridExternalCandidates(provider: SimilarArtistProvider, profile: UserProfile): Promise<RawCandidate[]> {
+export async function hybridExternalCandidates(provider: SimilarArtistProvider, profile: UserProfile, anchor?: { artistName: string; trackName: string }): Promise<RawCandidate[]> {
   if (!provider.isConfigured()) return [];
   provider.beginDiscoveryWindow?.(20_000);
-  const artistSeeds = representativeArtists(profile, HYBRID_BUDGET.artistSeeds);
-  const trackSeeds = (profile.trackSeeds ?? []).slice(0, HYBRID_BUDGET.trackSeeds);
+  const artistSeeds = anchor ? [] : representativeArtists(profile, HYBRID_BUDGET.artistSeeds);
+  const trackSeeds: Array<{ artistName: string; trackName: string; region?: RecommendationEvidence["region"] }> = anchor
+    ? [anchor] : (profile.trackSeeds ?? []).slice(0, HYBRID_BUDGET.trackSeeds);
   const candidates: RawCandidate[] = [];
   const [artistLists, trackLists] = await Promise.all([
     Promise.all(artistSeeds.map(async (seed) => ({ seed, artists: await provider.getSimilarArtists(seed.name, 12).catch(() => []) }))),
