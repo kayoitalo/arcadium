@@ -88,6 +88,8 @@ export function Descobertas() {
   const [draftProximity, setDraftProximity] = useState(55);
   const [draftFame, setDraftFame] = useState(50);
   const [choosing, setChoosing] = useState(true);
+  const [mediaState, setMediaState] = useState("idle");
+  const [mediaAttempt, setMediaAttempt] = useState(0);
   const [mapOpen, setMapOpen] = useState(false);
   const [collectionOpen, setCollectionOpen] = useState(false);
   const headlineRef = useRef<HTMLHeadingElement>(null);
@@ -191,6 +193,25 @@ export function Descobertas() {
   );
 
   const current = queue?.[index] ?? null;
+  useEffect(() => {
+    if (choosing || busy || !sessionId || !current) return;
+    if (current.previewUrl && current.coverUrl) { setMediaState("ready"); return; }
+    const controller = new AbortController();
+    const itemId = current.id;
+    setMediaState("loading");
+    void privateFetch(`/api/recommendations/${sessionId}/media`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.signal,
+      body: JSON.stringify({ itemId }),
+    }).then(async (response) => {
+      if (!response.ok) throw new Error("media");
+      const result = await response.json();
+      if (controller.signal.aborted) return;
+      setQueue((items) => items?.map((item) => item.id === itemId ? { ...item, coverUrl: result.coverUrl,
+        previewUrl: result.previewUrl, appleMusicUrl: result.appleMusicUrl } : item) ?? null);
+      setMediaState(result.status);
+    }).catch(() => { if (!controller.signal.aborted) setMediaState("error"); });
+    return () => controller.abort();
+  }, [current?.id, sessionId, choosing, busy, mediaAttempt]);
   const finished = queue !== null && queue.length > 0 && index >= queue.length;
 
   const showEntries = () => {
@@ -497,9 +518,10 @@ export function Descobertas() {
         <DiscoveryTrack title={current.trackName} artist={current.artistName} reason={current.reason} isRevisit={current.isRevisit}
           sectionRef={suggestionRef} headlineRef={headlineRef} markRef={markRef} marked={pen.started.has("grifo:" + current.id)}
           entryLabel={discoveryEntryLabel(proximity)} index={index} total={queue.length} onChangeEntry={showEntries}
-          onPlay={toggleSound} canPlay={Boolean(current.previewUrl)} playing={sound.playing} loading={sound.loading}
+          onPlay={toggleSound} canPlay={Boolean(current.previewUrl)} playing={sound.playing} loading={sound.loading || mediaState === "loading"}
           artwork={<Capa cover={{ url: current.coverUrl, title: current.albumName ?? current.trackName, artist: current.artistName }} playing={sound.playing} innerRef={coverRef} className={styles.cover} eager />}
-          metadata={<>{current.genre && <span>{genreLabel(current.genre)} · </span>}{current.previewUrl ? "prévia de 30s" : "sem prévia"}
+          metadata={<>{current.genre && <span>{genreLabel(current.genre)} · </span>}{current.previewUrl ? "prévia de 30s" : mediaState === "loading" ? "buscando capa e prévia…" : mediaState === "error" ? "falha temporária na busca de mídia" : "prévia não encontrada no catálogo consultado"}
+            {mediaState === "error" && <button className={styles.textButton} onClick={() => setMediaAttempt((value) => value + 1)}>tentar novamente</button>}
             {current.appleMusicUrl && <> · <a href={current.appleMusicUrl} target="_blank" rel="noreferrer">Apple Music ↗</a></>}
             {current.sourceUrl && <> · <a href={current.sourceUrl} target="_blank" rel="noreferrer">referência no Last.fm ↗</a></>}
           </>} />
