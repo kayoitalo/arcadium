@@ -44,7 +44,7 @@ export function assessListenBrainz(input) {
     interest: { reviewed: interestReviewed.length, interested: interestReviewed.filter((item) => item.review?.interest === 'interested').length,
       interestedWithoutTextOverlap: interestReviewed.filter((item) => item.review?.interest === 'interested' && !item.textOverlapWithBaseline).length },
     usefulSurprise: { reviewed: surpriseReviewed.length, yes: surpriseReviewed.filter((item) => item.review?.usefulSurprise === 'yes').length },
-    limitation: 'Text overlap is not recording identity or exclusive contribution to the full engine. Human judgments apply only to reviewed candidates. No automatic adoption decision.',
+    limitation: 'Text overlap is not recording identity or exclusive contribution to the full engine. Provider canonical identifiers can aggregate versions; no exact-version identity claim. Human judgments apply only to reviewed candidates. No automatic adoption decision.',
   };
 }
 

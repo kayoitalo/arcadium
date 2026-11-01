@@ -55,7 +55,7 @@ export async function probeListenBrainz(options, dependencies = {}) {
   return { algorithm: LISTENBRAINZ_ALGORITHM, source: 'ListenBrainz Labs', mode: options.live ? 'live' : 'dry-run',
     observedAt: new Date(now()).toISOString(), requestedSeeds: options.mbids.length, requestsStarted, stopReason,
     completedSeeds: report.filter((item) => ['returned', 'empty'].includes(item.status)).length,
-    scope: 'Public coverage only; no baseline comparison, personalized relevance or ranking claim.', report };
+    scope: 'Public coverage only; no baseline comparison, personalized relevance or ranking claim. Provider canonical identifiers can aggregate versions; no exact-version identity claim.', report };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

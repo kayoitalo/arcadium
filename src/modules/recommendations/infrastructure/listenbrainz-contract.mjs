@@ -33,6 +33,9 @@ export function parseListenBrainzCandidates(payload, referenceMbid) {
       recordingMbid: row.recording_mbid, trackName: row.recording_name,
       artistName: row.artist_credit_name, source: /** @type {"listenbrainz"} */ ("listenbrainz"),
       referenceMbid: reference, rawScore: row.score, algorithm: LISTENBRAINZ_ALGORITHM,
+      // Canonical metadata can aggregate studio/live/remaster variants. An MBID
+      // from this source must not authorize playback or transfer version feedback.
+      versionIdentityVerified: /** @type {false} */ (false),
     });
   }
   if (rows.length && !candidates.length) throw new Error("ListenBrainz retornou um contrato incompatível");

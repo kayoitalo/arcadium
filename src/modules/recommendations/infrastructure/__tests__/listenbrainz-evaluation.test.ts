@@ -13,7 +13,7 @@ describe('ListenBrainz evaluation contract', () => {
     const result = parseListenBrainzCandidates([row, { ...row, score: 999 }, { ...row, reference_mbid: other },
       { ...row, recording_mbid: seed }, { ...row, recording_name: ' ' }], seed);
     expect(result.counts).toEqual({ returnedRows: 5, invalidRows: 1, wrongReferenceRows: 1, selfRows: 1, duplicateRows: 1, validUniqueRows: 1, selectedRows: 1 });
-    expect(result.candidates[0]).toMatchObject({ trackName: 'Song (Live)', rawScore: 350, algorithm: LISTENBRAINZ_ALGORITHM });
+    expect(result.candidates[0]).toMatchObject({ trackName: 'Song (Live)', rawScore: 350, algorithm: LISTENBRAINZ_ALGORITHM, versionIdentityVerified: false });
     expect(() => parseListenBrainzCandidates([{ unrelated: true }], seed)).toThrow();
     expect(() => parseListenBrainzCandidates({ error: true }, seed)).toThrow();
     expect(parseListenBrainzCandidates([], seed).counts.selectedRows).toBe(0);
@@ -24,6 +24,14 @@ describe('ListenBrainz evaluation contract', () => {
     const result = parseListenBrainzCandidates(rows, seed.toUpperCase());
     expect(result.counts).toMatchObject({ validUniqueRows: 25, selectedRows: 20 });
     expect(result.candidates).toHaveLength(20);
+  });
+
+  it('does not silently replace the requested recording with a canonical group', () => {
+    const requestedLive = '5a3c6008-0aad-4b44-97d2-800f49647dd2';
+    const canonicalGroup = 'b2e623ea-378b-4479-bb75-fa202aacbfc9';
+    expect(() => parseListenBrainzCandidates([{ ...row, reference_mbid: canonicalGroup }], requestedLive)).toThrow();
+    const result = parseListenBrainzCandidates([{ ...row, reference_mbid: requestedLive }], requestedLive);
+    expect(result.candidates[0]).toMatchObject({ referenceMbid: requestedLive, versionIdentityVerified: false });
   });
 
   it('defaults to zero network calls and validates the full request before execution', async () => {

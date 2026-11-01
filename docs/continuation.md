@@ -7,17 +7,18 @@ Atualizado em 01/11/2026. Este registro recupera na base atual a continuidade do
 - PRs 11–14 mergeados. Esta continuação começou numa cópia limpa da master `c501f22` no workspace do chat; a pasta original renomeada `Arcadium`, suas alterações locais e dependências foram preservadas.
 - O proprietário relatou aprovação dos testes manuais de mídia, continuidade e visual/mobile do PR 14. Isso não incluiu o ListenBrainz nem uma medição quantitativa de qualidade musical.
 - ListenBrainz continua desligado por padrão e fora do ranking. Runner e adaptador agora compartilham contrato/algoritmo; cache limitado; sondagem pública e avaliação offline documentadas em [avaliação](listenbrainz-evaluation.md).
+- Rodada pública seguinte: Kaatayra/Inpariquipê e Sessa/Grandeza sem relações tanto no ListenBrainz quanto no controle por faixa Last.fm. About a Girl revelou mapeamento de identificador histórico para grupo canônico que agrega versões; o teste ao vivo é inconclusivo. Dez consultas controladas e [métricas derivadas públicas](../scripts/evaluation/listenbrainz-coverage.public-probe.json). Não usar listas vazias como medida de popularidade. O contrato explicita identidade de versão não verificada.
 - A preparação dos identificadores representativos ficou incompleta por HTTP 503/429 do MusicBrainz. Não confundir isso com cobertura vazia no ListenBrainz. O controle Roads retornou cem linhas válidas, vinte selecionadas, em uma consulta; não comprova qualidade personalizada.
 - Após erro `DISCOVERY_MIGRATION_REQUIRED` relatado em produção e confirmação do destino pelo proprietário, foi aplicada a única migration pendente, `20261030040000_discovery_sessions_feedback`. `migrate status` confirmou as dez em dia. Não foi aplicada migration nova nem acessada a cópia de preview nesta sessão.
 - A pedido do proprietário, foi preparada configuração versionada para aplicar migrations após build bem-sucedido nos deploys Vercel, preservando o guard de preview. Conferir estado desta branch/PR antes de afirmar que essa configuração já está publicada. Ver [deploy e migrations](deployment-migrations.md).
-- Validação local desta continuação: 386 testes em 72 arquivos, tipos e build passaram. Build comum não executou migrations; testes usaram mocks para banco e provedores.
+- Validação local após a rodada de cobertura/canonização: 387 testes em 72 arquivos, tipos e build passaram. Build comum não executou migrations; testes usaram mocks para banco e provedores.
 
 ## Próximos trabalhos
 
 1. Conferir PR/branch e checks atuais, sem presumir merge ou deploy. Na Vercel, observar `build:deploy` e o destino isolado da preview; o painel remoto não foi alterado nesta sessão.
-2. Completar a [amostra pública](../scripts/evaluation/listenbrainz-sample.json) com gravações verificadas quando o catálogo estiver disponível, sem retries após limitação. Popularidade dos grupos ainda não foi medida.
-3. Avaliar cobertura brasileira/versões, sobreposição com controle comparável, interesse explícito, surpresa útil e custo. Não somar scores nem chamar diferença textual de contribuição exclusiva. O runner offline não substitui escuta.
-4. Só então decidir sobre adoção do ListenBrainz e avançar intenções/jornadas: descoberta próxima, exploração progressiva e seleção de repertório. Hoje as entradas continuam presets de proximidade/popularidade; não implementam exploração radical ou mood estrito.
+2. A decisão desta rodada é adiar incorporação do ListenBrainz ao ranking padrão; manter opt-in. Para adoção futura, completar a [amostra pública](../scripts/evaluation/listenbrainz-sample.json) e resolver a semântica de grupos canônicos/versões. Popularidade dos grupos ainda não foi medida; o controle de versão segue inconclusivo.
+3. Julgamentos pessoais de escuta e comparações com referências indicadas na conversa permanecem apenas nos arquivos locais ignorados `.next/evaluation/`; não foram publicados no PR, sincronizados com produção ou generalizados para artistas/gêneros. Comparações locais por uma referência não são o motor completo.
+4. Avançar intenções/jornadas com as fontes atuais: descoberta próxima, exploração progressiva e seleção de repertório. Hoje as entradas continuam presets de proximidade/popularidade; não implementam exploração radical ou mood estrito. A adoção futura de outra fonte não é pré-requisito para esse contrato de produto.
 5. Seguir coleção na conta/timeline, conversa/retrato, contexto fundamentado e consolidação conforme [plano](evolution-plan.md), refinando pelos resultados.
 
 ## Limites preservados

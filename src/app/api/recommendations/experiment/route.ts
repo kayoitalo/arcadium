@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ baselineSessionId: baseline.sessionId, baselineAlgorithm: baseline.algorithmVersion,
       candidates: candidates.map((item) => ({ ...item, textOverlapWithBaseline: keys.has(key(item.artistName, item.trackName)) })),
       comparison: { total: candidates.length, textOverlap: candidates.filter((item) => keys.has(key(item.artistName, item.trackName))).length,
-        limitation: "Comparação textual com a sessão, não confirmação de gravação nem medida de qualidade." } },
+        limitation: "Comparação textual com a sessão, não confirmação de gravação nem medida de qualidade. A fonte pode agrupar versões ao vivo, de estúdio e remasters em identificadores canônicos; identidade de versão não verificada." } },
       { headers: { "Cache-Control": "private, no-store" } });
   } catch { return NextResponse.json({ error: "Experimento indisponível temporariamente." }, { status: 503, headers: { "Cache-Control": "no-store" } }); }
 }

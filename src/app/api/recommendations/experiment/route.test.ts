@@ -23,5 +23,6 @@ describe("isolated experiment route", () => {
     const data = await (await POST(request())).json();
     expect(data.comparison).toMatchObject({ total: 2, textOverlap: 1 });
     expect(data.candidates[0].rawScore).toBe(350);
+    expect(data.comparison.limitation).toContain('identidade de versão não verificada');
   });
 });
