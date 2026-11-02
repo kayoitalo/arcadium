@@ -2,12 +2,14 @@
 // Uses installed Vitest/Vite + a disposable headless Chrome profile. No app env/auth.
 import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const output = path.join(root, ".local/evaluation/discovery-motion");
+const memory = process.argv.includes("--memory");
+if (process.argv.slice(2).some((argument) => argument !== "--memory")) throw new Error("Unknown browser-check option");
+const output = path.join(root, `.local/evaluation/discovery-${memory ? "memory" : "motion"}`);
 mkdirSync(output, { recursive: true });
 const scratch = mkdtempSync(path.join(output, "run-"));
 const chromePath = process.env.CHROME_BIN ?? [
@@ -18,11 +20,16 @@ const chromePath = process.env.CHROME_BIN ?? [
 if (!chromePath) throw new Error("Chrome not found. Set CHROME_BIN to its executable.");
 const require = createRequire(import.meta.url);
 const { createServer } = await import(pathToFileURL(createRequire(require.resolve("vitest/package.json")).resolve("vite")).href);
-writeFileSync(path.join(scratch, "globals.css"), readFileSync(path.join(root, "src/app/globals.css"), "utf8").replace('@import "tailwindcss";', "")
-  + '\nbody{margin:0;font-family:Arial,sans-serif}main{width:min(1180px,calc(100% - 40px));margin:auto}*{box-sizing:border-box}');
+const chunks = path.join(root, ".next/static/chunks");
+const fontFaces = existsSync(chunks) ? readdirSync(chunks).filter((name) => name.endsWith(".css"))
+  .flatMap((name) => [...readFileSync(path.join(chunks, name), "utf8").matchAll(/@font-face\{[^}]+\}/g)].map((match) => match[0])).join("\n")
+  .replaceAll("../media/", encodeURI(`/@fs/${root.replaceAll("\\", "/")}.next/static/media/`)) : "";
+const fontFamily = fontFaces.match(/font-family:([^;]+)/)?.[1] ?? "Arial";
+writeFileSync(path.join(scratch, "globals.css"), fontFaces + readFileSync(path.join(root, "src/app/globals.css"), "utf8").replace('@import "tailwindcss";', "")
+  + `\n:root{--font-archivo:${fontFamily}}body{margin:0;font-family:${fontFamily},sans-serif}main{width:min(1180px,calc(100% - 40px));margin:auto}*{box-sizing:border-box}`);
 writeFileSync(path.join(scratch, "link.tsx"), 'export default function Link({children,prefetch,replace,scroll,...props}){return <a {...props}>{children}</a>}');
 writeFileSync(path.join(scratch, "index.html"), '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Arcadium — synthetic motion checks</title><link rel="stylesheet" href="/globals.css"><main id="root"></main><script type="module" src="/@fs/'
-  + path.join(root, "scripts/evaluation/discovery-motion.fixture.tsx").replaceAll("\\", "/") + '"></script></html>');
+  + path.join(root, `scripts/evaluation/discovery-${memory ? "memory" : "motion"}.fixture.tsx`).replaceAll("\\", "/") + '"></script></html>');
 const server = await createServer({ configFile: false, root: scratch, envDir: scratch,
   cacheDir: path.join(scratch, "vite-cache"), publicDir: false, css: { postcss: { plugins: [] } },
   resolve: { alias: { "@": path.join(root, "src"), "next/link": path.join(scratch, "link.tsx") } },
@@ -81,6 +88,7 @@ try {
       throw new Error(`${name}: ${JSON.stringify(result.exceptionDetails)}; browser errors: ${JSON.stringify(errors)}`);
     }
     reports.push({ name, ...result.result.value });
+    if (!memory) {
     // Real browser keyboard activation of native summary, in addition to clicks.
     await cdp("Runtime.evaluate", { expression: `window.scrollTo(0, document.body.scrollHeight); document.querySelector('#mapa-descoberta > summary').focus();` });
     await cdp("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" });
@@ -96,10 +104,15 @@ try {
     if (closed.result.value !== false) throw new Error(`${name}: Space did not close the map`);
     await cdp("Runtime.evaluate", { expression: "document.querySelector('#mapa-descoberta > summary').click(); document.querySelector('#mapa-descoberta').scrollIntoView({block:'start'});" });
     await cdp("Runtime.evaluate", { expression: "new Promise(r=>setTimeout(r,260))", awaitPromise: true });
-    const screenshot = await cdp("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+    }
+    await cdp("Runtime.evaluate", { expression: "document.fonts.ready", awaitPromise: true });
+    await cdp("Runtime.evaluate", { expression: "new Promise(resolve=>setTimeout(resolve,900))", awaitPromise: true });
+    const layout = await cdp("Page.getLayoutMetrics");
+    const screenshot = await cdp("Page.captureScreenshot", { format: "png", captureBeyondViewport: true,
+      clip: { x: 0, y: 0, width, height: Math.min(layout.cssContentSize.height, 6000), scale: 1 } });
     writeFileSync(path.join(output, `${name}.png`), Buffer.from(screenshot.data, "base64"));
     await command("Target.closeTarget", { targetId });
-    process.stdout.write(`${name}: ${result.result.value.passed.length} interaction groups + native summary keyboard passed\n`);
+    process.stdout.write(`${name}: ${result.result.value.passed.length} interaction groups${memory ? "" : " + native summary keyboard"} passed\n`);
   }
   if (errors.length) throw new Error(`Browser exceptions: ${JSON.stringify(errors)}`);
   writeFileSync(path.join(output, "report.json"), JSON.stringify({ synthetic: true, realAudio: false, reports }, null, 2) + "\n");

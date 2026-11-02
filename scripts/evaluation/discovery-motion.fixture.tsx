@@ -2,12 +2,16 @@
 import { createRoot } from "react-dom/client";
 import { Descobertas } from "../../src/components/descobertas/descobertas";
 import { SelectionProvider } from "../../src/components/descobertas/selection-provider";
+import type { SelectedTrack } from "../../src/components/descobertas/selection";
 
 const requests: { url: string; body: Record<string, unknown>; title: string; ready: boolean }[] = [];
-const qa = { requests, failFeedback: false, failHistory: false, plays: 0, pauses: 0 };
+const qa = { requests, failFeedback: false, failHistory: false, failCollection: false, plays: 0, pauses: 0, collection: [] as SelectedTrack[] };
 const tracks = [1, 2, 3].map((n) => ({ id: `item-${n}`, artistName: "Artista fictício", trackName: `Faixa ${n} (Ao vivo)`,
   albumName: null, genre: null, reason: "Uma referência fictícia para testar a interface.", position: null, rank: n }));
 let rank = 1;
+const legacy = { ...tracks[2], action: "saved" as const };
+qa.collection = [{ ...tracks[0], action: "saved" }];
+localStorage.setItem("arcadium:selection:synthetic-motion", JSON.stringify([legacy, { ...legacy, trackName: "Faixa estrangeira" }]));
 const payload = () => ({ sessionId: "synthetic", currentRank: rank, items: tracks, settings: { intent: "DISCOVER" } });
 const response = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
 window.fetch = async (input, init) => {
@@ -18,6 +22,19 @@ window.fetch = async (input, init) => {
   // Force a frame between request and response, as on a real connection.
   await new Promise(requestAnimationFrame);
   if (init?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+  if (url === "/api/collection") {
+    if (qa.failCollection) return response({}, 503);
+    if (init?.method === "DELETE") { qa.collection = qa.collection.filter((item) => item.artistName !== body.artistName || item.trackName !== body.trackName); return response({ success: true }); }
+    if (init?.method === "POST") {
+      const imported: string[] = []; const importedItems: SelectedTrack[] = []; const skipped: string[] = [];
+      for (const item of body.items as SelectedTrack[]) {
+        if (tracks.some((track) => track.id === item.id && track.trackName === item.trackName)) { imported.push(item.id); importedItems.push(item); if (!qa.collection.some((entry) => entry.id === item.id)) qa.collection.push(item); }
+        else skipped.push(item.id);
+      }
+      return response({ imported, importedItems, skipped });
+    }
+    return response({ items: qa.collection });
+  }
   if (url.endsWith("?history=1")) return qa.failHistory ? response({}, 503) : response({ sessions: [{ sessionId: "synthetic",
     createdAt: "2026-11-01T12:00:00Z", currentRank: rank, total: tracks.length, intent: "DISCOVER", journey: null,
     firstTrack: { artistName: "Artista fictício", trackName: tracks[0].trackName } }] });
@@ -134,12 +151,28 @@ async function runChecks() {
   passed.push("backward/entry return, pen redraw, reduced motion and viewport width");
   // Playing and stopping must update the wave without unmounting the pen.
   const pen = document.querySelector('svg[data-layer="under"]');
+  await wait(() => document.querySelector('button[aria-label="Ouvir prévia"]:not(:disabled)'), "media after resume");
   (document.querySelector('button[aria-label="Ouvir prévia"]') as HTMLButtonElement).click();
   await wait(() => qa.plays === 2 && document.querySelector('button[aria-label="Parar prévia"]'), "second explicit preview");
   assert(document.querySelector('svg[data-layer="under"]') === pen, "Playback must preserve the mounted pen");
   (document.querySelector('button[aria-label="Parar prévia"]') as HTMLButtonElement).click(); await frame();
   assert(document.querySelector('svg[data-layer="under"]') === pen, "Stopping must preserve the mounted pen");
   passed.push("play/pause preserve the pen lifecycle");
+  const collection = disclosure("Para depois"); collection.summary.click();
+  await wait(() => collection.details.querySelector('button[aria-label="Remover Faixa 1 (Ao vivo) da lista"]'), "account collection");
+  assert(qa.collection.length === 1, "Legacy collection must not be uploaded automatically");
+  button("trazer para a conta", collection.details).click();
+  await wait(() => qa.collection.length === 2 && document.querySelector('[role="alert"]')?.textContent?.includes("Parte da lista local"), "explicit partial import");
+  assert(localStorage.getItem("arcadium:selection:synthetic-motion:track:" + encodeURIComponent("artista fictício\u0000faixa estrangeira")), "Unmatched legacy entry must remain local");
+  qa.failCollection = true; button("atualizar coleção").click();
+  await wait(() => document.querySelector('[role="alert"]')?.textContent?.includes("Não consegui atualizar"), "collection refresh failure");
+  assert(collection.details.querySelector('button[aria-label="Remover Faixa 1 (Ao vivo) da lista"]'), "Refresh failure must keep the last account snapshot");
+  qa.failCollection = false; button("atualizar coleção").click();
+  await wait(() => !document.querySelector('[role="alert"]'), "collection refresh retry");
+  (collection.details.querySelector('button[aria-label="Remover Faixa 1 (Ao vivo) da lista"]') as HTMLButtonElement).click();
+  await wait(() => !collection.details.querySelector('button[aria-label="Remover Faixa 1 (Ao vivo) da lista"]'), "account remove");
+  assert(qa.collection.length === 1 && feedbackCount() === before + 1, "Removing a collection entry must not send negative feedback");
+  passed.push("account collection, explicit partial import, retained browser copy, retry and independent removal");
   return { passed, reduced, viewport: innerWidth, requests: requests.length };
 }
 

@@ -1,4 +1,4 @@
-import { addSelected, readSelection, selectionKey, type SelectedTrack } from "./selection";
+import { addSelected, collectionSnapshotSchema, readSelection, selectionKey, type SelectedTrack } from "./selection";
 
 export const selectionPrefix = (key: string) => `${key}:track:`;
 const trackKey = (key: string, item: SelectedTrack) => `${selectionPrefix(key)}${encodeURIComponent(selectionKey(item))}`;
@@ -16,7 +16,13 @@ export function readStoredSelection(storage: Storage, key: string): SelectedTrac
 }
 
 export function migrateSelection(storage: Storage, key: string) {
-  const previous = readSelection(storage.getItem(key));
+  const raw = storage.getItem(key);
+  if (raw === null) return;
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw); } catch { return; }
+  const snapshot = collectionSnapshotSchema.safeParse(parsed);
+  if (!snapshot.success) return; // Preserve unsupported/corrupt copies for recovery.
+  const previous = snapshot.data.reduce(addSelected, [] as SelectedTrack[]);
   for (const item of previous) {
     const entryKey = trackKey(key, item);
     if (storage.getItem(entryKey) === null) storage.setItem(entryKey, JSON.stringify(item));

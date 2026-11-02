@@ -1,5 +1,7 @@
 # Intenções, aprofundamento e caminhos anteriores
 
+Entrega do PR 16, agora confirmada como mergeada na master `def1f77`. O incremento seguinte reúne [coleção na conta, memória e continuidade na Conversa](discovery-memory.md); os limites de escopo abaixo registram a entrega original.
+
 Base: master `4c1aa4f`, após merge do PR 15 e aprovação manual relatada pelo proprietário. Por solicitação do proprietário, este PR combina um recorte funcional da etapa 6 com sua interface e navegação da etapa 7. Não conclui integralmente essas etapas.
 
 Hipótese: separar descoberta de repertório conhecido e permitir aprofundar uma faixa explicitamente escolhida torna a exploração mais útil do que depender apenas dos presets do mapa. Cada busca preserva sua intenção e pode continuar como um passo de um caminho, sem apagar os anteriores.

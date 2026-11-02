@@ -1,8 +1,12 @@
 # Continuidade do Arcadium
 
-Atualizado em 01/11/2026. Este registro recupera na base atual a continuidade do PR 14 que existia apenas na revisão permanente `da2055a9805ff6d39bdcac1d1211c80bde19c229`.
+Atualizado em 02/11/2026. Este registro recupera na base atual a continuidade do PR 14 que existia apenas na revisão permanente `da2055a9805ff6d39bdcac1d1211c80bde19c229`.
 
 ## Estado confirmado
+
+- PR 16 confirmado remotamente como mergeado; master atualizada para `def1f77`. A branch seguinte `codex/discovery-memory` parte dessa base, sem presumir aprovação manual não relatada. O proprietário reiterou o pedido de reunir o máximo de ações em um PR.
+- Incremento atual agrupa coleção na conta com gravação atômica junto ao feedback, importação local explícita, diário paginado de buscas/respostas, exportações por escopo, retomada por link, convites fundamentados na Conversa e textos corretos de dados nos Ajustes. Ver [memória, migration e roteiro](discovery-memory.md). ListenBrainz continua fora do ranking e os limites de provedores/infraestrutura permanecem.
+- Validação atual: 424 testes/79 arquivos, tipos, build, schema e diff offline. Browser sintético: sete grupos de escuta/coleção e quatro de memória/Conversa em desktop, mobile e movimento reduzido; capturas inspecionadas com a fonte local do build. Áudio/banco/provedores são simulados. Migration nova cria apenas `CollectionEntry`; não foi aplicada manualmente em banco real. Preview autenticada e concorrência PostgreSQL ainda exigem avaliação.
 
 - PRs 11–15 mergeados. O proprietário informou aprovação dos testes do PR 15 e merge confirmado na master `4c1aa4f` em 01/11/2026. A branch seguinte parte dessa master e combina recortes das etapas 6–7, por solicitação do proprietário. Ver [intenções e jornadas](intentions-journeys.md).
 - O proprietário relatou aprovação dos testes manuais de mídia, continuidade e visual/mobile do PR 14. Isso não incluiu o ListenBrainz nem uma medição quantitativa de qualidade musical.
@@ -20,8 +24,9 @@ Atualizado em 01/11/2026. Este registro recupera na base atual a continuidade do
 1. Conferir PR/branch e checks atuais, sem presumir merge ou deploy. Na Vercel, observar `build:deploy` e o destino isolado da preview; o painel remoto não foi alterado nesta sessão.
 2. A decisão desta rodada é adiar incorporação do ListenBrainz ao ranking padrão; manter opt-in. Para adoção futura, completar a [amostra pública](../scripts/evaluation/listenbrainz-sample.json) e resolver a semântica de grupos canônicos/versões. Popularidade dos grupos ainda não foi medida; o controle de versão segue inconclusivo.
 3. O build removeu as capturas e avaliações temporárias de `.next/evaluation/`. As notas pessoais foram recuperadas a partir das declarações explícitas desta conversa em `.local/evaluation/`, agora ignorada pelo Git e preservada entre builds. Não são snapshots reconstruídos dos provedores e não foram publicados/sincronizados com produção. As métricas públicas versionadas permanecem disponíveis. Comparações locais por uma referência não são o motor completo.
-4. Conferir a revisão de intenções/jornadas: repertório local, aprofundamento por uma indicação e histórico de caminhos. A coluna JSON é aditiva; validar primeiro no banco isolado pelo deploy aprovado. Curadoria de territórios, filtros estritos e álbuns em ordem seguem pendentes; a adoção de outra fonte não é pré-requisito para esse trabalho.
-5. Seguir coleção na conta/timeline, conversa/retrato, contexto fundamentado e consolidação conforme [plano](evolution-plan.md), refinando pelos resultados.
+4. Intenções/jornadas do PR 16 estão mergeadas. Curadoria de territórios, filtros estritos e álbuns em ordem seguem pendentes; a adoção de outra fonte não é pré-requisito para esse trabalho.
+5. Coleção/diário e continuidade na Conversa foram agrupados no incremento atual. Após sua revisão, seguir exportação integral/gestão da memória, conversa/retrato, contexto fundamentado e consolidação conforme [plano](evolution-plan.md), refinando pelos resultados.
+6. Revisar o incremento de [memória](discovery-memory.md) na preview isolada antes do merge: coleção em dois dispositivos, importação/retry, diário/filtros/paginação, revisão por retomada, downloads e ausência de autoplay. Exportação integral de revisões e exclusão global da memória continuam pendentes; o diário e o download deixam explícito seu recorte.
 
 ## Limites preservados
 

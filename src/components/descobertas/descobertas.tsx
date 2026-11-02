@@ -1,6 +1,7 @@
 "use client";
 
 import { privateFetch } from "@/lib/http/private-fetch";
+import Link from "next/link";
 
 import { AnimatePresence, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -88,7 +89,7 @@ const CORNERS = [
  * capa e vibra com o som. Embaixo, o mapa que decide onde ele procura, e
  * o que você separou para levar.
  */
-export function Descobertas() {
+export function Descobertas({ initialSessionId = null, initialCollectionOpen = false }: { initialSessionId?: string | null; initialCollectionOpen?: boolean } = {}) {
   const reduced = Boolean(useReducedMotion());
   const [proximity, setProximity] = useState(55);
   const [fame, setFame] = useState(50);
@@ -98,7 +99,7 @@ export function Descobertas() {
   const [mediaState, setMediaState] = useState("idle");
   const [mediaAttempt, setMediaAttempt] = useState(0);
   const [mapOpen, setMapOpen] = useState(false);
-  const [collectionOpen, setCollectionOpen] = useState(false);
+  const [collectionOpen, setCollectionOpen] = useState(initialCollectionOpen);
   const headlineRef = useRef<HTMLHeadingElement>(null);
   const [queue, setQueue] = useState<Candidate[] | null>(null);
   const [index, setIndex] = useState(0);
@@ -190,7 +191,7 @@ export function Descobertas() {
     } finally { if (token === requestRef.current) setBusy(false); }
   }, [applySession, stop]);
 
-  useEffect(() => { void load(55, 50, "BOOTSTRAP"); return () => { requestRef.current += 1; }; }, [load]);
+  useEffect(() => { void load(55, 50, initialSessionId ? "RESUME" : "BOOTSTRAP", initialSessionId ? { sessionId: initialSessionId } : {}); return () => { requestRef.current += 1; }; }, [load, initialSessionId]);
 
   const move = useCallback((nextProximity: number, nextFame: number) => {
     setDraftProximity(nextProximity);
@@ -298,9 +299,9 @@ export function Descobertas() {
 
   const decide = useCallback(
     async (action: Action | "retract", revisesId?: string) => {
-      if (!scene.ready || !current || busy || savingRef.current || !selection.ready) return;
+      if (!scene.ready || !current || busy || savingRef.current || ((action === "liked" || action === "saved") && !selection.ready)) return;
       if ((action === "liked" || action === "saved") && selection.items.length >= MAX_SELECTED_TRACKS && !selection.items.some((item) => selectionKey(item) === selectionKey(current))) {
-        setFeedbackError("A lista está com 200 faixas. Leva pro Spotify ou remove uma antes de guardar mais.");
+        setFeedbackError("A coleção está com 200 faixas. Remova uma antes de guardar outra.");
         return;
       }
       savingRef.current = true;
@@ -324,9 +325,8 @@ export function Descobertas() {
         if (!response.ok) throw new Error(payload.error ?? "Não consegui guardar tua resposta. A faixa continua aqui.");
         pendingFeedback.current = null;
         const states = payload.states as Candidate["feedback"];
-        if (states?.collection?.type === "SAVE_FOR_LATER") selection.add({ ...current, action: "saved" });
-        else if (states?.preference?.type === "LIKED") selection.add({ ...current, action: "liked" });
-        else if (action === "disliked" || action === "retract") selection.remove({ ...current, action: "liked" });
+        // Collection changes commit with feedback; a failed refresh must not resubmit a vote.
+        void selection.refresh(true);
         setQueue((previous) => previous?.map((item) => item.id === current.id ? { ...item, feedback: states } : item) ?? null);
         if (action !== "retract") setDecided((previous) => ({ ...previous, [current.id]: action }));
         if (payload.currentRank != null) setIndex(payload.currentRank - 1);
@@ -614,6 +614,8 @@ export function Descobertas() {
       <div className={styles.pageTools}><span>uma boa música pode abrir outro caminho.</span><button className={styles.textButton} onClick={() => {
         setCollectionOpen(true); requestAnimationFrame(() => document.getElementById("colecao-descoberta")?.scrollIntoView({ behavior: reduced ? "instant" : "smooth" }));
       }}>para depois <span className={styles.pillCount}>{kept.length}</span></button></div>
+      {selection.error && <p role="alert">{selection.error} <button className={styles.textButton} onClick={() => void selection.refresh()}>atualizar coleção</button></p>}
+      <Link className={styles.textButton} href="/discovery/memory">meus caminhos e respostas →</Link>
       <AnimatePresence mode="wait" initial={false}>
         {scene.identity !== null
           ? <DiscoveryTransition key={scene.key} visit={scene.visit} onReady={scene.onReady}>{top}</DiscoveryTransition>
@@ -623,7 +625,10 @@ export function Descobertas() {
 
       <DiscoveryDisclosure id="colecao-descoberta" className={styles.collection} bodyClassName={styles.disclosureContent} open={collectionOpen} onOpenChange={setCollectionOpen}
         summary={<><span>Para depois <span className={styles.pillCount}>{kept.length}</span></span><span aria-hidden="true">↘</span></>}>
-          <p className={styles.mapNote}>O que você curtiu ou separou para ouvir depois. Essa pilha fica neste navegador.</p>
+          <p className={styles.mapNote}>O que você curtiu ou separou para ouvir depois. Essa pilha fica na tua conta, nos teus dispositivos. Remover daqui não retira uma avaliação.</p>
+          <a className={styles.textButton} href="/api/collection?download=1">baixar minha coleção (JSON)</a>
+          {!selection.ready && !selection.error && <p role="status">Abrindo tua coleção…</p>}
+          {selection.localItems.length > 0 && <p className={styles.mapNote}>Há {selection.localItems.length} faixas na lista antiga deste navegador. <button className={styles.textButton} disabled={selection.syncing || !selection.ready} onClick={() => void selection.importLocal()}>trazer para a conta</button></p>}
           {exported && exportHidden && <p className={styles.quiet} role="status">
             {exported === "running" ? "Levando tua lista pro Spotify… " : "A última exportação terminou. "}
             <button type="button" className={styles.remove} onClick={() => setExportHidden(false)}>ver {exported === "running" ? "andamento" : "resultado"}</button>
@@ -639,7 +644,7 @@ export function Descobertas() {
                       {item.trackName} <span className={styles.keptHow}>{item.artistName}</span>
                     </span>
                     <span className={styles.keptHow}>{HOW[item.action]}</span>
-                    <button type="button" className={styles.remove} onClick={() => selection.remove(item)} aria-label={`Remover ${item.trackName} da lista`}>remover</button>
+                    <button type="button" className={styles.remove} disabled={selection.syncing} onClick={() => void selection.remove(item)} aria-label={`Remover ${item.trackName} da lista`}>remover</button>
                   </li>
                 ))}
               </ol>

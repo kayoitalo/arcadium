@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import type { FeedbackType } from "../domain/recommendation.types";
 import { DiscoveryConflict, effectiveFeedback, feedbackChannel, feedbackStatus } from "../domain/feedback";
 import { compatiblePreviewIdentity } from "../domain/preview-identity";
+import { collectFeedback } from "./collection-service";
 
 export interface FeedbackOptions {
   requestKey?: string;
@@ -49,6 +50,7 @@ export class SessionMemoryService {
       }
       const revision = Math.max(0, ...history.map((entry) => entry.revision ?? 0)) + 1;
       const preview = compatiblePreviewIdentity((item.scoreComponents as Record<string, unknown> | null)?.previewIdentity, item);
+      await collectFeedback(tx, userId, item, { ...states, [channel]: { id: "pending", type, createdAt: new Date() } }, channel, type);
       const created = await tx.recommendationFeedback.create({ data: {
         userId, itemId, type, channel, revision, requestKey: options.requestKey,
         revisesId: current?.id, note: note || null,
@@ -56,6 +58,7 @@ export class SessionMemoryService {
         entity: { kind: "track", trackId: item.trackId, artistName: item.artistName,
           trackName: item.trackName, preview: preview ?? null } as Prisma.InputJsonValue,
       } });
+      const nextStates = effectiveFeedback([...history, created]);
       await tx.recommendationItem.update({ where: { id: itemId }, data: { status: feedbackStatus[type] } });
       let currentRank = item.session.currentRank;
       if (options.advance && type !== "RETRACTED" && (currentRank == null || currentRank === item.rank)) {
@@ -63,7 +66,7 @@ export class SessionMemoryService {
         await tx.recommendationSession.update({ where: { id: targetSessionId }, data: { currentRank } });
       }
       return { success: true, feedbackId: created.id, revision,
-        states: effectiveFeedback([...history, created]), currentRank };
+        states: nextStates, currentRank };
     });
   }
 
