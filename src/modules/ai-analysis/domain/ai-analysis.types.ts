@@ -147,7 +147,11 @@ export interface PackView {
   source: "ai" | "fallback";
 }
 
+export interface AttemptAudit {
+  before(model: string): Promise<string>;
+  after(id: string, result: { status: "COMPLETED" | "FAILED"; tokens?: number }): Promise<void>;
+}
 export interface PackProvider {
   /** Devolve o JSON cru do modelo: a validação é item a item, no serviço. */
-  generatePack(input: MusicProfileInput, slots: PackSlot[]): Promise<{ output: unknown; model: string }>;
+  generatePack(input: MusicProfileInput, slots: PackSlot[], audit?: AttemptAudit): Promise<{ output: unknown; model: string }>;
 }

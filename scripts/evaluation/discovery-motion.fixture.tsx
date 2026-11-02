@@ -22,6 +22,7 @@ window.fetch = async (input, init) => {
   // Force a frame between request and response, as on a real connection.
   await new Promise(requestAnimationFrame);
   if (init?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+  if (url === "/api/discovery-events") return response({ success: true });
   if (url === "/api/collection") {
     if (qa.failCollection) return response({}, 503);
     if (init?.method === "DELETE") { qa.collection = qa.collection.filter((item) => item.artistName !== body.artistName || item.trackName !== body.trackName); return response({ success: true }); }
@@ -95,6 +96,7 @@ async function runChecks() {
   await wait(() => Boolean(document.querySelector('button[aria-label="Ouvir prévia"]:not(:disabled)')), "synthetic media");
   (document.querySelector('button[aria-label="Ouvir prévia"]') as HTMLButtonElement).click();
   await wait(() => qa.plays === 1 && document.querySelector('button[aria-label="Parar prévia"]'), "explicit preview");
+  await wait(() => requests.some((row) => row.url === "/api/discovery-events" && row.body.itemId === "item-1"), "confirmed preview event");
   qa.failFeedback = true; button("pula →").click();
   await wait(() => document.querySelector('[role="alert"]')?.textContent?.includes("Falha simulada"), "feedback failure");
   assert(ready(1) && !expose(2) && qa.pauses > 0, "Failure must keep the same track and stop sound");
@@ -110,6 +112,7 @@ async function runChecks() {
   }
   await wait(() => ready(2) && expose(2), "second incoming scene");
   assert(feedbackCount() === before + 1 && qa.plays === 1, "Rapid actions must not skip another track or autoplay");
+  assert(!requests.some((row) => row.url === "/api/discovery-events" && row.body.itemId === "item-2"), "An unplayed incoming track must not acquire a preview-start event");
   assert(document.activeElement === document.querySelector("h1"), "Focus must move after the new title mounts");
   assert(requests.filter((r) => r.body.operation === "EXPOSE").every((r) => r.ready && r.title.includes(r.body.itemId === "item-1" ? "Faixa 1" : "Faixa 2")), "Exposure must refer to the mounted visible track");
   passed.push("rapid votes, exit/entry, focus, pen and exposure stay synchronized");

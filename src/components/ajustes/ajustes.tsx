@@ -9,6 +9,7 @@ import { describeRefresh } from "@/components/ai/refresh-report";
 import { Aviso } from "@/components/amigo/aviso";
 import { Resposta, Respostas } from "@/components/amigo/fala";
 import styles from "./ajustes.module.css";
+import { DiscoveryHealth } from "./discovery-health";
 
 interface SyncForm {
   username: string;
@@ -442,6 +443,7 @@ export function Ajustes() {
         )}
       </Secao>
 
+      <DiscoveryHealth />
       <Secao title="teus dados">
         <p className={styles.hint}>A cópia do histórico traz até 5.000 reproduções recentes. Na memória das descobertas, você consulta e baixa recortes de buscas e respostas; a coleção tem sua própria cópia em JSON.</p>
         <div className={styles.actions}>

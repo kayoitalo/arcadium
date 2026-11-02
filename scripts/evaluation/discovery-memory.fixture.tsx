@@ -17,6 +17,10 @@ window.fetch = async (input, init) => {
   await new Promise((resolve) => setTimeout(resolve, 35));
   if (init?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
   const response = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
+  if (url.pathname === "/api/discovery-data") {
+    if (init?.method === "DELETE") throw new Error("Deletion must not occur without explicit confirmation");
+    return response({ section: url.searchParams.get("cursor") ? "responses" : "sessions", records: [{ id: "synthetic-export-row" }], until: "2026-11-02T12:00:00Z", nextCursor: url.searchParams.get("cursor") ? null : "next-part" });
+  }
   if (url.pathname === "/api/collection") return response({ items: [{ id: "one", artistName: "Artista fictício", trackName: "Faixa atual (Ao vivo)", action: "saved" }] });
   if (url.pathname !== "/api/discovery-memory") throw new Error(`Unexpected request: ${url}`);
   if (qa.fail) return response({}, 503);
@@ -82,6 +86,13 @@ async function runChecks() {
   passed.push("conversation recall from observed session and collection only");
   button("trocar fixture").click(); await wait(() => document.querySelector("form") && document.querySelector('a[href="/discovery?session=newest"]'), "return to memory");
   (document.querySelector("summary") as HTMLElement).click(); await wait(() => document.querySelector("blockquote"), "expanded memory screenshot");
+  button("exportar toda a memória").click();
+  await wait(() => document.body.textContent?.includes("Memória exportada"), "complete paged export");
+  assert(qa.requests.filter((url) => url.startsWith("/api/discovery-data")).length === 2, "Export must follow all page cursors");
+  const tools = [...document.querySelectorAll("summary")].find((node) => node.textContent?.includes("Apagar dados"))!; tools.click();
+  assert(button("apagar o escopo escolhido").disabled, "Deletion must require explicit typed confirmation");
+  assert(document.documentElement.scrollWidth <= innerWidth, "Deletion controls must fit mobile");
+  tools.click(); passed.push("full paged export and deletion confirmation guard without executing deletion");
   return { passed, viewport: innerWidth, reduced: matchMedia("(prefers-reduced-motion: reduce)").matches, requests: qa.requests.length };
 }
 Object.assign(window, { runDiscoveryChecks: runChecks });

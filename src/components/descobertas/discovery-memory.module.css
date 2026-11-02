@@ -33,4 +33,9 @@
 .recall nav { display: flex; flex-wrap: wrap; gap: 12px 24px; }
 .recall a { min-height: 44px; display: inline-flex; align-items: center; color: inherit; text-underline-offset: 4px; }
 .recall button { min-height: 44px; padding: 8px 0; background: transparent; border: 0; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.tools { margin-top: 40px; border-top: 1px solid var(--fio-2); padding-top: 24px; }
+.tools p { max-width: 80ch; color: var(--tinta-3); font-size: 13px; line-height: 1.75; }
+.tools label { display: grid; gap: 8px; margin: 20px 0; font-size: 13px; }
+.tools select, .tools input { min-height: 44px; width: min(100%, 34rem); max-width: 100%; background: transparent; color: var(--tinta); border: 1px solid var(--fio-2); padding: 10px; font: inherit; }
+.tools summary { cursor: pointer; min-height: 44px; padding: 12px 0; }
 @media (max-width: 640px) { .memory { padding-top: 26px; } .sessionHeading { display: block; } .pagination { align-items: start; flex-direction: column; gap: 8px; } .tracks { padding-left: 18px; } }

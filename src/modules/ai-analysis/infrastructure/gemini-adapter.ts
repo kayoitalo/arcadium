@@ -5,6 +5,7 @@ import {
   type NarrativeForm,
   type AddressStyle,
   type PackProvider,
+  type AttemptAudit,
   type PackSlot,
   EVIDENCE_KEYS,
 } from "../domain/ai-analysis.types";
@@ -178,7 +179,7 @@ export class GeminiAdapter implements PackProvider {
    * cada visita mostra outro texto sem gastar cota. Devolve o JSON cru: a
    * validação é item a item, no serviço, pra um item ruim não derrubar o resto.
    */
-  async generatePack(input: MusicProfileInput, slots: PackSlot[]): Promise<{ output: unknown; model: string }> {
+  async generatePack(input: MusicProfileInput, slots: PackSlot[], audit?: AttemptAudit): Promise<{ output: unknown; model: string }> {
     if (!this.configured) {
       throw new Error("GEMINI_API_KEY is not configured.");
     }
@@ -258,7 +259,7 @@ Responda APENAS com JSON válido, sem markdown:
 `;
 
     try {
-      const { result, model: answeredBy } = await this.generateWithRetry(model, prompt, 2, PACK_TIMEOUT_MS);
+      const { result, model: answeredBy } = await this.generateWithRetry(model, prompt, 2, PACK_TIMEOUT_MS, audit);
       const text = result.response.text().replace(/```json/g, "").replace(/```/g, "").trim();
       return { output: JSON.parse(text), model: answeredBy };
     } catch (error) {
@@ -278,9 +279,10 @@ Responda APENAS com JSON válido, sem markdown:
     prompt: string,
     attempts = 2,
     timeoutMs = 45_000,
+    audit?: AttemptAudit,
   ) {
     try {
-      return { result: await this.attemptModel(model, prompt, attempts, timeoutMs), model: this.modelName };
+      return { result: await this.attemptModel(model, prompt, attempts, timeoutMs, audit), model: this.modelName };
     } catch (error) {
       // pico de demanda ou cota diária do modelo principal esgotada: o modelo
       // reserva tem cota própria e costuma responder nos dois casos
@@ -294,7 +296,7 @@ Responda APENAS com JSON válido, sem markdown:
         model: fallbackName,
         generationConfig: (model as { generationConfig?: GenerationConfig }).generationConfig,
       });
-      return { result: await this.attemptModel(fallback, prompt, 1, timeoutMs), model: fallbackName };
+      return { result: await this.attemptModel(fallback, prompt, 1, timeoutMs, audit), model: fallbackName };
     }
   }
 
@@ -303,20 +305,23 @@ Responda APENAS com JSON válido, sem markdown:
     prompt: string,
     attempts: number,
     timeoutMs: number,
+    audit?: AttemptAudit,
   ) {
     let lastError: unknown;
 
     for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const id = audit ? await audit.before(model.model) : null;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
         // teto por tentativa: a narrativa é um enfeite do painel, não pode
         // segurar a tela esperando um provedor que não vai responder.
-        return await Promise.race([
-          model.generateContent(prompt),
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(Object.assign(new Error("Gemini timeout"), { status: 504 })), timeoutMs),
-          ),
-        ]);
+        const result = await model.generateContent(prompt, { signal: controller.signal });
+        if (id) await audit!.after(id, { status: "COMPLETED", tokens: result.response.usageMetadata?.totalTokenCount });
+        return result;
       } catch (error) {
+        if (controller.signal.aborted) error = Object.assign(new Error("Gemini timeout"), { status: 504 });
+        if (id) await audit!.after(id, { status: "FAILED" }).catch(() => undefined);
         lastError = error;
         const status = (error as { status?: number }).status;
         // 429 aqui é cota diária estourada, não pico: repetir só queima o que resta.
@@ -326,7 +331,7 @@ Responda APENAS com JSON válido, sem markdown:
         const backoff = 700 * 2 ** attempt + Math.random() * 300;
         logAi("ai.retry", { model: (model as { model?: string }).model, status, backoffMs: Math.round(backoff) }, "warn");
         await new Promise((resolve) => setTimeout(resolve, backoff));
-      }
+      } finally { clearTimeout(timer); }
     }
 
     throw lastError;

@@ -5,6 +5,7 @@ import { AIAnalysisService } from "@/modules/ai-analysis/application/ai-analysis
 import { logAi } from "@/modules/ai-analysis/application/ai-log";
 import { ConversationService } from "@/modules/conversation/application/conversation-service";
 import { automaticAiAllowed } from "@/lib/runtime/deployment-policy.mjs";
+import { EditorialService } from "@/modules/conversation/application/editorial-service";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,8 @@ export async function GET(request: Request) {
           );
       });
     }
-    return NextResponse.json(automaticAiAllowed() ? view : { ...view, writing: false });
+    const presented = await new EditorialService().present(user.id, view, new URL(request.url).searchParams.get("revisit") === "1");
+    return NextResponse.json(automaticAiAllowed() ? presented : { ...presented, writing: false }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     logAi("ai.route_failed", { route: "conversation", message: String(error).slice(0, 200) }, "error");
     return NextResponse.json({ error: "Não foi possível montar a conversa." }, { status: 500 });

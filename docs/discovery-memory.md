@@ -1,5 +1,7 @@
 # Coleção na conta, memória e continuidade na Conversa
 
+**Ampliação posterior no mesmo PR:** [retrato, memória editorial, exportação completa/exclusão, eventos e operação](portrait-editorial-operations.md). A autorização do proprietário passou a incluir a etapa 8 e outros blocos viáveis. As limitações descritas abaixo registram a primeira versão; exportação integral das revisões e exclusão por escopo foram acrescentadas na ampliação.
+
 Base: master `def1f77`, com PR 16 confirmado como mergeado remotamente. O proprietário pediu reunir o máximo de ações no próximo PR. Este incremento agrupa coleção persistida, importação da lista local, memória paginada, exportações com escopo explícito, retomada por link, convites observados na Conversa e correção dos textos de dados nos Ajustes. Não há relato de aprovação manual deste novo incremento.
 
 ## Coleção e avaliações

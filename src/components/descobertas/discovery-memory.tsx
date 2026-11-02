@@ -12,6 +12,7 @@ import { intentionLabel } from "./discovery-view";
 import type { DiscoveryIntent } from "@/modules/recommendations/domain/discovery-intent";
 import { DiscoveryDisclosure } from "./discovery-disclosure";
 import styles from "./discovery-memory.module.css";
+import { MemoryTools } from "./memory-tools";
 
 const when = (value: string) => new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
 const aspects: Record<string, string> = { VOCALS: "vocal", INSTRUMENTAL: "instrumental", LYRICS: "letra", RHYTHM: "ritmo", ATMOSPHERE: "atmosfera", OTHER: "outro" };
@@ -70,11 +71,13 @@ export function DiscoveryMemory() {
           <p>{session.anchor ? `A partir de “${session.anchor.trackName}”, de ${session.anchor.artistName}.` : "Um passo do teu caminho."}</p>
           <p className={styles.note}>{session.total} {session.total === 1 ? "indicação" : "indicações"}{session.items.length < session.total ? ` · ${session.items.length} neste recorte` : ""}{session.currentRank != null ? ` · ${session.currentRank <= session.total ? `posição ${session.currentRank}` : "chegou ao fim"}` : ""}</p></div>
           <Link href={`/discovery?session=${encodeURIComponent(session.id)}`}>retomar e revisar →</Link></div>
+        {session.exports?.map((event, index) => <p className={styles.note} key={index}>Exportação registrada em {when(event.createdAt)} · {event.resolvedCount} de {event.totalItems} faixas resolvidas.</p>)}
         <DiscoveryDisclosure className={styles.details} summary="indicações e respostas">
           <ol className={styles.tracks}>{session.items.map((item) => <li key={item.id}>
             <h3>{item.trackName}</h3><p>{item.artistName}</p>
             {item.reason && <p className={styles.note}>{item.reason}</p>}
             <p className={styles.note}>{item.exposedAt ? `Indicação vista em ${when(item.exposedAt)}.` : "Sem registro de exposição."}</p>
+            {item.starts?.map((event, index) => <p className={styles.note} key={index}>Prévia iniciada no player em {when(event.createdAt)}. Isso não indica escuta completa.</p>)}
             {item.feedback.length ? <ol className={styles.responses}>{item.feedback.map((entry) => <li key={entry.id}>
               <p><time dateTime={entry.createdAt}>{when(entry.createdAt)}</time> · {MEMORY_LABEL[entry.type] ?? "resposta anterior"}{entry.revisesId ? " · revisão" : ""}</p>
               {entry.note && <blockquote>{entry.note}</blockquote>}
@@ -90,8 +93,10 @@ export function DiscoveryMemory() {
         <button disabled={loading || !page.nextCursor} onClick={() => { if (page.nextCursor) { focusResults.current = true; setCursors((values) => [...values, page.nextCursor!]); } }}>mais antigas →</button>
       </nav>
       <p className={styles.note}>Cada página traz até {page.limits.sessions} buscas, {page.limits.itemsPerSession} indicações por busca e {page.limits.feedbackPerItem} respostas recentes por indicação. O arquivo inclui só este recorte e a referência à próxima página.</p>
+      <p className={styles.note}>Por indicação, até dez inícios de prévia; por busca, até cinco exportações. A exportação completa abaixo percorre todos os registros disponíveis. Eventos de prévia anteriores à implantação não são reconstruídos.</p>
     </>}
     {error && cursors.length > 0 && <button onClick={() => setCursors((values) => values.slice(0, -1))}>voltar à página anterior</button>}
+    <MemoryTools />
     <PenLayer pen={pen} signal={signal} reduced={reduced} />
   </div>;
 }

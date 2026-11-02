@@ -7,9 +7,11 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const memory = process.argv.includes("--memory");
-if (process.argv.slice(2).some((argument) => argument !== "--memory")) throw new Error("Unknown browser-check option");
-const output = path.join(root, `.local/evaluation/discovery-${memory ? "memory" : "motion"}`);
+const portrait = process.argv.includes("--portrait");
+const memory = process.argv.includes("--memory") || portrait;
+if (process.argv.slice(2).some((argument) => !["--memory", "--portrait"].includes(argument)) || process.argv.length > 3) throw new Error("Unknown browser-check option");
+const feature = portrait ? "portrait" : memory ? "memory" : "motion";
+const output = path.join(root, `.local/evaluation/discovery-${feature}`);
 mkdirSync(output, { recursive: true });
 const scratch = mkdtempSync(path.join(output, "run-"));
 const chromePath = process.env.CHROME_BIN ?? [
@@ -29,7 +31,7 @@ writeFileSync(path.join(scratch, "globals.css"), fontFaces + readFileSync(path.j
   + `\n:root{--font-archivo:${fontFamily}}body{margin:0;font-family:${fontFamily},sans-serif}main{width:min(1180px,calc(100% - 40px));margin:auto}*{box-sizing:border-box}`);
 writeFileSync(path.join(scratch, "link.tsx"), 'export default function Link({children,prefetch,replace,scroll,...props}){return <a {...props}>{children}</a>}');
 writeFileSync(path.join(scratch, "index.html"), '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Arcadium — synthetic motion checks</title><link rel="stylesheet" href="/globals.css"><main id="root"></main><script type="module" src="/@fs/'
-  + path.join(root, `scripts/evaluation/discovery-${memory ? "memory" : "motion"}.fixture.tsx`).replaceAll("\\", "/") + '"></script></html>');
+  + path.join(root, `scripts/evaluation/discovery-${feature}.fixture.tsx`).replaceAll("\\", "/") + '"></script></html>');
 const server = await createServer({ configFile: false, root: scratch, envDir: scratch,
   cacheDir: path.join(scratch, "vite-cache"), publicDir: false, css: { postcss: { plugins: [] } },
   resolve: { alias: { "@": path.join(root, "src"), "next/link": path.join(scratch, "link.tsx") } },
@@ -68,6 +70,7 @@ try {
     socket.send(JSON.stringify({ id, method, params, sessionId }));
   });
   const reports = [];
+  await command("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: output });
   for (const [name, width, reduced] of [["desktop", 1280, false], ["mobile", 390, false], ["mobile-reduced", 390, true]]) {
     const { targetId } = await command("Target.createTarget", { url: "about:blank" });
     const { sessionId } = await command("Target.attachToTarget", { targetId, flatten: true });

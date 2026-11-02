@@ -3,8 +3,8 @@ const mocks = vi.hoisted(() => ({ sessions: vi.fn(), latest: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: { recommendationSession: { findMany: mocks.sessions, findFirst: mocks.latest } } }));
 import { DiscoveryMemoryService, decodeMemoryCursor } from "./discovery-memory-service";
 const date = new Date("2026-11-01T12:00:00Z");
-const session = (id: string) => ({ id, createdAt: date, currentRank: 1, discoveryContext: null, _count: { items: 1 },
-  items: [{ id: "item", artistName: "Band", trackName: "Song (Live)", reason: "Observed reference", rank: 1, exposedAt: null,
+const session = (id: string) => ({ id, createdAt: date, currentRank: 1, discoveryContext: null, exports: [], _count: { items: 1 },
+  items: [{ id: "item", artistName: "Band", trackName: "Song (Live)", reason: "Observed reference", rank: 1, exposedAt: null, events: [],
     feedback: [{ id: "f", type: "RETRACTED", channel: "preference", note: "Changed my mind", details: { aspects: ["VOCALS"] }, revisesId: "old", createdAt: date }] }] });
 beforeEach(() => { vi.resetAllMocks(); mocks.sessions.mockResolvedValue([]); mocks.latest.mockResolvedValue(null); });
 describe("discovery memory", () => {

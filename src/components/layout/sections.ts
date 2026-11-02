@@ -7,6 +7,7 @@ export interface Section {
 export const SECTIONS: Section[] = [
   { href: "/overview", label: "conversa" },
   { href: "/taste-evolution", label: "o que mudou" },
+  { href: "/portrait", label: "teu retrato" },
   { href: "/discovery", label: "pra ouvir depois" },
   { href: "/history", label: "tudo que tocou" },
   { href: "/settings", label: "ajustes" },

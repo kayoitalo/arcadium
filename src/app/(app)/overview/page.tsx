@@ -22,13 +22,14 @@ type State = { status: "loading" } | { status: "error" } | { status: "ready"; vi
 function ConversationBody() {
   const [state, setState] = useState<State>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
+  const [revisit, setRevisit] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
     let timer = 0;
     const load = async () => {
       try {
-        const response = await privateFetch("/api/conversation", { signal: controller.signal, cache: "no-store" });
+        const response = await privateFetch(`/api/conversation${revisit ? "?revisit=1" : ""}`, { signal: controller.signal, cache: "no-store" });
         if (!response.ok) throw new Error(`conversa ${response.status}`);
         const view = (await response.json()) as ConversationView;
         setState({ status: "ready", view });
@@ -42,7 +43,7 @@ function ConversationBody() {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [attempt]);
+  }, [attempt, revisit]);
 
   if (state.status === "loading") {
     return <Aviso headline="Peraí, tô ouvindo aqui." />;
@@ -86,6 +87,8 @@ function ConversationBody() {
   }
 
   if (view.moments.length === 0) {
+    if (view.quiet) return <Aviso headline="Por agora, já te contei o que reparei." narrative="Os assuntos recentes continuam guardados. Teu retrato reúne o que aparece ao longo do histórico.">
+      <Resposta onClick={() => setRevisit(true)}>rever as leituras</Resposta><Resposta href="/portrait">ver meu retrato</Resposta><Resposta href="/discovery">seguir descobrindo</Resposta></Aviso>;
     return (
       <Aviso
         headline="Nada que eu consiga provar ainda."

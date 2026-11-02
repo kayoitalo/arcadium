@@ -133,7 +133,11 @@ export function Descobertas({ initialSessionId = null, initialCollectionOpen = f
   const stageRef = useRef<HTMLDivElement>(null);
   const markRef = useRef<HTMLSpanElement>(null);
   const coverRef = useRef<HTMLDivElement>(null);
-  const sound = useSound();
+  const sound = useSound((url) => {
+    if (current?.previewUrl === url && scene.ready && sessionId) void privateFetch("/api/discovery-events", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ itemId: current.id, requestKey: crypto.randomUUID() }),
+    }).catch(() => undefined);
+  });
   const { stop, toggle } = sound;
   const signal = usePulse(stageRef, sound.playing, sound.read);
 

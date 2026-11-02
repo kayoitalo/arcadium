@@ -24,6 +24,21 @@ model User {
   playlistExports PlaylistExport[]
   appSessions     AppSession[]
   collection      CollectionEntry[]
+  editorialMemory EditorialMemory[]
+  discoveryEvents DiscoveryEvent[]
+}
+
+model EditorialMemory {
+  id        String   @id @default(uuid())
+  userId    String
+  key       String
+  headline  String
+  seenAt    DateTime?
+  dismissed Boolean  @default(false)
+  version   Int      @default(0)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, key])
 }
 
 model CollectionEntry {
@@ -250,8 +265,21 @@ model RecommendationItem {
 
   session  RecommendationSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   feedback RecommendationFeedback[]
+  events DiscoveryEvent[]
 
   @@index([sessionId, rank])
+}
+
+model DiscoveryEvent {
+  id         String @id @default(uuid())
+  userId     String
+  itemId     String
+  requestKey String
+  createdAt  DateTime @default(now())
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item       RecommendationItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  @@unique([userId, requestKey])
+  @@index([itemId, createdAt(sort: Desc)])
 }
 
 model RecommendationFeedback {

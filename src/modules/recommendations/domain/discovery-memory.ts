@@ -4,8 +4,9 @@ export interface MemoryFeedback { id: string; type: string; channel: string | nu
 export interface MemorySession {
   id: string; createdAt: string; currentRank: number | null; intent: string | null; total: number;
   anchor: { artistName: string; trackName: string } | null;
+  exports?: { createdAt: string; mode: string; totalItems: number; resolvedCount: number }[];
   items: { id: string; artistName: string; trackName: string; reason: string | null; rank: number; exposedAt: string | null;
-    feedback: MemoryFeedback[]; moreFeedback: boolean }[];
+    feedback: MemoryFeedback[]; moreFeedback: boolean; starts?: { createdAt: string }[] }[];
 }
 export interface MemoryPage { sessions: MemorySession[]; nextCursor: string | null; limits: { sessions: number; itemsPerSession: number; feedbackPerItem: number } }
 export const MEMORY_LABEL: Record<string, string> = { LIKED: "curtiu", SAVE_FOR_LATER: "guardou para depois", DISLIKED: "não curtiu",

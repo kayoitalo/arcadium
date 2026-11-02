@@ -57,10 +57,10 @@ function formatters(timeZone: string) {
  * vem o registro, dia por dia. A prévia de uma faixa toca ali mesmo, e a
  * corda dele vibra por baixo da linha que está soando.
  */
-export function Historico() {
+export function Historico({ initialSearch = "" }: { initialSearch?: string } = {}) {
   const reduced = Boolean(useReducedMotion());
-  const [search, setSearch] = useState("");
-  const [query, setQuery] = useState("");
+  const [search, setSearch] = useState(initialSearch);
+  const [query, setQuery] = useState(initialSearch);
   const [page, setPage] = useState(1);
   const [data, setData] = useState<HistoryPayload | null>(null);
   const [busy, setBusy] = useState(true);

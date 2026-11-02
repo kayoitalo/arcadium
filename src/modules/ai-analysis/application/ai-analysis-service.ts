@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { type PeriodKey } from "@/modules/statistics/application/overview-service";
 import { ProfileBuilder } from "./profile-builder";
-import { readBudget } from "./ai-budget";
+import { readBudget, reserveAttempt, budgetRefused } from "./ai-budget";
 import { classifyAiError, errorStatus, logAi, rejectedText } from "./ai-log";
 import { availableAngles } from "./listening-signals";
 import {
@@ -163,21 +163,29 @@ export class AIAnalysisService {
     const startedAt = Date.now();
     // a linha nasce PENDENTE antes da chamada: tentativa que falha também gasta
     // cota, e o teto e a trava de "em andamento" precisam enxergar isso
-    const run = await prisma.aIAnalysisRun.create({
+    const run = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
+      if (await tx.aIAnalysisRun.findFirst({ where: { userId, kind, status: "PENDING", createdAt: { gte: new Date(Date.now() - IN_PROGRESS_WINDOW_MS) } }, select: { id: true } })) return null;
+      return tx.aIAnalysisRun.create({
       data: {
         userId,
         kind,
-        provider: "gemini",
+        provider: "gemini-pack",
         model: process.env.AI_MODEL || "gemini-3.5-flash",
         promptVersion: PACK_PROMPT_VERSION,
         inputHash: fingerprint,
         status: "PENDING",
       },
+      });
     });
+    if (!run) return { status: "skipped", decision: "in_progress" };
 
     try {
       const slots = pickSlots(availableAngles(profile), READINGS_PER_PACK);
-      const { output, model } = await this.adapter.generatePack(await this.enrich(profile, userId), slots);
+      const { output, model } = await this.adapter.generatePack(await this.enrich(profile, userId), slots, {
+        before: async (model) => (await reserveAttempt(userId, model)).id,
+        after: async (id, result) => { await prisma.aIAnalysisRun.update({ where: { id }, data: { status: result.status, tokenCount: result.tokens ?? null } }); },
+      });
       const sanitized = sanitizePack(output, slots, exampleTexts());
 
       if (sanitized.readings.length === 0) {
@@ -224,9 +232,9 @@ export class AIAnalysisService {
       }, "error");
       await prisma.aIAnalysisRun.update({
         where: { id: run.id },
-        data: { status: "FAILED", errorMessage: `[${reason}] ${message}`.slice(0, 500) },
+        data: { status: budgetRefused(error) ? "BLOCKED" : "FAILED", errorMessage: `[${reason}] ${message}`.slice(0, 500) },
       }).catch((auditError) => logAi("ai.audit_failed", { kind, message: String(auditError).slice(0, 200) }, "error"));
-      return { status: "failed" };
+      return budgetRefused(error) ? { status: "blocked", reason: "budget" } : { status: "failed" };
     }
   }
 

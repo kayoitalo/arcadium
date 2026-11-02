@@ -83,6 +83,8 @@ export type Evidence =
 export type EvidenceKind = Evidence["kind"];
 
 export interface ConversationMoment {
+  editorialKey?: string;
+  editorialVersion?: number;
   /** Estável entre visitas: é por ele que o "nada a ver" lembra do assunto. */
   key: string;
   period: PeriodKey;
@@ -96,6 +98,7 @@ export interface ConversationMoment {
 }
 
 export interface ConversationView {
+  quiet?: boolean;
   moments: ConversationMoment[];
   /** Há leitura sendo escrita agora: a tela avisa em vez de parecer vazia. */
   writing: boolean;
