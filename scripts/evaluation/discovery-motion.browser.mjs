@@ -8,9 +8,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const portrait = process.argv.includes("--portrait");
-const memory = process.argv.includes("--memory") || portrait;
-if (process.argv.slice(2).some((argument) => !["--memory", "--portrait"].includes(argument)) || process.argv.length > 3) throw new Error("Unknown browser-check option");
-const feature = portrait ? "portrait" : memory ? "memory" : "motion";
+const albums = process.argv.includes("--albums");
+const memory = process.argv.includes("--memory") || portrait || albums;
+if (process.argv.slice(2).some((argument) => !["--memory", "--portrait", "--albums"].includes(argument)) || process.argv.length > 3) throw new Error("Unknown browser-check option");
+const feature = albums ? "albums" : portrait ? "portrait" : memory ? "memory" : "motion";
 const output = path.join(root, `.local/evaluation/discovery-${feature}`);
 mkdirSync(output, { recursive: true });
 const scratch = mkdtempSync(path.join(output, "run-"));
@@ -114,6 +115,14 @@ try {
     const screenshot = await cdp("Page.captureScreenshot", { format: "png", captureBeyondViewport: true,
       clip: { x: 0, y: 0, width, height: Math.min(layout.cssContentSize.height, 6000), scale: 1 } });
     writeFileSync(path.join(output, `${name}.png`), Buffer.from(screenshot.data, "base64"));
+    if (albums) {
+      const entry = await cdp("Runtime.evaluate", { expression: "window.prepareAlbumEntryCapture()", awaitPromise: true });
+      if (entry.exceptionDetails) throw new Error(JSON.stringify(entry.exceptionDetails));
+      const entryLayout = await cdp("Page.getLayoutMetrics");
+      const entryScreenshot = await cdp("Page.captureScreenshot", { format: "png", captureBeyondViewport: true,
+        clip: { x: 0, y: 0, width, height: Math.min(entryLayout.cssContentSize.height, 6000), scale: 1 } });
+      writeFileSync(path.join(output, `${name}-editions.png`), Buffer.from(entryScreenshot.data, "base64"));
+    }
     await command("Target.closeTarget", { targetId });
     process.stdout.write(`${name}: ${result.result.value.passed.length} interaction groups${memory ? "" : " + native summary keyboard"} passed\n`);
   }

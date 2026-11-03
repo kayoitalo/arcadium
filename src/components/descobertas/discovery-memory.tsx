@@ -13,6 +13,8 @@ import type { DiscoveryIntent } from "@/modules/recommendations/domain/discovery
 import { DiscoveryDisclosure } from "./discovery-disclosure";
 import styles from "./discovery-memory.module.css";
 import { MemoryTools } from "./memory-tools";
+import { EditionCredit } from "./album-journeys";
+import { ContextExcerpt } from "./track-context";
 
 const when = (value: string) => new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
 const aspects: Record<string, string> = { VOCALS: "vocal", INSTRUMENTAL: "instrumental", LYRICS: "letra", RHYTHM: "ritmo", ATMOSPHERE: "atmosfera", OTHER: "outro" };
@@ -68,7 +70,8 @@ export function DiscoveryMemory() {
       {!page.sessions.length && <p>Nenhuma busca encontrada neste recorte. Você pode ampliar a procura ou voltar à descoberta.</p>}
       {page.sessions.map((session) => <section className={styles.session} key={session.id}>
         <div className={styles.sessionHeading}><div><p className={styles.eyebrow}>{when(session.createdAt)}</p><h2>{intentionLabel(session.intent as DiscoveryIntent | null)}</h2>
-          <p>{session.anchor ? `A partir de “${session.anchor.trackName}”, de ${session.anchor.artistName}.` : "Um passo do teu caminho."}</p>
+          <p>{session.album ? `${session.album.albumName} · ${session.album.artistName}` : session.anchor ? `A partir de “${session.anchor.trackName}”, de ${session.anchor.artistName}.` : "Um passo do teu caminho."}</p>
+          {session.album && <EditionCredit album={session.album} />}
           <p className={styles.note}>{session.total} {session.total === 1 ? "indicação" : "indicações"}{session.items.length < session.total ? ` · ${session.items.length} neste recorte` : ""}{session.currentRank != null ? ` · ${session.currentRank <= session.total ? `posição ${session.currentRank}` : "chegou ao fim"}` : ""}</p></div>
           <Link href={`/discovery?session=${encodeURIComponent(session.id)}`}>retomar e revisar →</Link></div>
         {session.exports?.map((event, index) => <p className={styles.note} key={index}>Exportação registrada em {when(event.createdAt)} · {event.resolvedCount} de {event.totalItems} faixas resolvidas.</p>)}
@@ -76,6 +79,7 @@ export function DiscoveryMemory() {
           <ol className={styles.tracks}>{session.items.map((item) => <li key={item.id}>
             <h3>{item.trackName}</h3><p>{item.artistName}</p>
             {item.reason && <p className={styles.note}>{item.reason}</p>}
+            {Object.values(item.culturalContext ?? {}).map((value) => value && <DiscoveryDisclosure key={value.kind} className={styles.details} summary={`contexto consultado · ${value.kind === "album" ? "álbum" : "música"}`}><ContextExcerpt value={value} /></DiscoveryDisclosure>)}
             <p className={styles.note}>{item.exposedAt ? `Indicação vista em ${when(item.exposedAt)}.` : "Sem registro de exposição."}</p>
             {item.starts?.map((event, index) => <p className={styles.note} key={index}>Prévia iniciada no player em {when(event.createdAt)}. Isso não indica escuta completa.</p>)}
             {item.feedback.length ? <ol className={styles.responses}>{item.feedback.map((entry) => <li key={entry.id}>

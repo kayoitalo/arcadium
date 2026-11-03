@@ -12,10 +12,12 @@ export const DISCOVERY_ENTRIES = [
 ] as const;
 
 export function discoveryEntryLabel(proximity: number, intent?: DiscoveryIntent | null): string {
+  if (intent === "ALBUM") return "Um álbum em ordem";
   if (intent === "REPERTOIRE") return "Do meu repertório";
   return proximity >= 70 ? "Perto do que eu gosto" : proximity <= 45 ? "Outras conexões" : "Do meu jeito";
 }
 
 export function intentionLabel(intent: DiscoveryIntent | null): string {
+  if (intent === "ALBUM") return "Um álbum em ordem";
   return DISCOVERY_ENTRIES.find((entry) => entry.intent === intent)?.title ?? "Busca anterior";
 }

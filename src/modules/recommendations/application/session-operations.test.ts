@@ -51,6 +51,11 @@ function service() {
   return service;
 }
 describe("explicit session operations", () => {
+  it("requires an explicit edition instead of generating a ranked session labeled as an album", async () => {
+    const svc = service();
+    await expect(svc.generateSession({ userId: "owner", mode: "BALANCED", intent: "ALBUM", operation: "NEW_ENTRY", requestKey: "album" })).rejects.toMatchObject({ status: 400 });
+    expect(mocks.create).not.toHaveBeenCalled(); expect((svc as any).generateCandidates).not.toHaveBeenCalled();
+  });
   it("resumes beyond six hours without any candidate, cover, or preview calls", async () => {
     const old = source(); old.createdAt = new Date("2020-01-01"); sessions.push(old);
     const svc = service();

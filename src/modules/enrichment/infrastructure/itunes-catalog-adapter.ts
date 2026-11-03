@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { compatibleRecording } from "@/lib/music/recording-match";
+import { compatibleRecording, sameRecordingText } from "@/lib/music/recording-match";
+import { parseEdition, parseAlbumEdition, type EditionSummary, type AlbumEdition } from "@/modules/recommendations/domain/album-journey";
 import { filterGenreTags } from "../domain/genre-tags";
 import type { AlbumCoverFallbackProvider, CoverArtResult } from "../domain/cover-art-provider.interface";
 
@@ -161,6 +162,8 @@ export function normalizeAppleGenre(genre?: string | null): string | null {
 
 let pacing: Promise<void> = Promise.resolve();
 let lastCallAt = 0;
+const editionCache = new Map<string, { results: unknown[]; fetchedAt: string; expires: number }>();
+const editionPending = new Map<string, Promise<{ results: unknown[]; fetchedAt: string }>>();
 
 /** Enfileira a chamada e só a solta quando o intervalo mínimo passou. */
 function paced<T>(minIntervalMs: number, task: () => Promise<T>): Promise<T> {
@@ -201,6 +204,35 @@ export class ItunesCatalogAdapter implements AlbumCoverFallbackProvider {
       if (!parsed.success) throw new Error(`iTunes ${path} returned an invalid payload`);
       return parsed.data.results;
     });
+  }
+
+  private async editionRequest(path: "search" | "lookup", params: Record<string, string>) {
+    if (!/^[A-Z]{2}$/.test(this.storefront)) throw new Error("Invalid catalog storefront");
+    const key = JSON.stringify([this.storefront, path, params]); const cached = editionCache.get(key);
+    if (cached && cached.expires > Date.now()) return cached;
+    const pending = editionPending.get(key); if (pending) return pending;
+    const task = this.request(path, params).then((results) => {
+      const value = { results, fetchedAt: new Date().toISOString(), expires: Date.now() + (results.length ? 6 * 3600000 : 15 * 60000) };
+      editionCache.delete(key); editionCache.set(key, value);
+      while (editionCache.size > 64) editionCache.delete(editionCache.keys().next().value!);
+      return value;
+    });
+    editionPending.set(key, task); try { return await task; } finally { editionPending.delete(key); }
+  }
+
+  /** Explicit edition selection; never uses the looser artwork/title matcher. */
+  async searchEditions(artist: string, album: string): Promise<EditionSummary[]> {
+    if (!artist.trim() || !album.trim()) return [];
+    const data = await this.editionRequest("search", { term: `${artist} ${album}`, media: "music", entity: "album", limit: "10" });
+    const found = data.results.map((row) => parseEdition(row, this.storefront, data.fetchedAt))
+      .filter((row): row is EditionSummary => Boolean(row && sameRecordingText(row.artistName, artist) && sameRecordingText(row.albumName, album)));
+    return [...new Map(found.map((row) => [row.collectionId, row])).values()].slice(0, 5);
+  }
+
+  async lookupEdition(id: string): Promise<AlbumEdition | null> {
+    if (!/^\d{1,20}$/.test(id)) return null;
+    const data = await this.editionRequest("lookup", { id, entity: "song", limit: "200" });
+    return parseAlbumEdition(data.results, id, this.storefront, data.fetchedAt);
   }
 
   /** O disco no catálogo, casando artista e título; null quando não há. */

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { authorizeApi } from "@/lib/security/api-auth";
+import { sourceSnapshots } from "@/modules/recommendations/domain/source-snapshots";
 const headers = { "Cache-Control": "private, no-store" };
 const cursorSchema = z.object({ section: z.number().int().min(0).max(6), after: z.string().max(200) }).strict();
 const sections = ["sessions", "items", "responses", "collection", "exports", "editorial", "preview-starts"];
@@ -17,13 +18,17 @@ export async function GET(request: Request) {
     const page = { orderBy: { id: "asc" as const }, take: 101 };
     const own = { userId: access.userId, createdAt: { lte: until }, ...(cursor.after ? { id: { gt: cursor.after } } : {}) };
     const rows = cursor.section === 0 ? await prisma.recommendationSession.findMany({ ...page, where: own, select: { id: true, createdAt: true, status: true, currentRank: true, mode: true, discoveryContext: true } })
-      : cursor.section === 1 ? await prisma.recommendationItem.findMany({ ...page, where: { createdAt: { lte: until }, ...(cursor.after ? { id: { gt: cursor.after } } : {}), session: { userId: access.userId } }, select: { id: true, sessionId: true, artistName: true, trackName: true, albumName: true, reason: true, rank: true, exposedAt: true, createdAt: true } })
+      : cursor.section === 1 ? await prisma.recommendationItem.findMany({ ...page, where: { createdAt: { lte: until }, ...(cursor.after ? { id: { gt: cursor.after } } : {}), session: { userId: access.userId } }, select: { id: true, sessionId: true, artistName: true, trackName: true, albumName: true, reason: true, rank: true, exposedAt: true, createdAt: true, scoreComponents: true } })
       : cursor.section === 2 ? await prisma.recommendationFeedback.findMany({ ...page, where: own, select: { id: true, itemId: true, type: true, channel: true, revision: true, note: true, details: true, revisesId: true, createdAt: true } })
       : cursor.section === 3 ? await prisma.collectionEntry.findMany({ ...page, where: own, select: { id: true, sourceItemId: true, artistName: true, trackName: true, action: true, createdAt: true, updatedAt: true } })
       : cursor.section === 4 ? await prisma.playlistExport.findMany({ ...page, where: own, select: { id: true, sessionId: true, mode: true, playlistUrl: true, totalItems: true, resolvedCount: true, createdAt: true } })
       : cursor.section === 5 ? await prisma.editorialMemory.findMany({ ...page, where: own, select: { id: true, key: true, headline: true, seenAt: true, dismissed: true, createdAt: true } })
       : await prisma.discoveryEvent.findMany({ ...page, where: own, select: { id: true, itemId: true, createdAt: true } });
-    const records = rows.slice(0, 100);
+    const records = rows.slice(0, 100).map((row) => {
+      if (cursor.section !== 1) return row;
+      const { scoreComponents, ...record } = row as typeof row & { scoreComponents?: unknown };
+      return { ...record, ...sourceSnapshots(scoreComponents) };
+    });
     const next = rows.length > 100 ? { section: cursor.section, after: records.at(-1)!.id } : cursor.section < sections.length - 1 ? { section: cursor.section + 1, after: "" } : null;
     return NextResponse.json({ section: sections[cursor.section], records, until: until.toISOString(), nextCursor: next ? Buffer.from(JSON.stringify(next)).toString("base64url") : null }, { headers });
   } catch { return NextResponse.json({ error: "Não consegui exportar esta parte. Tente novamente." }, { status: 503, headers }); }
@@ -38,6 +43,9 @@ export async function DELETE(request: Request) {
       if (sessions.some((row) => ["GENERATING", "PENDING"].includes(row.status) && (!row.updatedAt || Date.now() - row.updatedAt.getTime() < 5 * 60_000))) return null;
       await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${access.userId} FOR UPDATE`;
       const where = { userId: access.userId };
+      // A generation may have reserved a new session between the first lock
+      // query and the user lock. Recheck after excluding concurrent reservations.
+      if (await tx.recommendationSession.findFirst({ where: { ...where, status: { in: ["GENERATING", "PENDING"] }, updatedAt: { gte: new Date(Date.now() - 5 * 60_000) } }, select: { id: true } })) return null;
       if (["COLLECTION", "DISCOVERY"].includes(parsed.data.scope)) await tx.collectionEntry.deleteMany({ where });
       if (parsed.data.scope === "RESPONSES") {
         await tx.recommendationFeedback.deleteMany({ where });

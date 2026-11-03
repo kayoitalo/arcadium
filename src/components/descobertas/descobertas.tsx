@@ -21,6 +21,8 @@ import { MAX_SELECTED_TRACKS, selectionKey } from "./selection";
 import styles from "./descobertas.module.css";
 import { DiscoveryEntry } from "./discovery-entry";
 import { DiscoveryTrack } from "./discovery-track";
+import { AlbumProgress } from "./album-journeys";
+import { TrackContext } from "./track-context";
 import { discoveryEntryLabel } from "./discovery-view";
 import { DiscoveryHistory } from "./discovery-history";
 import { DiscoveryDisclosure } from "./discovery-disclosure";
@@ -43,6 +45,7 @@ interface Candidate {
   feedback?: Partial<Record<FeedbackChannel, FeedbackEntry>>;
   sourceUrl?: string | null;
   isRevisit?: boolean;
+  scoreComponents?: { albumEdition?: { disc: number; number: number } };
 }
 
 type Action = "liked" | "saved" | "known" | "skipped" | "disliked" | "mismatch" | "curious" | "unheard";
@@ -528,7 +531,7 @@ export function Descobertas({ initialSessionId = null, initialCollectionOpen = f
     top = (
       <Aviso
         window="pra ouvir depois"
-        headline={kept.length > 0 ? `Você separou ${kept.length}.` : "Chegamos ao fim desta busca."}
+        headline={intent === "ALBUM" ? "Chegamos à última faixa desta edição." : kept.length > 0 ? `Você separou ${kept.length}.` : "Chegamos ao fim desta busca."}
         narrative={
           kept.length > 0
             ? "Tua pilha para depois está aqui. Dá para levar pro Spotify ou continuar descobrindo."
@@ -536,7 +539,7 @@ export function Descobertas({ initialSessionId = null, initialCollectionOpen = f
         }
       >
         {kept.length > 0 && <Resposta onClick={() => void exportKept()}>levar {kept.length} pro Spotify</Resposta>}
-        <Resposta onClick={() => void load(proximity, fame, "MORE")}>busca mais nesse canto</Resposta>
+        {intent !== "ALBUM" && <Resposta onClick={() => void load(proximity, fame, "MORE")}>busca mais nesse canto</Resposta>}
         <Resposta onClick={showEntries}>escolher outro caminho</Resposta>
         {index > 0 && <Resposta onClick={() => void moveTo(index - 1)}>rever a anterior</Resposta>}
       </Aviso>
@@ -548,6 +551,7 @@ export function Descobertas({ initialSessionId = null, initialCollectionOpen = f
           {journey.anchor ? <>Este caminho parte de “{journey.anchor.trackName}”, de {journey.anchor.artistName}.</> : "Este passo continua uma busca anterior."}
           {journey.parentSessionId && <> <button className={styles.textButton} disabled={busy || saving} onClick={() => void load(proximity, fame, "RESUME", { sessionId: journey.parentSessionId })}>voltar ao passo anterior →</button></>}
         </div>}
+        {journey?.album && <AlbumProgress album={journey.album} tracks={queue} index={index} disabled={saving || busy || changing} onMove={(position) => void moveTo(position)} />}
         <DiscoveryTrack title={current.trackName} artist={current.artistName} reason={current.reason} isRevisit={current.isRevisit}
           sectionRef={suggestionRef} headlineRef={headlineRef} markRef={markRef} marked={penInPlace && pen.started.has("grifo:" + current.id)}
           entryLabel={discoveryEntryLabel(proximity, intent)} index={index} total={queue.length} onChangeEntry={showEntries}
@@ -597,13 +601,15 @@ export function Descobertas({ initialSessionId = null, initialCollectionOpen = f
           {index > 0 && <Resposta onClick={() => void moveTo(index - 1)} disabled={saving}>rever a anterior</Resposta>}
           {index < queue.length - 1 && <Resposta onClick={() => void moveTo(index + 1)} disabled={saving}>próxima sem avaliar</Resposta>}
         </DiscoveryDisclosure>
+        <TrackContext key={`context:${current.id}`} itemId={current.id} albumName={current.albumName} />
+        {current.albumName && intent !== "ALBUM" && <Link className={styles.textButton} href={`/discovery/albums?item=${encodeURIComponent(current.id)}`}>ouvir o álbum desta indicação →</Link>}
         <div className={styles.continuity}>
           <p><span>{String(index + 1).padStart(2, "0")}</span> de {String(queue.length).padStart(2, "0")} indicações <span className={styles.continuityNote}>· teu lugar fica guardado</span></p>
           <div>
             <button className={styles.textButton} disabled={busy || saving} onClick={() => void load(proximity, fame, "DEEPEN", { itemId: current.id, intent: intent === "CONNECTIONS" ? "CONNECTIONS" : "DISCOVER" })}>buscar novidades a partir desta faixa ↗</button>
             {index > 0 && <button className={styles.textButton} disabled={saving} onClick={() => void moveTo(index - 1)}>← anterior</button>}
-            <button className={styles.textButton} disabled={saving} onClick={() => void load(proximity, fame, "MORE")}>buscar mais nesse caminho ↗</button>
-            {intent !== "REPERTOIRE" && <button className={styles.textButton} disabled={saving} onClick={openMap}>ajustar caminho</button>}
+            {intent !== "ALBUM" && <button className={styles.textButton} disabled={saving} onClick={() => void load(proximity, fame, "MORE")}>buscar mais nesse caminho ↗</button>}
+            {intent !== "REPERTOIRE" && intent !== "ALBUM" && <button className={styles.textButton} disabled={saving} onClick={openMap}>ajustar caminho</button>}
           </div>
         </div>
       </div>
@@ -620,6 +626,7 @@ export function Descobertas({ initialSessionId = null, initialCollectionOpen = f
       }}>para depois <span className={styles.pillCount}>{kept.length}</span></button></div>
       {selection.error && <p role="alert">{selection.error} <button className={styles.textButton} onClick={() => void selection.refresh()}>atualizar coleção</button></p>}
       <Link className={styles.textButton} href="/discovery/memory">meus caminhos e respostas →</Link>
+      {" · "}<Link className={styles.textButton} href="/discovery/albums">um álbum, faixa a faixa →</Link>
       <AnimatePresence mode="wait" initial={false}>
         {scene.identity !== null
           ? <DiscoveryTransition key={scene.key} visit={scene.visit} onReady={scene.onReady}>{top}</DiscoveryTransition>
@@ -658,7 +665,7 @@ export function Descobertas({ initialSessionId = null, initialCollectionOpen = f
             </>
           )}
       </DiscoveryDisclosure>
-      {intent !== "REPERTOIRE" && <DiscoveryDisclosure id="mapa-descoberta" className={styles.adjustments} bodyClassName={styles.map} open={mapOpen} onOpenChange={setMapOpen}
+      {intent !== "REPERTOIRE" && intent !== "ALBUM" && <DiscoveryDisclosure id="mapa-descoberta" className={styles.adjustments} bodyClassName={styles.map} open={mapOpen} onOpenChange={setMapOpen}
         summary={<><span><span className={styles.eyebrow}>teu caminho, com mais detalhe</span><strong>Ajustar a descoberta</strong></span><span aria-hidden="true">↘</span></>}>
           <div><h2 className={styles.mapTitle}>Qual é a distância da próxima pista?</h2>
             <p className={styles.mapNote}>Mais perto das tuas referências ou um passo para fora. No outro eixo, o tamanho do público. Os ajustes só valem quando você iniciar a busca.</p>

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), rows: vi.fn(), lock: vi.fn(), transaction: vi.fn(), collectionDelete: vi.fn(), responseDelete: vi.fn(), sessionDelete: vi.fn(), editorialDelete: vi.fn(), itemsUpdate: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), rows: vi.fn(), pending: vi.fn(), lock: vi.fn(), transaction: vi.fn(), collectionDelete: vi.fn(), responseDelete: vi.fn(), sessionDelete: vi.fn(), editorialDelete: vi.fn(), itemsUpdate: vi.fn() }));
 vi.mock("@/lib/security/api-auth", () => ({ authorizeApi: mocks.auth }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: {
   recommendationSession: { findMany: mocks.rows }, recommendationItem: { findMany: mocks.rows }, recommendationFeedback: { findMany: mocks.rows },
@@ -8,9 +8,15 @@ vi.mock("@/lib/db/prisma", () => ({ prisma: {
 import { DELETE, GET } from "./route";
 beforeEach(() => {
   vi.resetAllMocks(); mocks.auth.mockResolvedValue({ userId: "owner" }); mocks.rows.mockResolvedValue([]); mocks.lock.mockResolvedValue([]);
-  mocks.transaction.mockImplementation((task) => task({ $queryRaw: mocks.lock, collectionEntry: { deleteMany: mocks.collectionDelete }, recommendationFeedback: { deleteMany: mocks.responseDelete }, recommendationSession: { deleteMany: mocks.sessionDelete }, editorialMemory: { deleteMany: mocks.editorialDelete }, recommendationItem: { updateMany: mocks.itemsUpdate } }));
+  mocks.pending.mockResolvedValue(null);
+  mocks.transaction.mockImplementation((task) => task({ $queryRaw: mocks.lock, collectionEntry: { deleteMany: mocks.collectionDelete }, recommendationFeedback: { deleteMany: mocks.responseDelete }, recommendationSession: { deleteMany: mocks.sessionDelete, findFirst: mocks.pending }, editorialMemory: { deleteMany: mocks.editorialDelete }, recommendationItem: { updateMany: mocks.itemsUpdate } }));
 });
 describe("full private discovery data", () => {
+  it("rechecks reservations created between the session locks and user lock", async () => {
+    mocks.pending.mockResolvedValue({ id: "newly-generating" });
+    expect((await DELETE(new Request("https://app.test/api/discovery-data", { method: "DELETE", body: JSON.stringify({ scope: "DISCOVERY", confirmation: "APAGAR" }) }))).status).toBe(409);
+    expect(mocks.sessionDelete).not.toHaveBeenCalled(); expect(mocks.lock).toHaveBeenCalledTimes(2);
+  });
   it("exports every section with owner scope and a continuation cursor", async () => {
     for (let section = 0; section <= 6; section++) {
       const cursor = Buffer.from(JSON.stringify({ section, after: "last" })).toString("base64url");

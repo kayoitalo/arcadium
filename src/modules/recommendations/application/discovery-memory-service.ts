@@ -2,6 +2,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { readDiscoveryContext } from "../domain/discovery-intent";
 import { DiscoveryConflict } from "../domain/feedback";
+import { sourceSnapshots } from "../domain/source-snapshots";
 import type { MemoryPage, memoryQuery } from "../domain/discovery-memory";
 
 const cursorSchema = z.object({ at: z.string().datetime(), id: z.string().min(1).max(200) }).strict();
@@ -14,7 +15,7 @@ export class DiscoveryMemoryService {
   async summary(userId: string) {
     const latest = await prisma.recommendationSession.findFirst({ where: { userId, status: "ACTIVE" },
       orderBy: [{ lastOpenedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }, { id: "desc" }],
-      select: { id: true, currentRank: true, createdAt: true, _count: { select: { items: true } }, items: { orderBy: { rank: "asc" }, take: 50, select: { artistName: true, trackName: true, rank: true } } } });
+      select: { id: true, currentRank: true, createdAt: true, _count: { select: { items: true } }, items: { orderBy: { rank: "asc" }, take: 80, select: { artistName: true, trackName: true, rank: true } } } });
     if (!latest) return { latest: null };
     const current = latest.items.find((item) => item.rank === latest.currentRank);
     return { latest: { id: latest.id, currentRank: latest.currentRank, total: latest._count.items,
@@ -32,7 +33,7 @@ export class DiscoveryMemoryService {
       }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 6,
       select: { id: true, createdAt: true, currentRank: true, discoveryContext: true, _count: { select: { items: true } },
         exports: { where: { userId }, orderBy: { createdAt: "desc" }, take: 5, select: { createdAt: true, mode: true, totalItems: true, resolvedCount: true } },
-        items: { orderBy: { rank: "asc" }, take: 20, select: { id: true, artistName: true, trackName: true, reason: true, rank: true, exposedAt: true,
+        items: { orderBy: { rank: "asc" }, take: 20, select: { id: true, artistName: true, trackName: true, reason: true, rank: true, exposedAt: true, scoreComponents: true,
           events: { where: { userId }, orderBy: { createdAt: "desc" }, take: 10, select: { createdAt: true } },
           feedback: { where: { userId }, orderBy: [{ revision: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }, { id: "desc" }], take: 11,
             select: { id: true, type: true, channel: true, revision: true, note: true, details: true, createdAt: true, revisesId: true } } } } },
@@ -43,7 +44,8 @@ export class DiscoveryMemoryService {
       return { id: row.id, createdAt: row.createdAt.toISOString(), currentRank: row.currentRank, intent: context?.intent ?? null, total: row._count.items,
         exports: row.exports.map((event) => ({ ...event, createdAt: event.createdAt.toISOString() })),
         anchor: context?.journey.anchor ? { artistName: context.journey.anchor.artistName, trackName: context.journey.anchor.trackName } : null,
-        items: row.items.map((item) => ({ ...item, events: undefined, starts: item.events.map((event) => ({ createdAt: event.createdAt.toISOString() })), exposedAt: item.exposedAt?.toISOString() ?? null, moreFeedback: item.feedback.length > 10,
+        album: context?.journey.album ?? null,
+        items: row.items.map(({ scoreComponents, ...item }) => ({ ...item, ...sourceSnapshots(scoreComponents), events: undefined, starts: item.events.map((event) => ({ createdAt: event.createdAt.toISOString() })), exposedAt: item.exposedAt?.toISOString() ?? null, moreFeedback: item.feedback.length > 10,
           feedback: item.feedback.slice(0, 10).map((entry) => ({ ...entry, createdAt: entry.createdAt.toISOString() })) })) };
     }), nextCursor: rows.length > 5 && last ? Buffer.from(JSON.stringify({ at: last.createdAt.toISOString(), id: last.id })).toString("base64url") : null,
     limits: { sessions: 5, itemsPerSession: 20, feedbackPerItem: 10 } };

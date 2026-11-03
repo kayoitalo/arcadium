@@ -2,6 +2,8 @@
 
 Em 02/11/2026, o proprietário autorizou ampliar bastante o mesmo PR, incluindo a etapa 8 e outras entregas possíveis, sem restringir seu tamanho. Esta entrega implementa o retrato observado, a memória editorial na conta e a gestão completa da memória de descobertas; acrescenta contagem/reserva de tentativas de IA e diagnóstico local. Não declara o plano inteiro concluído.
 
+O mesmo PR recebeu depois [álbuns em ordem e contexto com fonte](albums-sourced-context.md), sem migration adicional. O documento contém contrato, limites e roteiro específico.
+
 ## Conversa e retrato — etapa 8
 
 - **Teu retrato** (`/portrait`) separa a visão acumulada da fase recente. Consulta somente o PostgreSQL, com leitura consistente `RepeatableRead`: total de reproduções importadas, até vinte artistas com contagem e dias distintos observados, e doze destaques recentes comparando dois períodos contíguos de trinta dias. Datas futuras são excluídas. Dias usam a conversão explícita de timestamp UTC do banco para o fuso da conta; fuso inválido usa São Paulo. Não é uma medida da vida musical inteira nem inferência de emoção, desinteresse ou primeira descoberta.
@@ -33,9 +35,9 @@ Em 02/11/2026, o proprietário autorizou ampliar bastante o mesmo PR, incluindo 
 
 O PR passa a conter três migrations aditivas: `CollectionEntry`, `EditorialMemory` e `DiscoveryEvent`, com índices/chaves estrangeiras. A diferença offline dos schemas confirmou somente essas criações. Cliente gerado e schema validados. Nenhuma migration nova foi aplicada manualmente em banco real; o deploy existente deve aplicar primeiro na preview isolada. Não foram alterados limites/modelos configurados, criado serviço externo ou ativado ListenBrainz no ranking.
 
-449 testes/87 arquivos, tipos e build passaram. Incluem propriedade/escopo de exclusão, paginação completa, confirmação obrigatória, geração concorrente recusada, identidade editorial/cooldown/revisita, registro de tema sem exposição, versão de restauração, reserva antes do SDK, retry/fallback bloqueado pela cota, tokens presentes/ausentes e abort de timeout. Banco/SDK são simulados; isso não certifica contenção, rollback ou latência no PostgreSQL/provedor reais.
+501 testes/94 arquivos, tipos e build passaram. Incluem propriedade/escopo de exclusão, paginação completa, confirmação obrigatória, geração concorrente recusada, identidade editorial/cooldown/revisita, registro de tema sem exposição, versão de restauração, reserva antes do SDK, retry/fallback bloqueado pela cota, tokens presentes/ausentes e abort de timeout. Banco/SDK são simulados; isso não certifica contenção, rollback ou latência no PostgreSQL/provedor reais.
 
-Chrome headless com componentes/CSS/fontes locais e respostas fictícias: sete grupos de escuta/coleção (`discovery-motion.browser.mjs`), cinco de memória/exportação/guarda de exclusão (`--memory`) e dois de retrato/editorial (`--portrait`), em desktop, mobile 390 px e movimento reduzido. Downloads de teste ficam no diretório local ignorado; nenhuma exclusão, áudio real ou chamada de IA real é necessária.
+Chrome headless com componentes/CSS/fontes locais e respostas fictícias: sete grupos de escuta/coleção (`discovery-motion.browser.mjs`), cinco de memória/exportação/guarda de exclusão (`--memory`), quatro de álbuns/contexto (`--albums`) e dois de retrato/editorial (`--portrait`), em desktop, mobile 390 px e movimento reduzido. Downloads de teste ficam no diretório local ignorado; nenhuma exclusão, áudio real ou chamada de IA real é necessária.
 
 ## Revisão ampliada na preview
 
@@ -48,4 +50,4 @@ Chrome headless com componentes/CSS/fontes locais e respostas fictícias: sete g
 
 ## O que falta no plano
 
-As funcionalidades principais da etapa 8 e a gestão de memória da 7 estão implementadas para revisão neste PR. Não substituem aceitação manual. Continuam pendentes: portas curadas com aprovação, álbuns em ordem e restrições musicais sustentadas por cobertura (6); adoção opcional do ListenBrainz após resolver versão/contribuição exclusiva (5); contexto cultural e pistas de escuta com fontes por gravação, comparação qualitativa de modelos (9); medição real de qualidade musical, latência, concorrência e política de retenção automática (10). Mais código ou um PR maior não substituem essas evidências.
+As funcionalidades principais da etapa 8 e a gestão de memória da 7 estão implementadas para revisão neste PR. Não substituem aceitação manual. Continuam pendentes: portas curadas com aprovação e restrições musicais sustentadas por cobertura (6); adoção opcional do ListenBrainz após resolver versão/contribuição exclusiva (5); pistas de escuta sustentadas por gravação e comparação qualitativa de modelos (9); contexto pelo nome com fonte/data foi acrescentado, sem certificação da gravação; medição real de qualidade musical, latência, concorrência e política de retenção automática (10). Mais código ou um PR maior não substituem essas evidências.
