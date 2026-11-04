@@ -4,6 +4,8 @@ Atualizado em 02/11/2026. Este registro recupera na base atual a continuidade do
 
 ## Estado confirmado
 
+- Revisão visual/UX solicitada em 03/11/2026 no mesmo PR 17: [caderno de escuta](interface-caderno.md). Amigo desenhado em intervenções úteis, retrato interativo, diário em fio, estante tipográfica e quatro abas com coleção/exportação extraídas da escuta. Corrigida consulta de versões que aparecia após toda a lista. Novas capturas em 1280/1920/390 px e movimento reduzido; aceitação visual ainda não relatada. Não altera ranking, APIs, migrations ou infraestrutura.
+
 - Acréscimo final autorizado ao PR 17: [álbuns em ordem e contexto com fonte](albums-sourced-context.md). Mesma branch, sem presumir merge. Edição Apple explícita, prévias da mesma coleção, navegação/retomada, contexto Last.fm sob demanda e snapshot no diário/downloads. Sem migration adicional, IA ou consultas musicais reais para os testes. Validação atual: 501 testes/94 arquivos, tipos/build e quatro grupos novos headless em desktop/mobile/movimento reduzido, além dos grupos anteriores. As contagens abaixo registram incrementos históricos.
 
 - PR 17 foi ampliado a pedido do proprietário para incluir a etapa 8 e outros blocos viáveis no mesmo PR. Ver [retrato e operação](portrait-editorial-operations.md): gestão/exportação completa da memória, eventos de prévia, retrato, memória editorial na conta, cota atômica por tentativa e diagnóstico. Validação ampliada: 449 testes/87 arquivos, tipos/build, schema/diff offline e cenários headless nos três tamanhos/preferências. Não houve IA ou exclusão real nesses testes; migrations continuam para preview isolada. O plano registra separadamente as pendências de cobertura, curadoria e avaliação real.

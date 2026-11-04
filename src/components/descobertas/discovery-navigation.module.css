@@ -1,0 +1,9 @@
+.nav { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); border-block: 1px solid var(--fio-2); margin: 12px 0 0; }
+.tab { position: relative; display: flex; align-items: start; gap: 12px; min-height: 82px; padding: 20px 16px; color: var(--tinta-3); text-decoration: none; }
+.tab + .tab { border-left: 1px solid var(--fio); }
+.tab strong { display: block; font-size: 17px; font-variation-settings: "wdth" 88, "wght" 650; }
+.tab small { display: block; font-size: 11px; margin-top: 5px; }
+.tab[aria-current], .tab:hover { color: var(--tinta); }
+.number { font-size: 10px; padding-top: 5px; font-variant-numeric: tabular-nums; }
+.line { position: absolute; height: 2px; background: var(--marca); bottom: -1px; left: 0; right: 0; }
+@media (max-width: 600px) { .tab { min-height: 65px; padding: 14px 5px; justify-content: center; } .tab strong { font-size: 14px; } .tab small, .number { display: none; } }

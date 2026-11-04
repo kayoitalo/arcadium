@@ -15,6 +15,7 @@ import styles from "./discovery-memory.module.css";
 import { MemoryTools } from "./memory-tools";
 import { EditionCredit } from "./album-journeys";
 import { ContextExcerpt } from "./track-context";
+import { ListeningNote } from "@/components/amigo/listening-note";
 
 const when = (value: string) => new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
 const aspects: Record<string, string> = { VOCALS: "vocal", INSTRUMENTAL: "instrumental", LYRICS: "letra", RHYTHM: "ritmo", ATMOSPHERE: "atmosfera", OTHER: "outro" };
@@ -55,7 +56,8 @@ export function DiscoveryMemory() {
     <header><p className={styles.eyebrow}>teus caminhos · horários de Brasília</p>
       <Fala level={1} headline="O que ficou pelo caminho." mark={["pelo caminho"]} markRef={mark} marked={pen.started.has("memory-title")}
         narrative="As buscas, as indicações e o que você contou de cada uma. Retomar mantém teu lugar; uma resposta pode ser revista na própria faixa." />
-      <nav><Link href="/discovery">voltar à descoberta →</Link><Link href="/discovery?collection=1">abrir minha coleção →</Link></nav>
+      <nav><Link href="/discovery">voltar à descoberta →</Link><Link href="/discovery/collection">abrir minha coleção →</Link></nav>
+      <ListeningNote label="guardei o fio"><p>Tem caminho que merece uma segunda volta. Aqui ficam as indicações e o que você me contou, no momento em que aconteceu.</p></ListeningNote>
     </header>
     <form className={styles.filters} onSubmit={(event) => { event.preventDefault(); focusResults.current = true; setCursors([]); setQuery(draft.trim()); setAttempt((value) => value + 1); }}>
       <label>Artista ou faixa<input maxLength={120} value={draft} onChange={(event) => { focusResults.current = false; setDraft(event.target.value); }} /></label>
@@ -68,7 +70,8 @@ export function DiscoveryMemory() {
     {error && <p role="alert">Não consegui abrir este recorte. <button onClick={() => setAttempt((value) => value + 1)}>tentar novamente</button></p>}
     {page && <>
       {!page.sessions.length && <p>Nenhuma busca encontrada neste recorte. Você pode ampliar a procura ou voltar à descoberta.</p>}
-      {page.sessions.map((session) => <section className={styles.session} key={session.id}>
+      {page.sessions.map((session, index) => <section className={styles.session} key={session.id}>
+        <div className={styles.chapter} aria-hidden="true"><span>caminho</span><strong>{String(index+1).padStart(2,"0")}</strong><i /></div><div className={styles.sessionSheet}>
         <div className={styles.sessionHeading}><div><p className={styles.eyebrow}>{when(session.createdAt)}</p><h2>{intentionLabel(session.intent as DiscoveryIntent | null)}</h2>
           <p>{session.album ? `${session.album.albumName} · ${session.album.artistName}` : session.anchor ? `A partir de “${session.anchor.trackName}”, de ${session.anchor.artistName}.` : "Um passo do teu caminho."}</p>
           {session.album && <EditionCredit album={session.album} />}
@@ -90,7 +93,7 @@ export function DiscoveryMemory() {
             {item.moreFeedback && <p className={styles.note}>Há respostas anteriores fora deste recorte. Retome a sessão para revisar a avaliação atual.</p>}
           </li>)}</ol>
         </DiscoveryDisclosure>
-      </section>)}
+      </div></section>)}
       <nav className={styles.pagination}>
         <button disabled={loading || !cursors.length} onClick={() => { focusResults.current = true; setCursors((values) => values.slice(0, -1)); }}>← mais recentes</button>
         <a href={`${url}&download=1`}>baixar este recorte (JSON)</a>

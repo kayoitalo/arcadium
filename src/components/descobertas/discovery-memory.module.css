@@ -39,3 +39,32 @@
 .tools select, .tools input { min-height: 44px; width: min(100%, 34rem); max-width: 100%; background: transparent; color: var(--tinta); border: 1px solid var(--fio-2); padding: 10px; font: inherit; }
 .tools summary { cursor: pointer; min-height: 44px; padding: 12px 0; }
 @media (max-width: 640px) { .memory { padding-top: 26px; } .sessionHeading { display: block; } .pagination { align-items: start; flex-direction: column; gap: 8px; } .tracks { padding-left: 18px; } }
+
+/* A thread of sessions, with annotations kept inside their own chapter. */
+.memory header { max-width: none; display: grid; grid-template-columns: 1.35fr 1fr; gap: 18px 64px; padding-bottom: 16px; }
+.memory header > .eyebrow, .memory header > nav { grid-column: 1; }
+.memory header > .eyebrow { margin: 0; }
+.memory header > aside { grid-column: 2; grid-row: 1 / 4; align-self: end; }
+.session { display: grid; grid-template-columns: 96px minmax(0,1fr); gap: 28px; border-bottom: 0; padding: 28px 0 0; }
+.chapter { display: flex; flex-direction: column; align-items: center; color: var(--tinta-3); }
+.chapter > span { font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
+.chapter > strong { color: var(--tinta); font-size: 58px; font-variation-settings: "wdth" 70, "wght" 500; line-height: 1.2; }
+.chapter > i { min-height: 60px; flex: 1; width: 1px; background: var(--fio-2); margin: 14px 0 0; }
+.sessionSheet { min-width: 0; padding: 0 0 28px; border-bottom: 1px solid var(--fio-2); }
+.sessionHeading h2 { font-size: clamp(28px,3.4vw,44px); font-variation-settings: "wdth" 78, "wght" 650; }
+.sessionHeading > a { align-self: center; border-bottom: 1px solid var(--fio-2); }
+.tracks { list-style: none; padding-left: 0; counter-reset: memory-track; }
+.tracks > li { position: relative; counter-increment: memory-track; padding-left: 48px; }
+.tracks > li::before { content: counter(memory-track,decimal-leading-zero); position: absolute; left: 0; top: 23px; font-size: 11px; color: var(--tinta-3); }
+.tracks h3 { font-size: 22px; font-variation-settings: "wdth" 86, "wght" 600; }
+.responses { list-style: none; padding-left: 0; border-left: 1px solid var(--fio-2); margin-left: 2px; }
+.responses > li { padding-left: 20px; position: relative; }
+.responses > li::before { content: ""; width: 5px; height: 5px; border-radius: 50%; position: absolute; top: 28px; left: -3px; background: var(--tinta-3); }
+.responses blockquote { font-size: 15px; color: var(--tinta); border: 0; padding-left: 0; }
+.recall { display: grid; grid-template-columns: 64px minmax(0,1fr) auto; gap: 20px; padding: 24px 0; margin: 12px 0 28px; }
+.recall > svg { width: 60px; height: 66px; }
+.recall strong { color: var(--tinta); font-weight: 560; }
+.recallCount { font-size: 52px; font-variation-settings: "wdth" 76, "wght" 500; line-height: 1; text-align: right; }
+.recallCount small { display: block; color: var(--tinta-3); font-size: 10px; margin-top: 10px; font-weight: 400; }
+.recall nav { gap: 8px 24px; }
+@media(max-width:700px) { .memory header { grid-template-columns: 1fr; gap: 22px; } .memory header > aside { grid-column: 1; grid-row: auto; } .session { grid-template-columns: 38px minmax(0,1fr); gap: 14px; } .chapter > strong { font-size: 34px; } .chapter > span { font-size: 8px; } .tracks > li { padding-left: 28px; } .recall { grid-template-columns: 48px minmax(0,1fr); gap: 14px; } .recall > svg { width: 46px; } .recallCount { display: none; } }

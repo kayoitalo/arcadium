@@ -81,7 +81,7 @@ async function runChecks() {
   await wait(() => document.querySelector('aside[aria-label="Continuar descobertas"]'), "conversation recall");
   assert(document.body.textContent?.includes("Faixa atual (Ao vivo)"), "Recall must preserve the exact version title");
   assert(document.querySelector('a[href="/discovery?session=newest"]'), "Resume must point at the stored session");
-  assert(document.querySelector('a[href="/discovery?collection=1"]'), "Collection must have a direct entry");
+  assert(document.querySelector('a[href="/discovery/collection"]'), "Collection must have a direct entry");
   assert(qa.requests.every((url) => url.startsWith("/api/collection") || url.startsWith("/api/discovery-memory")), "Recall must not call music/AI providers or generate sessions");
   passed.push("conversation recall from observed session and collection only");
   button("trocar fixture").click(); await wait(() => document.querySelector("form") && document.querySelector('a[href="/discovery?session=newest"]'), "return to memory");

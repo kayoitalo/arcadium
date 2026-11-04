@@ -8,7 +8,7 @@ export const SECTIONS: Section[] = [
   { href: "/overview", label: "conversa" },
   { href: "/taste-evolution", label: "o que mudou" },
   { href: "/portrait", label: "teu retrato" },
-  { href: "/discovery", label: "pra ouvir depois" },
+  { href: "/discovery", label: "descobrir" },
   { href: "/history", label: "tudo que tocou" },
   { href: "/settings", label: "ajustes" },
 ];

@@ -29,13 +29,14 @@ const fontFaces = existsSync(chunks) ? readdirSync(chunks).filter((name) => name
   .replaceAll("../media/", encodeURI(`/@fs/${root.replaceAll("\\", "/")}.next/static/media/`)) : "";
 const fontFamily = fontFaces.match(/font-family:([^;]+)/)?.[1] ?? "Arial";
 writeFileSync(path.join(scratch, "globals.css"), fontFaces + readFileSync(path.join(root, "src/app/globals.css"), "utf8").replace('@import "tailwindcss";', "")
-  + `\n:root{--font-archivo:${fontFamily}}body{margin:0;font-family:${fontFamily},sans-serif}main{width:min(1180px,calc(100% - 40px));margin:auto}*{box-sizing:border-box}`);
+  + `\n:root{--font-archivo:${fontFamily}}body{margin:0;font-family:${fontFamily},sans-serif}main{width:calc(100% - 2 * clamp(20px,5vw,88px));margin:auto}*{box-sizing:border-box}`);
 writeFileSync(path.join(scratch, "link.tsx"), 'export default function Link({children,prefetch,replace,scroll,...props}){return <a {...props}>{children}</a>}');
+writeFileSync(path.join(scratch, "navigation.ts"), 'export function usePathname(){return window.location.pathname}');
 writeFileSync(path.join(scratch, "index.html"), '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Arcadium — synthetic motion checks</title><link rel="stylesheet" href="/globals.css"><main id="root"></main><script type="module" src="/@fs/'
   + path.join(root, `scripts/evaluation/discovery-${feature}.fixture.tsx`).replaceAll("\\", "/") + '"></script></html>');
 const server = await createServer({ configFile: false, root: scratch, envDir: scratch,
   cacheDir: path.join(scratch, "vite-cache"), publicDir: false, css: { postcss: { plugins: [] } },
-  resolve: { alias: { "@": path.join(root, "src"), "next/link": path.join(scratch, "link.tsx") } },
+  resolve: { alias: { "@": path.join(root, "src"), "next/link": path.join(scratch, "link.tsx"), "next/navigation": path.join(scratch, "navigation.ts") } },
   server: { host: "127.0.0.1", port: 0, fs: { allow: [root] }, watch: null },
 });
 let chrome;
@@ -72,7 +73,7 @@ try {
   });
   const reports = [];
   await command("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: output });
-  for (const [name, width, reduced] of [["desktop", 1280, false], ["mobile", 390, false], ["mobile-reduced", 390, true]]) {
+  for (const [name, width, reduced] of [["desktop", 1280, false], ["mobile", 390, false], ["mobile-reduced", 390, true], ["wide", 1920, false]]) {
     const { targetId } = await command("Target.createTarget", { url: "about:blank" });
     const { sessionId } = await command("Target.attachToTarget", { targetId, flatten: true });
     const cdp = (method, params) => command(method, params, sessionId);
@@ -115,6 +116,14 @@ try {
     const screenshot = await cdp("Page.captureScreenshot", { format: "png", captureBeyondViewport: true,
       clip: { x: 0, y: 0, width, height: Math.min(layout.cssContentSize.height, 6000), scale: 1 } });
     writeFileSync(path.join(output, `${name}.png`), Buffer.from(screenshot.data, "base64"));
+    if (!memory) {
+      const prepared = await cdp("Runtime.evaluate", { expression: "window.prepareCollectionCapture()", awaitPromise: true });
+      if (prepared.exceptionDetails) throw new Error(JSON.stringify(prepared.exceptionDetails));
+      const collectionLayout = await cdp("Page.getLayoutMetrics");
+      const collectionScreenshot = await cdp("Page.captureScreenshot", { format: "png", captureBeyondViewport: true,
+        clip: { x: 0, y: 0, width, height: Math.min(collectionLayout.cssContentSize.height, 6000), scale: 1 } });
+      writeFileSync(path.join(output, `${name}-collection.png`), Buffer.from(collectionScreenshot.data, "base64"));
+    }
     if (albums) {
       const entry = await cdp("Runtime.evaluate", { expression: "window.prepareAlbumEntryCapture()", awaitPromise: true });
       if (entry.exceptionDetails) throw new Error(JSON.stringify(entry.exceptionDetails));
@@ -122,6 +131,12 @@ try {
       const entryScreenshot = await cdp("Page.captureScreenshot", { format: "png", captureBeyondViewport: true,
         clip: { x: 0, y: 0, width, height: Math.min(entryLayout.cssContentSize.height, 6000), scale: 1 } });
       writeFileSync(path.join(output, `${name}-editions.png`), Buffer.from(entryScreenshot.data, "base64"));
+    }
+    if (portrait) {
+      const prepared = await cdp("Runtime.evaluate", { expression: "window.prepareConversationCapture()", awaitPromise: true });
+      if (prepared.exceptionDetails) throw new Error(JSON.stringify(prepared.exceptionDetails));
+      const conversationScreenshot = await cdp("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+      writeFileSync(path.join(output, `${name}-conversation.png`), Buffer.from(conversationScreenshot.data, "base64"));
     }
     await command("Target.closeTarget", { targetId });
     process.stdout.write(`${name}: ${result.result.value.passed.length} interaction groups${memory ? "" : " + native summary keyboard"} passed\n`);

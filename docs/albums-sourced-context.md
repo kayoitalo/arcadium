@@ -2,13 +2,15 @@
 
 Em 02/11/2026, o proprietário autorizou estes dois blocos no mesmo PR. Complementam as etapas 6, 7 e 9; curadoria e avaliação musical permanecem checkpoints separados.
 
+A apresentação foi refinada depois do retorno do proprietário: [caderno de escuta e quatro áreas](interface-caderno.md). Resultados agora aparecem junto do álbum, com foco/rolagem, carregamento e explicação de versão.
+
 ## Jornada de álbum
 
 `/discovery/albums` abre até vinte álbuns registrados nas reproduções da conta, com busca local por artista/álbum para encontrar outros. Uma indicação com álbum identificado também oferece entrada direta. A API recebe ID da biblioteca/indicação e verifica propriedade antes dos provedores; nomes arbitrários enviados pelo cliente não iniciam consultas.
 
-**Ver edições** consulta a Apple. Artista/título devem corresponder, normalizando caixa, espaços e pontuação, preservando acentos e qualificadores de versão. Até cinco edições entre dez resultados; nenhuma escolhida automaticamente. Nome, artista, loja, quantidade, data informada, classificação de conteúdo disponível e link identificam a escolha. A data não é apresentada como lançamento original.
+**Ouvir este álbum** consulta a Apple. Artista/título devem corresponder, normalizando caixa, espaços e pontuação, preservando acentos e qualificadores de versão. Até cinco edições entre dez resultados; nenhuma escolhida automaticamente. Nome, artista, loja, quantidade, data informada, classificação de conteúdo disponível e link identificam a escolha. A data não é apresentada como lançamento original.
 
-**Começar com esta edição** verifica a escolha nos resultados e faz lookup pelo collectionId. Exige lista completa da mesma coleção, músicas com IDs únicos e numeração contígua por disco. Limites: oitenta faixas e oito discos. Recusa lacunas, vídeos e mudanças de versão, loja, classificação ou contagem; não trunca nem completa pelo nome. Colaborações, títulos divergentes e lacunas podem impedir correspondência.
+**Começar com esta versão** verifica a escolha nos resultados e faz lookup pelo collectionId. Exige lista completa da mesma coleção, músicas com IDs únicos e numeração contígua por disco. Limites: oitenta faixas e oito discos. Recusa lacunas, vídeos e mudanças de versão, loja, classificação ou contagem; não trunca nem completa pelo nome. Colaborações, títulos divergentes e lacunas podem impedir correspondência.
 
 A sessão `album-v1` mantém a ordem, inclusive faixas conhecidas/avaliadas: o pedido explícito é percorrer a edição, sem score de afinidade ou rótulo de novidade. Cada item guarda collectionId, trackId, disco/faixa, loja, fonte/data e a prévia do próprio lookup. Isso identifica o catálogo Apple, sem afirmar um MusicBrainz recording ID verificado.
 
@@ -28,7 +30,7 @@ Snapshot salvo no item sob bloqueio da sessão, preservando componentes atuais. 
 
 ## Limites
 
-- Apple: mesma fila de 3.100 ms entre inícios, cerca de dezenove consultas/minuto **por processo**. Sem garantia distribuída ou worker novo. Ver edições: uma pesquisa; iniciar: até duas consultas lógicas (validação + lookup), sem retry, capa extra ou busca por faixa. Instâncias frias diferentes podem somar três chamadas nas duas ações; cache na mesma instância evita repetir a pesquisa.
+- Apple: mesma fila de 3.100 ms entre inícios, cerca de dezenove consultas/minuto **por processo**. Sem garantia distribuída ou worker novo. Ouvir este álbum: uma pesquisa; iniciar: até duas consultas lógicas (validação + lookup), sem retry, capa extra ou busca por faixa. Instâncias frias diferentes podem somar três chamadas nas duas ações; cache na mesma instância evita repetir a pesquisa.
 - Cache Apple: até 64 respostas por loja/parâmetros, seis horas com resultados e quinze minutos para vazios; chamadas iguais em andamento compartilhadas. Timeout de rede existente: oito segundos após a fila. Erro não vira vazio em cache.
 - Last.fm: uma consulta por assunto solicitado, seis segundos, sem retry automático. Cem assuntos em cache, 24 horas com texto, quinze minutos com lacuna e trinta segundos de espera após falha; consultas iguais compartilham a chamada. Snapshots privados seguem os prazos de texto/lacuna.
 - Autenticação/propriedade e origem nas mutações; sem cache HTTP privado. PostgreSQL e provedores/chaves existentes. Este bloco não acrescenta migration, dependência, IA, infraestrutura, upload em lote de histórico ou ListenBrainz. O PR inteiro mantém as três migrations aditivas anteriores.
@@ -41,7 +43,7 @@ Testes com banco/provedores simulados cobrem versões, ordem, lista incompleta, 
 
 Na preview isolada:
 
-1. Abrir **um álbum, faixa a faixa**, buscar um disco conhecido, conferir edição no link Apple, ao vivo/deluxe/letras editadas quando houver. Edições de mesmo nome não são presumidas equivalentes.
+1. No menu **Descobrir**, abrir a aba **Álbuns**, buscar um disco conhecido, conferir edição no link Apple, ao vivo/deluxe/letras editadas quando houver. Edições de mesmo nome não são presumidas equivalentes.
 2. Conferir ordem, discos, mídia ausente e links. Navegar, responder, recarregar/retomar em outro dispositivo: posição e respostas persistem, sem alterar a ordem.
 3. Aprofundar uma faixa e voltar ao álbum, mantendo posição original. Play exige ação; navegar/ler não cria escuta ou preferência.
 4. Conferir contexto/fonte/data/escopo, lacunas e falha de rede. Reler pelo diário e verificar proveniência nos downloads.

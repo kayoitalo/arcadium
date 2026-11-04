@@ -2,6 +2,7 @@
 import type { ReactNode, RefObject } from "react";
 import { Fala } from "@/components/amigo/fala";
 import styles from "./descobertas.module.css";
+import { ListeningFigure } from "@/components/amigo/listening-note";
 
 export function DiscoveryTrack({ title, artist, reason, isRevisit, artwork, metadata, markRef, headlineRef, marked, sectionRef,
   onPlay, canPlay, playing, loading, onChangeEntry, entryLabel, index, total }: {
@@ -27,7 +28,7 @@ export function DiscoveryTrack({ title, artist, reason, isRevisit, artwork, meta
         <Fala className={styles.trackSpeech} level={1} headline={title} mark={[title]} markRef={markRef} headlineRef={headlineRef} marked={marked} />
         <p className={styles.artist}>{artist}</p>
         </section>
-        <div className={styles.reason}><span className={styles.reasonMark} aria-hidden="true">↳</span><div>
+        <div className={styles.reason}><span className={styles.reasonMark} aria-hidden="true"><ListeningFigure pose={playing ? "listen" : "note"} /></span><div>
           <h2>{entryLabel === "Um álbum em ordem" ? "Neste ponto do disco" : "Por que essa?"}</h2><p>{reason ?? "Vale ouvir e me contar o que achou."}</p>
         </div></div>
         <div className={styles.listenControl}>

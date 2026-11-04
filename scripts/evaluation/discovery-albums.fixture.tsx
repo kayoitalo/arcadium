@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { useState } from "react";
 import { AlbumJourneys } from "../../src/components/descobertas/album-journeys";
 import { Descobertas } from "../../src/components/descobertas/descobertas";
+import { DiscoveryNavigation } from "../../src/components/descobertas/discovery-navigation";
 import { SelectionProvider } from "../../src/components/descobertas/selection-provider";
 const qa = { requests: [] as { url: string; body: any }[], failEditions: true, failBegin: true, failContext: true, plays: 0, rank: 1 };
 const album = { provider: "itunes", collectionId: "42", storefront: "BR", artistName: "Banda fictícia de nome comprido para conferir o celular", albumName: "O disco sintético (Ao vivo)", trackCount: 2,
@@ -17,7 +18,7 @@ const response = (data: unknown, status = 200) => new Response(JSON.stringify(da
 window.fetch = async (input, init) => {
   const url = String(input); const body = JSON.parse(String(init?.body ?? "{}")); qa.requests.push({ url, body });
   await new Promise(requestAnimationFrame); if (init?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
-  if (url.startsWith("/api/album-journeys?")) return response({ albums: [{ source: { kind: "library", id: "owned" }, albumName: album.albumName, artistName: album.artistName }], more: false });
+  if (url.startsWith("/api/album-journeys?")) return response({ albums: Array.from({length:20},(_,i)=>({ source: { kind: "library", id: i ? "owned-"+i : "owned" }, albumName: i ? "Outro disco sintético "+i : album.albumName, artistName: album.artistName })), more: false });
   if (url === "/api/album-journeys" && body.action === "EDITIONS") {
     if (qa.failEditions) { qa.failEditions = false; return response({ error: "Catálogo indisponível (simulação)." }, 503); }
     return response({ editions: [album] });
@@ -46,8 +47,8 @@ Object.defineProperty(window, "Audio", { value: class { play() { qa.plays++; ret
 Object.defineProperty(window, "AudioContext", { value: class { state = "running"; destination = {}; createAnalyser() { return { connect() {}, getByteTimeDomainData(buffer: Uint8Array) { buffer.fill(128); } }; } createMediaElementSource() { return { connect() {} }; } resume() { return Promise.resolve(); } close() { return Promise.resolve(); } } });
 function Fixture() {
   const [session, setSession] = useState<string | null>(null); const [visit, setVisit] = useState(0);
-  return session ? <><button onClick={() => setVisit((value) => value + 1)}>remontar a sessão de teste</button><SelectionProvider userId="synthetic-album"><Descobertas key={visit} initialSessionId={session} /></SelectionProvider></>
-    : <AlbumJourneys onBegin={setSession} />;
+  return session ? <><DiscoveryNavigation pathname="/discovery"/><button onClick={() => setVisit((value) => value + 1)}>remontar a sessão de teste</button><SelectionProvider userId="synthetic-album"><Descobertas key={visit} initialSessionId={session} /></SelectionProvider></>
+    : <><DiscoveryNavigation pathname="/discovery/albums"/><AlbumJourneys onBegin={setSession} /></>;
 }
 const root = createRoot(document.getElementById("root")!); root.render(<Fixture />);
 const frame = () => new Promise(requestAnimationFrame);
@@ -59,17 +60,23 @@ const ready = (n: number) => document.querySelector('[data-discovery-scene="read
 const bodyText = () => document.body.textContent ?? "";
 async function runChecks() {
   const passed: string[] = [];
-  await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "ver edições →"), "library");
+  await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "ouvir este álbum →"), "library");
   assert(!qa.requests.some((r) => r.body.action), "Local library must not query the music provider");
   assert(document.documentElement.scrollWidth <= innerWidth, "Album library must fit mobile");
-  button("ver edições →").click(); await wait(() => document.querySelector('[role="alert"]'), "catalog error");
-  button("tentar novamente").click(); await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "começar com esta edição →"), "editions retry");
+  const libraryCalls=qa.requests.length;
+  [...document.querySelectorAll<HTMLButtonElement>("button")].find((node)=>node.textContent?.includes("mais discos desta estante"))!.click();
+  await wait(()=>document.querySelectorAll("button[aria-expanded]").length===12,"more local albums");
+  assert(qa.requests.length===libraryCalls,"Showing more albums must not query any provider");
+  button("ouvir este álbum →").click(); await wait(() => document.querySelector('[role="alert"]'), "catalog error");
+  button("tentar novamente").click(); await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "começar com esta versão →"), "editions retry");
   assert(bodyText().includes("Ao vivo") && bodyText().includes("loja BR"), "Edition version/storefront must be visible");
+  assert(document.querySelector("#album-versions")!.closest("li")?.querySelector("button[aria-expanded]"),"Versions must open inside the chosen album, not after all 20 results");
+  await wait(()=>{const box=document.querySelector("#album-versions h2")!.getBoundingClientRect();return box.top>=0&&box.top<innerHeight;},"inline version heading in viewport");
   passed.push("local owned references and explicit catalog lookup with recoverable error");
-  button("começar com esta edição →").click(); button("começar com esta edição →").click();
+  button("começar com esta versão →").click(); button("começar com esta versão →").click();
   await wait(() => document.querySelector('[role="alert"]'), "pending begin");
   assert(qa.requests.filter((r) => r.body.action === "BEGIN").length === 1, "Double activation must reserve only once");
-  button("começar com esta edição →").click(); await wait(() => ready(1), "first ordered track");
+  button("começar com esta versão →").click(); await wait(() => ready(1), "first ordered track");
   const starts = qa.requests.filter((r) => r.body.action === "BEGIN"); assert(starts[0].body.requestKey === starts[1].body.requestKey, "Retry must reuse the operation key");
   assert(!document.querySelector("#mapa-descoberta"), "An ordered album must not offer a ranking map");
   assert(!bodyText().includes("buscar mais nesse caminho"), "Album must not offer a generic MORE operation");
@@ -104,10 +111,10 @@ async function runChecks() {
   return { passed, viewport: innerWidth, reduced: matchMedia("(prefers-reduced-motion: reduce)").matches, requests: qa.requests.length };
 }
 async function prepareAlbumEntryCapture() {
-  root.render(<AlbumJourneys onBegin={() => undefined} />);
-  await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "ver edições →"), "capture library");
-  button("ver edições →").click();
-  await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "começar com esta edição →"), "capture editions");
+  root.render(<><DiscoveryNavigation pathname="/discovery/albums"/><AlbumJourneys onBegin={() => undefined} /></>);
+  await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "ouvir este álbum →"), "capture library");
+  button("ouvir este álbum →").click();
+  await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "começar com esta versão →"), "capture editions");
   await new Promise((resolve) => setTimeout(resolve, 600));
 }
 Object.assign(window, { runDiscoveryChecks: runChecks, prepareAlbumEntryCapture });

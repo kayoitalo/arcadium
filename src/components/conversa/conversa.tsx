@@ -13,6 +13,7 @@ import type { ConversationMoment, Evidence } from "@/modules/conversation/domain
 import { decadeLabel, ProvaDecadas, ProvaLista, ProvaTransicao } from "./provas";
 import styles from "./conversa.module.css";
 import { privateFetch } from "@/lib/http/private-fetch";
+import { ListeningNote } from "@/components/amigo/listening-note";
 
 /*
  * A conversa: a tela inicial. Um fio que se rola e se revisita — o
@@ -326,7 +327,7 @@ export function Conversa({ moments: all }: { moments: ConversationMoment[] }) {
       if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return;
       // tecla sem foco em nada chega com o documento (ou a janela) como alvo
       const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (target?.closest("input, textarea, select, button, a, summary, [contenteditable='true']")) return;
       const key = event.key.toLowerCase();
       // em botão ou link com foco, Enter e espaço são dele
       if ((key === "enter" || key === " ") && target?.closest("button, a")) return;
@@ -350,6 +351,10 @@ export function Conversa({ moments: all }: { moments: ConversationMoment[] }) {
 
   return (
     <div ref={stageRef} className={styles.stage}>
+      <div className={styles.threadHead}>
+        <ListeningNote label="andei reparando" pose={sound.playing ? "listen" : "note"}><p>Tem umas coisas no teu histórico que renderam assunto. Vem por aqui.</p></ListeningNote>
+        <nav aria-label="Assuntos da conversa">{moments.map((moment,index) => <button key={moment.key} aria-label={`Ir ao assunto ${index+1}`} aria-pressed={index===active} onClick={() => go(index)}>{String(index+1).padStart(2,"0")}</button>)}</nav>
+      </div>
       {[...moments, null].map((moment, index) => {
         const isActive = index === active;
         const isDismissed = dismissed.includes(index);

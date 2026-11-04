@@ -8,7 +8,7 @@ window.fetch = async (input, init) => {
   const url = String(input); const body = JSON.parse(String(init?.body ?? "{}")); qa.requests.push({ url, body });
   await new Promise(requestAnimationFrame);
   const response = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
-  if (url === "/api/portrait") return response({ asOf: "2026-11-02T12:00:00Z", timezone: "America/Sao_Paulo", total: 40, artists: [{ name: "Artista de teste", plays: 20, days: 3 }], changes: [{ name: "Artista de teste", current: 5, previous: 15 }] });
+  if (url === "/api/portrait") return response({ asOf: "2026-11-02T12:00:00Z", timezone: "America/Sao_Paulo", total: 40, artists: [{ name: "Artista de teste", plays: 20, days: 3 }, { name: "Outro nome fictício", plays: 13, days: 8 }, { name: "Uma colaboração fictícia com um nome comprido", plays: 7, days: 4 }], changes: [{ name: "Artista de teste", current: 5, previous: 15 }, { name: "Outro nome fictício", current: 3, previous: 0 }] });
   if (url === "/api/editorial") {
     if (!init?.method) return response({ topics: qa.restored ? [] : [{ key, headline: "Um assunto silenciado" }] });
     if (body.action === "DISMISS" && qa.failDismiss) return response({}, 503);
@@ -27,8 +27,17 @@ function button(label: string) { const node = [...document.querySelectorAll("but
 async function runChecks() {
   const passed: string[] = [];
   await wait(() => document.body.textContent?.includes("20 reproduções em 3 dias distintos"), "observed portrait");
+  const callsBeforeSelection=qa.requests.length;
+  [...document.querySelectorAll<HTMLButtonElement>("button")].find((node)=>node.textContent?.includes("Outro nome fictício"))!.click();
+  await wait(()=>document.body.textContent?.includes("13 reproduções em 8 dias distintos"),"selected artist");
+  assert(qa.requests.length===callsBeforeSelection,"Selecting an artist must reuse the fetched portrait");
+  button("02 a fase recente dois recortes de 30 dias").click();
+  await wait(()=>document.body.textContent?.includes("5 agora · 15 no período anterior"),"recent perspective");
   assert(document.body.textContent?.includes("5 agora · 15 no período anterior"), "Recent and previous windows must remain separate");
   assert(document.querySelector('a[href="/history?search=Artista%20de%20teste"]'), "Portrait must link to the filtered history");
+  button("01 ao longo do caminho os retornos no histórico").click();
+  [...document.querySelectorAll("summary")].find((node)=>node.textContent?.includes("Assuntos que você silenciou"))!.click();
+  await wait(()=>[...document.querySelectorAll("button")].some((node)=>node.textContent==="voltar a esse assunto"),"topic drawer");
   button("voltar a esse assunto").click(); await wait(() => document.body.textContent?.includes("Nenhum assunto silenciado"), "restore editorial topic");
   passed.push("portrait from observed days/counts, recent windows and restore account topic");
   button("trocar fixture").click(); window.scrollTo({ top: 0, behavior: "instant" });
@@ -45,4 +54,5 @@ async function runChecks() {
   assert(document.documentElement.scrollWidth <= innerWidth, "Portrait must fit the viewport");
   return { passed, viewport: innerWidth, reduced: matchMedia("(prefers-reduced-motion: reduce)").matches, requests: qa.requests.length };
 }
-Object.assign(window, { runDiscoveryChecks: runChecks });
+async function prepareConversationCapture(){ button("trocar fixture").click(); await wait(()=>document.querySelector("#assunto-0"),"conversation capture"); window.scrollTo({top:0,behavior:"instant"}); await new Promise(r=>setTimeout(r,1000)); }
+Object.assign(window, { runDiscoveryChecks: runChecks, prepareConversationCapture });

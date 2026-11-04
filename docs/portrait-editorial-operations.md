@@ -4,6 +4,8 @@ Em 02/11/2026, o proprietário autorizou ampliar bastante o mesmo PR, incluindo 
 
 O mesmo PR recebeu depois [álbuns em ordem e contexto com fonte](albums-sourced-context.md), sem migration adicional. O documento contém contrato, limites e roteiro específico.
 
+A revisão visual posterior está no [caderno de escuta](interface-caderno.md): quatro áreas, coleção/exportação separadas, presença desenhada do amigo, retrato interativo e resultados de versão junto ao álbum escolhido. O roteiro headless passou a incluir também 1920 px.
+
 ## Conversa e retrato — etapa 8
 
 - **Teu retrato** (`/portrait`) separa a visão acumulada da fase recente. Consulta somente o PostgreSQL, com leitura consistente `RepeatableRead`: total de reproduções importadas, até vinte artistas com contagem e dias distintos observados, e doze destaques recentes comparando dois períodos contíguos de trinta dias. Datas futuras são excluídas. Dias usam a conversão explícita de timestamp UTC do banco para o fuso da conta; fuso inválido usa São Paulo. Não é uma medida da vida musical inteira nem inferência de emoção, desinteresse ou primeira descoberta.
