@@ -11,6 +11,7 @@ The interpretive texts are the heart of the product. Charts, rankings and number
 Five screens, one narrator. The home screen is **the conversation**: the readings the friend already wrote, each one with the proof it cites, pulled from the database and always on screen at rest. A reading whose numbers do not match the data (`N vezes`, `N%`, a "comeback" across a gap in the history) never reaches the screen.
 
 - **One narrator, one protagonist.** Every line is the friend talking, or mute data. His pen is the only moving thing: it highlights the part of the sentence the proof backs, rules the cited bar, measures the jump between two covers. With music playing, the pen becomes a string that vibrates with the real signal.
+- **The magic pen is the character.** Its travel, highlights and circles bring the friend to each screen. No literal face or mascot replaces it; gestures respond to content and respect reduced motion. See [the artist poster and photo limits](docs/magic-pen-artist-poster.md).
 - **One colour.** A dry track-lane yellow belongs to the pen alone; everything else is ink on paper. Covers bring the rest.
 - **Screens:** conversa (home) · o que mudou (genre share shift, month or year) · pra ouvir depois (discovery, one track at a time, with the map) · tudo que tocou (history by day, with the listening hours) · ajustes.
 
@@ -36,6 +37,7 @@ Five screens, one narrator. The home screen is **the conversation**: the reading
 | **iTunes Search API** | Covers, 30 s previews, exact track durations, release year and genre — no key needed |
 | **Gemini** | Reading packs: several readings per period plus a comment for each record |
 | **Spotify** *(optional)* | Export of approved discoveries to a private playlist, with `.m3u` fallback. Spotify data is never used for profiling or prompts |
+| **Wikidata + Wikimedia Commons** | On-demand artist photographs in the portrait, matched by an existing resolved MusicBrainz ID, with source and credit; separate from ranking |
 
 ---
 

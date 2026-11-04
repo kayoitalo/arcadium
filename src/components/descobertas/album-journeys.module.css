@@ -69,3 +69,6 @@
 
 .showMore { display: flex; flex-wrap: wrap; gap: 10px 24px; border-bottom: 1px solid var(--fio-2) !important; margin-bottom: 28px; }
 .showMore span { color:var(--tinta-3); font-size:11px; }
+
+.versionHeading h2 {position:relative;z-index:3;}
+.versionHeading h2[data-marked="true"] {color:var(--sobre-marca);}

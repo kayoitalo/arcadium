@@ -28,7 +28,7 @@ export function DiscoveryEntry({ busy, hasSession, currentRank, total, onChoose,
     <p className={styles.eyebrow}><span className={styles.smallRule} /> descoberta musical</p>
     <div className={styles.entryIntro}>
       <Fala level={1} headline={"Hoje, a curiosidade\nvai por onde?"} mark={["por onde?"]} markRef={mark} marked={pen.started.has("entry-curiosity")} />
-      <ListeningNote label="eu procuro, você dá o play" pose="search"><p>Uma novidade perto das tuas referências ou uma volta ao repertório. Qual caminho te chama hoje?</p></ListeningNote>
+      <ListeningNote label="eu procuro, você dá o play"><p>Uma novidade perto das tuas referências ou uma volta ao repertório. Qual caminho te chama hoje?</p></ListeningNote>
     </div>
     <div className={styles.entryChoices}>
       {DISCOVERY_ENTRIES.map((entry) => <button className={styles.entryChoice} key={entry.id} disabled={busy}

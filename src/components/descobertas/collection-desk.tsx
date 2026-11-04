@@ -92,7 +92,7 @@ export function CollectionDesk() {
 
   const result = exported && exported !== "running" ? exported : null;
   return <section className={paper.desk}><div inert={modalOpen}>
-    <header className={paper.header}><div><p className={paper.eyebrow}>a tua pilha, sem pressa</p><Fala level={1} headline="Isso aqui ficou pra depois." narrative="O que você curtiu ou quis guardar. Uma pilha para voltar quando der vontade." /></div><ListeningNote pose="listen" label="deixei separado"><p>Retirar uma faixa desta pilha não apaga o que você me contou sobre ela.</p></ListeningNote></header>
+    <header className={paper.header}><div><p className={paper.eyebrow}>a tua pilha, sem pressa</p><Fala level={1} headline="Isso aqui ficou pra depois." narrative="O que você curtiu ou quis guardar. Uma pilha para voltar quando der vontade." /></div><ListeningNote label="deixei separado"><p>Retirar uma faixa desta pilha não apaga o que você me contou sobre ela.</p></ListeningNote></header>
     <div className={paper.counter}><strong>{kept.length.toString().padStart(2,"0")}</strong><span>faixas separadas<br/>na tua conta</span></div>
     {selection.error && <p role="alert">{selection.error} <button className={styles.textButton} onClick={() => void selection.refresh()}>atualizar coleção</button></p>}
           <p className={styles.mapNote}>O que você curtiu ou separou para ouvir depois. Essa pilha fica na tua conta, nos teus dispositivos. Remover daqui não retira uma avaliação.</p>

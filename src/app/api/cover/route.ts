@@ -16,9 +16,11 @@ const ALLOWED_HOSTS = new Set([
   "archive.org",
   "i.scdn.co",
 ]);
+const PORTRAIT_HOSTS = new Set(["upload.wikimedia.org", "thumb.wikimedia.org"]);
 
 function isAllowed(url: URL): boolean {
   if (url.protocol !== "https:") return false;
+  if(PORTRAIT_HOSTS.has(url.hostname))return !url.port&&!url.username&&!url.password&&url.pathname.startsWith("/wikipedia/commons/");
   if (ALLOWED_HOSTS.has(url.hostname)) return true;
   // *.mzstatic.com é o CDN de artwork da Apple, usado pelas capas do iTunes
   return (
@@ -50,7 +52,7 @@ export async function GET(request: Request) {
   try {
     const upstream = await fetch(target, {
       headers: { "User-Agent": "Arcadium/0.1 (+cover-proxy)", Accept: "image/*" },
-      redirect: "follow",
+      redirect: PORTRAIT_HOSTS.has(target.hostname) ? "error" : "follow",
       signal: AbortSignal.timeout(8000),
     });
 
@@ -58,7 +60,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Upstream failed." }, { status: 502 });
     }
 
-    const contentType = upstream.headers.get("content-type") ?? "image/jpeg";
+    const contentType = upstream.headers.get("content-type") ?? (PORTRAIT_HOSTS.has(target.hostname) ? "" : "image/jpeg");
+    if(PORTRAIT_HOSTS.has(target.hostname)&&!["image/jpeg","image/png","image/webp"].includes(contentType.split(";")[0].trim().toLowerCase()))return NextResponse.json({error:"Not a portrait image."},{status:415});
     if (!contentType.startsWith("image/")) {
       return NextResponse.json({ error: "Not an image." }, { status: 415 });
     }

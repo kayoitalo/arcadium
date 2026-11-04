@@ -352,7 +352,7 @@ export function Conversa({ moments: all }: { moments: ConversationMoment[] }) {
   return (
     <div ref={stageRef} className={styles.stage}>
       <div className={styles.threadHead}>
-        <ListeningNote label="andei reparando" pose={sound.playing ? "listen" : "note"}><p>Tem umas coisas no teu histórico que renderam assunto. Vem por aqui.</p></ListeningNote>
+        <ListeningNote label="andei reparando"><p>Tem umas coisas no teu histórico que renderam assunto. Vem por aqui.</p></ListeningNote>
         <nav aria-label="Assuntos da conversa">{moments.map((moment,index) => <button key={moment.key} aria-label={`Ir ao assunto ${index+1}`} aria-pressed={index===active} onClick={() => go(index)}>{String(index+1).padStart(2,"0")}</button>)}</nav>
       </div>
       {[...moments, null].map((moment, index) => {

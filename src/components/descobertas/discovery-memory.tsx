@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { privateFetch } from "@/lib/http/private-fetch";
 import { Fala, PenLayer } from "@/components/amigo/fala";
 import { usePen } from "@/components/amigo/use-pen";
-import { band } from "@/components/amigo/gestures";
+import { band, circle } from "@/components/amigo/gestures";
 import { textLines } from "@/components/amigo/measure";
 import { useReducedMotion } from "framer-motion";
 import { MEMORY_LABEL, type MemoryPage } from "@/modules/recommendations/domain/discovery-memory";
@@ -32,14 +32,19 @@ export function DiscoveryMemory() {
   const url = `/api/discovery-memory?${params}`;
   const stage = useRef<HTMLDivElement>(null); const mark = useRef<HTMLSpanElement>(null); const heading = useRef<HTMLHeadingElement>(null);
   const focusResults = useRef(false);
+  const [activeChapter,setActiveChapter]=useState<string|null>(null);const chapters=useRef(new Map<string,HTMLHeadingElement>());
   const reduced = Boolean(useReducedMotion()); const signal = useRef(null);
   const pen = usePen(stage, (origin) => {
     if (!mark.current) return null;
     const { lines, size } = textLines(mark.current, origin); const { strokes, width } = band(lines, size);
-    return { gestures: [{ id: "memory-title", layer: "under", strokes, width, cap: "butt" }], notes: [], wave: null };
-  }, "memory");
+    const gestures: import("@/components/amigo/trace").TraceGesture[]=[{ id: "memory-title", layer: "under", strokes, width, cap: "butt" }];
+    const target=activeChapter?chapters.current.get(activeChapter):null;
+    if(target){const rows=textLines(target,origin).lines;if(rows.length){const left=Math.min(...rows.map(row=>row.left));const right=Math.max(...rows.map(row=>row.right));const top=rows[0].capTop;const bottom=rows.at(-1)!.baseline;
+      gestures.push({id:"memory-chapter:"+activeChapter,layer:"over",strokes:[circle({left,top,width:right-left,height:bottom-top},activeChapter!,8)],width:1.8,cap:"round"});}}
+    return { gestures, notes: [], wave: null };
+  }, "memory:"+activeChapter, {settle:220});
   useEffect(() => {
-    const controller = new AbortController(); setLoading(true); setError(false); setPage(null);
+    const controller = new AbortController(); setLoading(true); setError(false); setPage(null); setActiveChapter(null);
     void privateFetch(url, { signal: controller.signal }).then(async (response) => {
       if (!response.ok) throw new Error("memory"); const data = await response.json();
       if (!controller.signal.aborted) setPage(data);
@@ -72,13 +77,13 @@ export function DiscoveryMemory() {
       {!page.sessions.length && <p>Nenhuma busca encontrada neste recorte. Você pode ampliar a procura ou voltar à descoberta.</p>}
       {page.sessions.map((session, index) => <section className={styles.session} key={session.id}>
         <div className={styles.chapter} aria-hidden="true"><span>caminho</span><strong>{String(index+1).padStart(2,"0")}</strong><i /></div><div className={styles.sessionSheet}>
-        <div className={styles.sessionHeading}><div><p className={styles.eyebrow}>{when(session.createdAt)}</p><h2>{intentionLabel(session.intent as DiscoveryIntent | null)}</h2>
+        <div className={styles.sessionHeading}><div><p className={styles.eyebrow}>{when(session.createdAt)}</p><h2 ref={(node)=>{if(node)chapters.current.set(session.id,node);else chapters.current.delete(session.id);}}>{intentionLabel(session.intent as DiscoveryIntent | null)}</h2>
           <p>{session.album ? `${session.album.albumName} · ${session.album.artistName}` : session.anchor ? `A partir de “${session.anchor.trackName}”, de ${session.anchor.artistName}.` : "Um passo do teu caminho."}</p>
           {session.album && <EditionCredit album={session.album} />}
           <p className={styles.note}>{session.total} {session.total === 1 ? "indicação" : "indicações"}{session.items.length < session.total ? ` · ${session.items.length} neste recorte` : ""}{session.currentRank != null ? ` · ${session.currentRank <= session.total ? `posição ${session.currentRank}` : "chegou ao fim"}` : ""}</p></div>
           <Link href={`/discovery?session=${encodeURIComponent(session.id)}`}>retomar e revisar →</Link></div>
         {session.exports?.map((event, index) => <p className={styles.note} key={index}>Exportação registrada em {when(event.createdAt)} · {event.resolvedCount} de {event.totalItems} faixas resolvidas.</p>)}
-        <DiscoveryDisclosure className={styles.details} summary="indicações e respostas">
+        <DiscoveryDisclosure className={styles.details} summary="indicações e respostas" onOpenChange={(open)=>setActiveChapter(current=>open?session.id:current===session.id?null:current)}>
           <ol className={styles.tracks}>{session.items.map((item) => <li key={item.id}>
             <h3>{item.trackName}</h3><p>{item.artistName}</p>
             {item.reason && <p className={styles.note}>{item.reason}</p>}
