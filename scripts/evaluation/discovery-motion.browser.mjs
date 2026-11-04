@@ -39,7 +39,7 @@ const server = await createServer({ configFile: false, root: scratch, envDir: sc
     if(!req.url?.startsWith("/api/cover?"))return next();
     res.setHeader("Content-Type","image/svg+xml");res.end('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="750"><rect width="600" height="750" fill="#282922"/><path d="M0 580 600 170V750H0Z" fill="#545b50"/><text x="40" y="75" fill="#e3e4d8" font-family="sans-serif" font-size="22">IMAGEM SINTÉTICA DE TESTE</text><text x="40" y="710" fill="#e3e4d8" font-family="sans-serif" font-size="18">não representa um artista real</text></svg>');
   });}}] : [],
-  cacheDir: path.join(scratch, "vite-cache"), publicDir: false, css: { postcss: { plugins: [] } },
+  cacheDir: path.join(scratch, "vite-cache"), publicDir: path.join(root, "public"), css: { postcss: { plugins: [] } },
   resolve: { alias: { "@": path.join(root, "src"), "next/link": path.join(scratch, "link.tsx"), "next/navigation": path.join(scratch, "navigation.ts") } },
   server: { host: "127.0.0.1", port: 0, fs: { allow: [root] }, watch: null },
 });

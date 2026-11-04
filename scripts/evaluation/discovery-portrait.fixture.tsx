@@ -11,7 +11,7 @@ window.fetch = async (input, init) => {
   if (url === "/api/portrait") return response({ asOf: "2026-11-02T12:00:00Z", timezone: "America/Sao_Paulo", total: 40, artists: [{ name: "Artista de teste", plays: 20, days: 3 }, { name: "Outro nome fictício", plays: 13, days: 8 }, { name: "Uma colaboração fictícia com um nome comprido", plays: 7, days: 4 }], changes: [{ name: "Artista de teste", current: 5, previous: 15 }, { name: "Outro nome fictício", current: 3, previous: 0 }] });
   if(url==="/api/artist-portrait"){
     if(body.artistName==="Outro nome fictício"){if(qa.failPhoto){qa.failPhoto=false;return response({},503);}return response({status:"MISSING",reason:"NO_IMAGE"});}
-    return response({status:"READY",mbid:"f59c5520-5f46-4d2c-b2c4-822eabf53419",imageUrl:"https://upload.wikimedia.org/wikipedia/commons/a/ab/Synthetic.jpg",sourceUrl:"https://commons.wikimedia.org/wiki/File:Synthetic.jpg",entityUrl:"https://www.wikidata.org/wiki/Q261",author:"Fixture / imagem sintética",license:"CC0",licenseUrl:"https://creativecommons.org/publicdomain/zero/1.0/",checkedAt:"2026-11-03T12:00:00.000Z"});
+    return response({status:"READY",provider:"spotify",artistId:"1a2b3c4d5e6f7g8h9i0jKl",artistName:String(body.artistName),imageUrl:"https://i.scdn.co/image/Synthetic",sourceUrl:"https://open.spotify.com/artist/1a2b3c4d5e6f7g8h9i0jKl",checkedAt:"2026-11-03T12:00:00.000Z"});
   }
   if (url === "/api/editorial") {
     if (!init?.method) return response({ topics: qa.restored ? [] : [{ key, headline: "Um assunto silenciado" }] });
@@ -35,7 +35,7 @@ async function runChecks() {
   await wait(()=>document.querySelector('[data-portrait-poster][data-pen-ready="true"]'),"name, image and observed metric pen gestures");
   assert(!document.querySelector("svg[data-pose]"),"The narrator must have no literal face");
   assert(document.querySelector('[data-portrait-poster] h2 [data-marked="true"]'),"Selected artist must be marked by the real pen");
-  assert(document.body.textContent?.includes("Fixture / imagem sintética"),"Image attribution must stay visible");
+  assert(document.querySelector('a[href="https://open.spotify.com/artist/1a2b3c4d5e6f7g8h9i0jKl"] img[alt="Spotify"]'),"Image attribution must stay visible");
   const callsBeforeSelection=qa.requests.filter(row=>row.url==="/api/portrait").length;
   [...document.querySelectorAll<HTMLButtonElement>("button")].find((node)=>node.textContent?.includes("Outro nome fictício"))!.click();
   await wait(()=>document.body.textContent?.includes("13 reproduções em 8 dias distintos"),"selected artist");

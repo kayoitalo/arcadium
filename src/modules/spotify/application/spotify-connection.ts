@@ -1,3 +1,4 @@
+import { spotifyFetch, SpotifyUnavailable } from "../infrastructure/spotify-http";
 import { prisma } from "@/lib/db/prisma";
 import { decryptJson, encryptJson, hasEncryptionKey } from "@/lib/security/token-crypto";
 
@@ -55,7 +56,7 @@ async function requestTokens(body: URLSearchParams): Promise<Record<string, any>
   const { clientId, clientSecret } = credentials();
   const basic = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
 
-  const response = await fetch(TOKEN_URL, {
+  const response = await spotifyFetch(TOKEN_URL, {
     method: "POST",
     headers: {
       Authorization: `Basic ${basic}`,
@@ -65,6 +66,7 @@ async function requestTokens(body: URLSearchParams): Promise<Record<string, any>
     signal: AbortSignal.timeout(10_000),
   });
 
+  if (response.status === 429 || response.status >= 500) throw new SpotifyUnavailable();
   const payload = await response.json();
   if (!response.ok) {
     throw new Error(payload.error_description ?? payload.error ?? "Troca de token recusada.");
@@ -73,7 +75,7 @@ async function requestTokens(body: URLSearchParams): Promise<Record<string, any>
 }
 
 async function fetchProfile(accessToken: string): Promise<{ id: string; display_name?: string }> {
-  const response = await fetch("https://api.spotify.com/v1/me", {
+  const response = await spotifyFetch("https://api.spotify.com/v1/me", {
     headers: { Authorization: `Bearer ${accessToken}` },
     signal: AbortSignal.timeout(10_000),
   });
@@ -157,6 +159,8 @@ export async function getValidAccessToken(
 
     return { accessToken: next.accessToken, spotifyUserId: next.spotifyUserId };
   } catch (error) {
+    // A shared quota pause is not a revoked authorization.
+    if (error instanceof SpotifyUnavailable) return null;
     console.error("[Spotify] Falha ao renovar o token:", error);
     await prisma.providerConnection.update({
       where: { userId_provider: { userId, provider: PROVIDER } },

@@ -22,9 +22,10 @@ Five screens, one narrator. The home screen is **the conversation**: the reading
 1. **The backend calculates facts.** Counts, rankings, shares, comparisons (7d, 30d, 1y, all time) and recommendation scores come from deterministic SQL and TypeScript.
 2. **AI interprets, it never calculates.** Gemini writes the readings from evidence the app has already measured. It does not invent counts, IDs or candidate tracks, and every screen still speaks from measured data when the model is unavailable.
 3. **PostgreSQL is the source of truth.** Providers supply input or enrichment; every screen reads from the local database.
-4. **Providers stay replaceable.** HTTP and payload details live behind small interfaces in each module's `infrastructure/` folder.
-5. **Privacy by design.** The model only receives aggregates and signals — never tokens, e-mail or usernames. Provider tokens are encrypted at rest.
-6. **No overengineering.** A modular monolith in one Next.js repo: no microservices, queues or vector stores until a real need shows up.
+4. **Reuse the agreed providers.** Features stay within the existing API scope; missing coverage does not authorize adding another provider.
+5. **Providers stay replaceable.** HTTP and payload details live behind small interfaces in each module's `infrastructure/` folder.
+6. **Privacy by design.** The model only receives aggregates and signals — never tokens, e-mail or usernames. Provider tokens are encrypted at rest.
+7. **No overengineering.** A modular monolith in one Next.js repo: no microservices, queues or vector stores until a real need shows up.
 
 ---
 
@@ -36,8 +37,7 @@ Five screens, one narrator. The home screen is **the conversation**: the reading
 | **MusicBrainz** + **Cover Art Archive** | Artist metadata, tags and album covers (1 req/s) |
 | **iTunes Search API** | Covers, 30 s previews, exact track durations, release year and genre — no key needed |
 | **Gemini** | Reading packs: several readings per period plus a comment for each record |
-| **Spotify** *(optional)* | Export of approved discoveries to a private playlist, with `.m3u` fallback. Spotify data is never used for profiling or prompts |
-| **Wikidata + Wikimedia Commons** | On-demand artist photographs in the portrait, matched by an existing resolved MusicBrainz ID, with source and credit; separate from ranking |
+| **Spotify** *(optional)* | Artist photos in the portrait using existing app credentials; export of approved discoveries to a private playlist using OAuth, with `.m3u` fallback. Spotify data is never used for profiling or prompts |
 
 ---
 
