@@ -2,12 +2,15 @@ import { z } from "zod";
 import type { RawCandidate } from "./recommendation.types";
 import type { UserProfile } from "./taste-profile";
 import { editionSummarySchema } from "./album-journey";
+import { territorySnapshotSchema, repertoireRestrictionSchema, coverageSchema } from "./territories";
 
-export const DISCOVERY_INTENTS = ["DISCOVER", "CONNECTIONS", "REPERTOIRE", "ALBUM"] as const;
+export const DISCOVERY_INTENTS = ["DISCOVER", "CONNECTIONS", "REPERTOIRE", "ALBUM", "TERRITORY"] as const;
 export type DiscoveryIntent = typeof DISCOVERY_INTENTS[number];
 const id = z.string().min(1).max(100);
 export const discoveryContextSchema = z.object({
   version: z.literal(1), intent: z.enum(DISCOVERY_INTENTS),
+  destination: territorySnapshotSchema.optional(), restrictions: repertoireRestrictionSchema.optional(),
+  coverage: coverageSchema.optional(),
   journey: z.object({
     action: z.enum(["ENTRY", "MORE", "DEEPEN", "ALBUM"]),
     album: editionSummarySchema.optional(),
@@ -20,6 +23,8 @@ export const discoveryContextSchema = z.object({
   if (album !== (value.journey.action === "ALBUM") || album !== Boolean(value.journey.album)) {
     ctx.addIssue({ code: "custom", message: "A jornada de álbum precisa da edição escolhida." });
   }
+  if ((value.intent === "TERRITORY") !== Boolean(value.destination)) ctx.addIssue({ code: "custom", message: "O território precisa do destino registrado." });
+  if (value.restrictions && value.intent !== "REPERTOIRE") ctx.addIssue({ code: "custom", message: "Restrições de repertório precisam dessa intenção." });
 });
 export type DiscoveryContext = z.infer<typeof discoveryContextSchema>;
 export function readDiscoveryContext(value: unknown): DiscoveryContext | null {

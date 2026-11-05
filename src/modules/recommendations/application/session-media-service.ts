@@ -42,7 +42,7 @@ export class SessionMediaService {
       const current = await tx.recommendationItem.findFirst({ where: { id: item.id, sessionId, session: { userId } } });
       if (!current) throw new DiscoveryConflict("Indicação não encontrada.", 404);
       await tx.recommendationItem.update({ where: { id: item.id }, data: { ...media,
-        scoreComponents: { ...(current.scoreComponents as object ?? {}), ...(match ? { previewIdentity: match } : {}), media: { status, retryAt } } as any } });
+        scoreComponents: { ...(current.scoreComponents as object ?? {}), ...(match ? { previewIdentity: match, catalogFacts: preview?.catalogFacts ?? null } : {}), media: { status, retryAt } } as any } });
     });
     return { ...media, status };
   }

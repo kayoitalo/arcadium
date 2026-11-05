@@ -55,6 +55,7 @@ interface CacheEntry<T> {
 /** Uma sessão é gerada a cada troca de modo; sem cache isso vira uma rajada de chamadas. */
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const cache = new Map<string, CacheEntry<unknown>>();
+const CACHE_ENTRY_LIMIT = 256;
 
 function readCache<T>(key: string): T | null {
   const entry = cache.get(key) as CacheEntry<T> | undefined;
@@ -67,7 +68,10 @@ function readCache<T>(key: string): T | null {
 }
 
 function writeCache<T>(key: string, value: T): void {
+  cache.delete(key);
+  for (const [entryKey, entry] of cache) if (entry.expiresAt <= Date.now()) cache.delete(entryKey);
   cache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+  while (cache.size > CACHE_ENTRY_LIMIT) cache.delete(cache.keys().next().value!);
 }
 
 export class LastFmSimilarArtistProvider implements SimilarArtistProvider {

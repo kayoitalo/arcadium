@@ -9,9 +9,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const portrait = process.argv.includes("--portrait");
 const albums = process.argv.includes("--albums");
-const memory = process.argv.includes("--memory") || portrait || albums;
-if (process.argv.slice(2).some((argument) => !["--memory", "--portrait", "--albums"].includes(argument)) || process.argv.length > 3) throw new Error("Unknown browser-check option");
-const feature = albums ? "albums" : portrait ? "portrait" : memory ? "memory" : "motion";
+const territories = process.argv.includes("--territories");
+const memory = process.argv.includes("--memory") || portrait || albums || territories;
+if (process.argv.slice(2).some((argument) => !["--memory", "--portrait", "--albums", "--territories"].includes(argument)) || process.argv.length > 3) throw new Error("Unknown browser-check option");
+const feature = territories ? "territories" : albums ? "albums" : portrait ? "portrait" : memory ? "memory" : "motion";
 const output = path.join(root, `.local/evaluation/discovery-${feature}`);
 mkdirSync(output, { recursive: true });
 const scratch = mkdtempSync(path.join(output, "run-"));
@@ -120,6 +121,22 @@ try {
     const screenshot = await cdp("Page.captureScreenshot", { format: "png", captureBeyondViewport: true,
       clip: { x: 0, y: 0, width, height: Math.min(layout.cssContentSize.height, 6000), scale: 1 } });
     writeFileSync(path.join(output, `${name}.png`), Buffer.from(screenshot.data, "base64"));
+    if (territories) for (const kind of ["entry", "cues"]) {
+      const prepared = await cdp("Runtime.evaluate", { expression: `window.prepareTerritoryCapture('${kind}')`, awaitPromise: true });
+      if (prepared.exceptionDetails) throw new Error(JSON.stringify(prepared.exceptionDetails));
+      if (kind === "entry") {
+        await cdp("Runtime.evaluate", { expression: "document.querySelector('#territory-doors > summary').focus()" });
+        for (const [key, code, virtual, expected] of [[" ", "Space", 32, "false"], ["Enter", "Enter", 13, "true"]]) {
+          await cdp("Input.dispatchKeyEvent", { type: "keyDown", key, code, windowsVirtualKeyCode: virtual, text: key === "Enter" ? "\r" : " " });
+          await cdp("Input.dispatchKeyEvent", { type: "keyUp", key, code, windowsVirtualKeyCode: virtual });
+          const state = await cdp("Runtime.evaluate", { expression: "new Promise(r=>setTimeout(()=>r(document.querySelector('#territory-doors > summary').getAttribute('aria-expanded')),260))", awaitPromise: true, returnByValue: true });
+          if (state.result.value !== expected) throw new Error(`${name}: territory native keyboard failed`);
+        }
+      }
+      const metrics = await cdp("Page.getLayoutMetrics");
+      const shot = await cdp("Page.captureScreenshot", { format: "png", captureBeyondViewport: true, clip: { x: 0, y: 0, width, height: Math.min(metrics.cssContentSize.height, 6000), scale: 1 } });
+      writeFileSync(path.join(output, `${name}-${kind}.png`), Buffer.from(shot.data, "base64"));
+    }
     if (!memory) {
       const prepared = await cdp("Runtime.evaluate", { expression: "window.prepareCollectionCapture()", awaitPromise: true });
       if (prepared.exceptionDetails) throw new Error(JSON.stringify(prepared.exceptionDetails));

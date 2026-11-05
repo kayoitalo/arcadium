@@ -240,6 +240,8 @@ model RecommendationSession {
 
   @@index([userId, createdAt(sort: Desc)])
   @@unique([userId, requestKey])
+  @@index([status, updatedAt])
+  @@index([userId, status, lastOpenedAt(sort: Desc), createdAt(sort: Desc), id(sort: Desc)], map: "recommendation_session_resume_idx")
 }
 
 model RecommendationItem {
@@ -268,6 +270,7 @@ model RecommendationItem {
   events DiscoveryEvent[]
 
   @@index([sessionId, rank])
+  @@index([exposedAt])
 }
 
 model DiscoveryEvent {

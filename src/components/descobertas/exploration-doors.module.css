@@ -1,0 +1,19 @@
+.doors { margin: 24px 0 56px; border-top: 1px solid var(--fio-2); }
+.doors > * { padding: 20px 0; border-bottom: 1px solid var(--fio-2); }
+.doors h2 { font-size: clamp(28px, 3.5vw, 42px); font-variation-settings: "wdth" 76, "wght" 680; line-height: 1.1; max-width: 24ch; margin: 24px 0; }
+.doors p { max-width: 72ch; font-size: 14px; color: var(--tinta-2); line-height: 1.65; }
+.doors > details > summary { min-height: 44px; cursor: pointer; font-size: 15px; color: var(--tinta); }
+.doors button { background: transparent; border: 0; color: var(--tinta); font: inherit; min-height: 44px; cursor: pointer; }
+.doors a { color: var(--tinta); text-underline-offset: 4px; }
+.choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin: 24px 0; }
+.choices button { text-align: left; border-left: 2px solid var(--marca); padding: 8px 16px; overflow-wrap: anywhere; }
+.choices button:hover { background: rgb(242 239 231 / .035); }
+.choices span, .choices small { display: block; margin-top: 8px; line-height: 1.5; opacity: .75; }
+.choices strong { font-size: 22px; }
+.doors fieldset { border: 0; padding: 0; }
+.doors label { display: block; margin: 18px 0; }
+.doors input { display: block; width: min(100%, 400px); background: transparent; border: 1px solid #777; padding: 12px; margin-top: 8px; color: inherit; }
+.doors button:disabled { opacity: .5; cursor: wait; }
+.doors :focus-visible { outline: 2px solid var(--marca); outline-offset: 5px; }
+.doors article { margin: 25px 0; }
+@media(max-width: 640px) { .choices { grid-template-columns: 1fr; } }

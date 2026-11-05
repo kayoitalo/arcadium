@@ -77,7 +77,7 @@ export interface RawCandidate {
   trackName: string;
   albumName?: string;
   genre?: string;
-  source: "similar_artist" | "similar_track" | "genre_adjacency" | "artist_graph" | "top_artist_deep_cut" | "history_revisit" | "history_repertoire";
+  source: "similar_artist" | "similar_track" | "genre_adjacency" | "artist_graph" | "top_artist_deep_cut" | "history_revisit" | "history_repertoire" | "territory_catalog";
   sourceArtistName?: string;
   artistId?: string;
   trackId?: string;
@@ -91,7 +91,7 @@ export interface RawCandidate {
 }
 
 export interface RecommendationEvidence {
-  kind: "artist_similarity" | "track_similarity" | "artist_catalog" | "genre_overlap" | "history_revisit" | "history_repertoire";
+  kind: "artist_similarity" | "track_similarity" | "artist_catalog" | "genre_overlap" | "history_revisit" | "history_repertoire" | "territory_tag" | "repertoire_metadata";
   source: "lastfm" | "catalog" | "history";
   seedArtist?: string;
   seedTrack?: string;
@@ -112,6 +112,6 @@ export interface ScoredCandidate extends RawCandidate {
   position: DiscoveryDials | null;
 }
 
-export const ALGORITHM_VERSION = "v3-hybrid-3";
+export const ALGORITHM_VERSION = "v3-hybrid-4";
 export const DEFAULT_SESSION_SIZE = 8;
 export const RECENT_RECOMMENDATION_COOLDOWN_DAYS = 14;

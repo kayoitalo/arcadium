@@ -1,5 +1,7 @@
 # Deploy e migrations
 
+Atualização de 04/11/2026: PR 17 confirmado como mergeado. O incremento seguinte acrescenta somente três índices em `20261105000000_discovery_operations_indexes`, validados com todas as migrations em schema descartável no PostgreSQL de preview confirmado pelo proprietário. O schema da aplicação da preview e produção não foram migrados manualmente nesta rodada. O fluxo de deploy abaixo permanece inalterado. Ver [ensaio isolado e limites](evaluation-replay.md) e [operação/revisão](territories-evidence-operations.md).
+
 Em 01/11/2026 o proprietário relatou `DISCOVERY_MIGRATION_REQUIRED` em produção e confirmou que a conexão local apontava para o banco de produção correto. A consulta somente de leitura mostrou exatamente uma migration pendente: `20261030040000_discovery_sessions_feedback`. Ela foi aplicada com `prisma migrate deploy`; a conferência posterior confirmou as dez migrations em dia. Não houve reset, alteração de histórico ou migration nova. A validação anterior relatada pelo proprietário foi funcional/visual; não equivale a um ensaio medido de concorrência PostgreSQL.
 
 ## Novo fluxo versionado

@@ -18,10 +18,13 @@ import { Mapa, type MapDot } from "./mapa";
 import { useSelection } from "./selection-provider";
 import { MAX_SELECTED_TRACKS, selectionKey } from "./selection";
 import styles from "./descobertas.module.css";
+import { ExplorationDoors } from "./exploration-doors";
+import type { TerritoryRequest, RepertoireRestriction, DiscoveryCoverage } from "@/modules/recommendations/domain/territories";
 import { DiscoveryEntry } from "./discovery-entry";
 import { DiscoveryTrack } from "./discovery-track";
 import { AlbumProgress } from "./album-journeys";
 import { TrackContext } from "./track-context";
+import { ListeningCues } from "./listening-cues";
 import { discoveryEntryLabel } from "./discovery-view";
 import { DiscoveryDisclosure } from "./discovery-disclosure";
 import { DiscoveryTransition, useDiscoveryScene } from "./discovery-transition";
@@ -48,7 +51,7 @@ interface Candidate {
 
 type Action = "liked" | "saved" | "known" | "skipped" | "disliked" | "mismatch" | "curious" | "unheard";
 type LoadOperation = "BOOTSTRAP" | "RESUME" | "MORE" | "NEW_ENTRY" | "DEEPEN";
-type SearchOptions = { intent?: DiscoveryIntent; itemId?: string; sessionId?: string };
+type SearchOptions = { intent?: DiscoveryIntent; itemId?: string; sessionId?: string; territory?: TerritoryRequest; restrictions?: RepertoireRestriction };
 type Journey = DiscoveryContext["journey"] & { rootSessionId: string };
 
 const FEEDBACK_API: Record<Action, string> = {
@@ -68,7 +71,7 @@ const ASPECT_LABEL: Record<string, string> = { VOCALS: "vocal", INSTRUMENTAL: "i
 const CORNERS = [
   { label: "quase em casa", proximity: 88, fame: 70 },
   { label: "um passo ao lado", proximity: 55, fame: 50 },
-  { label: "fora da bolha", proximity: 18, fame: 30 },
+  { label: "relações menos diretas", proximity: 18, fame: 30 },
   { label: "como nunca ouvi isso?", proximity: 62, fame: 92 },
 ];
 
@@ -94,6 +97,8 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [intent, setIntent] = useState<DiscoveryIntent | null>(null);
   const intentRef = useRef<DiscoveryIntent>("DISCOVER");
+  const [coverage, setCoverage] = useState<DiscoveryCoverage | null>(null);
+  const [destination, setDestination] = useState<string | null>(null);
   const [journey, setJourney] = useState<Journey | null>(null);
   const [busy, setBusy] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -124,12 +129,12 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
   const { stop, toggle } = sound;
   const signal = usePulse(stageRef, sound.playing, sound.read);
 
-  const applySession = useCallback((payload: { items?: Candidate[]; sessionId?: string; currentRank?: number; journey?: Journey | null; settings?: { intent?: DiscoveryIntent | null; dials?: { proximity: number; fame: number } } }) => {
+  const applySession = useCallback((payload: { items?: Candidate[]; sessionId?: string; currentRank?: number; coverage?: DiscoveryCoverage | null; journey?: Journey | null; settings?: { destination?: { genre: string }; intent?: DiscoveryIntent | null; dials?: { proximity: number; fame: number } } }) => {
     const items = payload.items ?? [];
     setQueue(items); setSessionId(payload.sessionId ?? null);
     sessionRef.current = payload.sessionId ?? null;
     setIntent(payload.settings?.intent ?? null); intentRef.current = payload.settings?.intent ?? "DISCOVER";
-    setJourney(payload.journey ?? null);
+    setJourney(payload.journey ?? null); setCoverage(payload.coverage ?? null); setDestination(payload.settings?.destination?.genre ?? null);
     setIndex(Math.min(items.length, Math.max(0, (payload.currentRank ?? 1) - 1)));
     setDecided(Object.fromEntries(items.filter((item) => Object.values(item.feedback ?? {}).some((entry) => entry?.type !== "RETRACTED")).map((item) => [item.id, "known" as Action])));
     if (payload.settings?.dials) { setProximity(payload.settings.dials.proximity); setFame(payload.settings.dials.fame); setDraftProximity(payload.settings.dials.proximity); setDraftFame(payload.settings.dials.fame); }
@@ -158,12 +163,12 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
         return;
       }
       const action = operation;
-      const signature = JSON.stringify([action, source, nextProximity, nextFame, nextIntent, options.itemId]);
+      const signature = JSON.stringify([action, source, nextProximity, nextFame, nextIntent, options.itemId, options.territory, options.restrictions]);
       if (pendingSearch.current?.signature !== signature) pendingSearch.current = { signature, key: crypto.randomUUID() };
       response = await privateFetch("/api/recommendations", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ operation: action, sessionId: source, requestKey: pendingSearch.current.key,
-          intent: nextIntent, sourceItemId: options.itemId,
+          intent: nextIntent, sourceItemId: options.itemId, territory: options.territory, restrictions: options.restrictions,
           mode: "BALANCED", context: "GENERAL", proximity: nextProximity, fame: nextFame }),
       });
       const payload = await response.json();
@@ -420,6 +425,8 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
       <DiscoveryEntry busy={busy || saving} hasSession={Boolean(sessionId && queue?.length)} currentRank={index + 1} total={queue?.length ?? 0}
         onChoose={(nextProximity, nextFame, nextIntent) => void load(nextProximity, nextFame, "NEW_ENTRY", { intent: nextIntent })}
         onResume={() => void load(proximity, fame, "RESUME")} onAdjust={() => { intentRef.current = "DISCOVER"; setIntent("DISCOVER"); openMap(); }} />
+      <ExplorationDoors busy={busy || saving} onTerritory={(territory) => void load(55, 50, "NEW_ENTRY", { intent: "TERRITORY", territory })}
+        onRepertoire={(restrictions) => void load(85, 75, "NEW_ENTRY", { intent: "REPERTOIRE", restrictions })} />
       {busy && <p className={styles.quiet} role="status">Recuperando tua última busca…</p>}
       {loadError && <p className={styles.entryError} role="alert">{loadError} <button className={styles.textButton} onClick={() => void load(55, 50, "BOOTSTRAP")}>tentar novamente</button></p>}
     </>;
@@ -446,7 +453,7 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
         headline={intent === "REPERTOIRE" ? "Não encontrei uma seleção por aqui." : "Nada novo nesse canto."}
         narrative={intent === "REPERTOIRE" ? "Não encontrei faixas elegíveis no teu histórico para esta seleção. Você pode voltar aos caminhos anteriores ou buscar novidades." : "As referências desta busca não renderam outra indicação. A gente pode tentar outro caminho."}
       >{journey?.parentSessionId && <Resposta onClick={() => void load(proximity, fame, "RESUME", { sessionId: journey.parentSessionId })}>voltar ao passo anterior</Resposta>}
-        <Resposta onClick={showEntries}>escolher outro caminho</Resposta>{intent !== "REPERTOIRE" && <Resposta onClick={openMap}>ajustar a busca</Resposta>}</Aviso>
+        <Resposta onClick={showEntries}>escolher outro caminho</Resposta>{intent !== "REPERTOIRE" && intent !== "TERRITORY" && <Resposta onClick={openMap}>ajustar a busca</Resposta>}</Aviso>
     );
   } else if (finished || !current) {
     top = (
@@ -486,7 +493,7 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
         <div className={styles.decisionBar}>
         <Respostas>
           <p className={styles.feedback} role={feedbackError || sound.error ? "alert" : "status"}>
-            {feedbackError || sound.error || (saving ? "Guardando tua resposta…" : "O que você separar fica na lista, mesmo se mudar o mapa.")}
+            {feedbackError || sound.error || (saving ? "Guardando tua resposta…" : "O que você separar fica na tua coleção, mesmo ao trocar de caminho.")}
           </p>
           <Resposta onClick={() => void decide("liked")} hint="↑" disabled={saving || !selection.ready} primary>
             curti
@@ -522,6 +529,7 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
           {index > 0 && <Resposta onClick={() => void moveTo(index - 1)} disabled={saving}>rever a anterior</Resposta>}
           {index < queue.length - 1 && <Resposta onClick={() => void moveTo(index + 1)} disabled={saving}>próxima sem avaliar</Resposta>}
         </DiscoveryDisclosure>
+        <ListeningCues key={`cues:${current.id}`} itemId={current.id} mediaReady={mediaState === "ready"} />
         <TrackContext key={`context:${current.id}`} itemId={current.id} albumName={current.albumName} />
         {current.albumName && intent !== "ALBUM" && <Link className={styles.textButton} href={`/discovery/albums?item=${encodeURIComponent(current.id)}`}>ouvir o álbum desta indicação →</Link>}
         <div className={styles.continuity}>
@@ -530,7 +538,7 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
             <button className={styles.textButton} disabled={busy || saving} onClick={() => void load(proximity, fame, "DEEPEN", { itemId: current.id, intent: intent === "CONNECTIONS" ? "CONNECTIONS" : "DISCOVER" })}>buscar novidades a partir desta faixa ↗</button>
             {index > 0 && <button className={styles.textButton} disabled={saving} onClick={() => void moveTo(index - 1)}>← anterior</button>}
             {intent !== "ALBUM" && <button className={styles.textButton} disabled={saving} onClick={() => void load(proximity, fame, "MORE")}>buscar mais nesse caminho ↗</button>}
-            {intent !== "REPERTOIRE" && intent !== "ALBUM" && <button className={styles.textButton} disabled={saving} onClick={openMap}>ajustar caminho</button>}
+            {intent !== "REPERTOIRE" && intent !== "ALBUM" && intent !== "TERRITORY" && <button className={styles.textButton} disabled={saving} onClick={openMap}>ajustar caminho</button>}
           </div>
         </div>
       </div>
@@ -542,6 +550,9 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
     <div ref={stageRef} className={styles.stage}>
       <div>
       <div className={styles.pageTools}><span>uma faixa de cada vez.</span><Link className={styles.textButton} href="/discovery/collection">para depois <span className={styles.pillCount}>{kept.length}</span></Link></div>
+      {!choosing && destination && <p className={styles.journeyContext}>Destino escolhido: artistas associados a {destination}. A seleção permanece neste recorte; uma tag de artista não certifica cada gravação.</p>}
+      {!choosing && coverage?.status === "INSUFFICIENT" && <p className={styles.journeyContext} role="status">Cobertura insuficiente: {coverage.selected} de {coverage.requested} indicações. Mantive o pedido, sem acrescentar faixas de outro recorte. Você pode escolher outra entrada explicitamente.</p>}
+      {!choosing && Boolean(coverage?.provider?.failures || coverage?.provider?.deadlineStops) && <p className={styles.journeyContext}>Parte da consulta externa falhou ou atingiu o tempo disponível. Isso não prova ausência de repertório na fonte.</p>}
       {selection.error && <p role="alert">{selection.error} <Link href="/discovery/collection">abrir tua coleção</Link></p>}
       <AnimatePresence mode="wait" initial={false}>
         {scene.identity !== null
@@ -549,7 +560,7 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
           : <div key="other">{top}</div>}
       </AnimatePresence>
 
-      {intent !== "REPERTOIRE" && intent !== "ALBUM" && <DiscoveryDisclosure id="mapa-descoberta" className={styles.adjustments} bodyClassName={styles.map} open={mapOpen} onOpenChange={setMapOpen}
+      {intent !== "REPERTOIRE" && intent !== "ALBUM" && intent !== "TERRITORY" && <DiscoveryDisclosure id="mapa-descoberta" className={styles.adjustments} bodyClassName={styles.map} open={mapOpen} onOpenChange={setMapOpen}
         summary={<><span><span className={styles.eyebrow}>teu caminho, com mais detalhe</span><strong>Ajustar a descoberta</strong></span><span aria-hidden="true">↘</span></>}>
           <div><h2 className={styles.mapTitle}>Qual é a distância da próxima pista?</h2>
             <p className={styles.mapNote}>Mais perto das tuas referências ou um passo para fora. No outro eixo, o tamanho do público. Os ajustes só valem quando você iniciar a busca.</p>

@@ -84,6 +84,7 @@ export class AlbumJourneyService {
             reason: `Disco ${track.disc}, faixa ${track.number} de “${edition.album.albumName}”, na edição que você escolheu.`,
             coverUrl: edition.album.artworkUrl, previewUrl: track.previewUrl, appleMusicUrl: track.sourceUrl ?? edition.album.sourceUrl,
             scoreComponents: { albumEdition: { ...edition.album, trackId: track.trackId, disc: track.disc, number: track.number },
+              catalogFacts: { durationMs: track.durationMs, fetchedAt: edition.album.fetchedAt },
               previewIdentity: { source: "itunes", sourceId: track.trackId, artistName: track.artistName, trackName: track.trackName, match: "compatible-text-v1" } } })) },
         } });
       });

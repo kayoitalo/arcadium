@@ -1,0 +1,26 @@
+"use client";
+import { useEffect, useState } from "react";
+import { privateFetch } from "@/lib/http/private-fetch";
+import { listeningCuesSchema, type ListeningCues as Cues } from "@/modules/recommendations/domain/listening-cues";
+import { DiscoveryDisclosure } from "./discovery-disclosure";
+import styles from "./album-journeys.module.css";
+export function ListeningCues({ itemId, mediaReady }: { itemId: string; mediaReady: boolean }) {
+  const [open, setOpen] = useState(false); const [value, setValue] = useState<Cues | null>(null);
+  const [error, setError] = useState(false); const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (!open) return;
+    const controller = new AbortController(); setValue(null); setError(false);
+    void privateFetch("/api/listening-cues", { method: "POST", signal: controller.signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ itemId }) })
+      .then(async (response) => { if (!response.ok) throw new Error(); const data = listeningCuesSchema.parse(await response.json()); if (!controller.signal.aborted) setValue(data); })
+      .catch(() => { if (!controller.signal.aborted) setError(true); });
+    return () => controller.abort();
+  }, [open, itemId, mediaReady, attempt]);
+  return <DiscoveryDisclosure summary="pistas para esta versão, com fonte" open={open} onOpenChange={setOpen} className={styles.contextDisclosure}>
+    {!value && !error && <p role="status">Conferindo os metadados desta versão…</p>}
+    {error && <p role="alert">Não consegui conferir as pistas. <button onClick={() => setAttempt((n) => n + 1)}>tentar novamente</button></p>}
+    {value?.status === "INSUFFICIENT_EVIDENCE" && <p>Não há evidência suficiente para uma pista desta versão. Você pode ouvir e registrar o que percebeu; não vou inventar atributos sonoros.</p>}
+    {value?.cues.map((cue) => <article className={styles.context} key={cue.kind}><p><strong>{cue.fact}</strong></p><p>{cue.invitation}</p>
+      <p><a href={cue.source.url} target="_blank" rel="noreferrer">Entrada da faixa no Apple Music ↗</a> · metadados de <time dateTime={cue.source.fetchedAt}>{new Date(cue.source.fetchedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</time></p></article>)}
+    {value && <p>{value.limitation}</p>}
+  </DiscoveryDisclosure>;
+}

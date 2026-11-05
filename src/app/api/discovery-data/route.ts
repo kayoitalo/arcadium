@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     const page = { orderBy: { id: "asc" as const }, take: 101 };
     const own = { userId: access.userId, createdAt: { lte: until }, ...(cursor.after ? { id: { gt: cursor.after } } : {}) };
     const rows = cursor.section === 0 ? await prisma.recommendationSession.findMany({ ...page, where: own, select: { id: true, createdAt: true, status: true, currentRank: true, mode: true, discoveryContext: true } })
-      : cursor.section === 1 ? await prisma.recommendationItem.findMany({ ...page, where: { createdAt: { lte: until }, ...(cursor.after ? { id: { gt: cursor.after } } : {}), session: { userId: access.userId } }, select: { id: true, sessionId: true, artistName: true, trackName: true, albumName: true, reason: true, rank: true, exposedAt: true, createdAt: true, scoreComponents: true } })
+      : cursor.section === 1 ? await prisma.recommendationItem.findMany({ ...page, where: { createdAt: { lte: until }, ...(cursor.after ? { id: { gt: cursor.after } } : {}), session: { userId: access.userId } }, select: { id: true, sessionId: true, artistName: true, trackName: true, albumName: true, reason: true, rank: true, exposedAt: true, createdAt: true, scoreComponents: true, appleMusicUrl: true } })
       : cursor.section === 2 ? await prisma.recommendationFeedback.findMany({ ...page, where: own, select: { id: true, itemId: true, type: true, channel: true, revision: true, note: true, details: true, revisesId: true, createdAt: true } })
       : cursor.section === 3 ? await prisma.collectionEntry.findMany({ ...page, where: own, select: { id: true, sourceItemId: true, artistName: true, trackName: true, action: true, createdAt: true, updatedAt: true } })
       : cursor.section === 4 ? await prisma.playlistExport.findMany({ ...page, where: own, select: { id: true, sessionId: true, mode: true, playlistUrl: true, totalItems: true, resolvedCount: true, createdAt: true } })
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     const records = rows.slice(0, 100).map((row) => {
       if (cursor.section !== 1) return row;
       const { scoreComponents, ...record } = row as typeof row & { scoreComponents?: unknown };
-      return { ...record, ...sourceSnapshots(scoreComponents) };
+      return { ...record, ...sourceSnapshots(scoreComponents, record as { artistName: string; trackName: string; appleMusicUrl?: string | null }) };
     });
     const next = rows.length > 100 ? { section: cursor.section, after: records.at(-1)!.id } : cursor.section < sections.length - 1 ? { section: cursor.section + 1, after: "" } : null;
     return NextResponse.json({ section: sections[cursor.section], records, until: until.toISOString(), nextCursor: next ? Buffer.from(JSON.stringify(next)).toString("base64url") : null }, { headers });

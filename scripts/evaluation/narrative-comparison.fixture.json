@@ -1,0 +1,11 @@
+{
+  "id": "synthetic-scoped-context-1",
+  "provenance": "SYNTHETIC",
+  "artistName": "Artista sintético",
+  "trackName": "Faixa sintética (Live)",
+  "models": { "lite": "gemini-3.5-flash-lite", "flash": "gemini-3.5-flash" },
+  "evidence": [
+    { "id": "position", "scope": "catalog-track", "statement": "Esta entrada sintética é a faixa 2 do disco 1 da edição escolhida.", "sourceUrl": "https://music.apple.com/br/album/synthetic/42?i=43", "sourceId": "43", "fetchedAt": "2026-11-04T12:00:00Z" },
+    { "id": "album", "scope": "album", "statement": "Contexto sintético do álbum. Não descreve o som da gravação.", "sourceUrl": "https://www.last.fm/music/Synthetic/Album", "fetchedAt": "2026-11-04T12:00:00Z" }
+  ]
+}

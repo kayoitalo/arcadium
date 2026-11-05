@@ -1,0 +1,30 @@
+{
+  "sourceCommit": "6a9799cb4fc1a6706a3e1489f11a7f7438a82ee5",
+  "purpose": "Frozen ranking, eligibility and composition from the current motor at task start; paired pools remain inputs.",
+  "files": [
+    {
+      "originalPath": "src/modules/recommendations/domain/scoring.ts",
+      "file": "src/modules/recommendations/evaluation/baseline-scoring.ts",
+      "originalSha256": "5cda6acbf6e7e0f33f34b673f7d3a0cc5e658a31bb7c4bdd6ae170fff4c0116e",
+      "snapshotSha256": "fcf3e41906b6c91e7170ac6987899765f3d6af8167dd6db8a50a5d4a0950c842"
+    },
+    {
+      "originalPath": "src/modules/recommendations/domain/composition.ts",
+      "file": "src/modules/recommendations/evaluation/baseline-composition.ts",
+      "originalSha256": "627b4291d05806d559376e31fb401462179923ac6542ea1aee53669b1a09ce2b",
+      "snapshotSha256": "dabdc554f22497299793461c4ca7118192351411e08c08868f3971f10c4c3872"
+    },
+    {
+      "originalPath": "src/modules/recommendations/domain/eligibility.ts",
+      "file": "src/modules/recommendations/evaluation/baseline-eligibility.ts",
+      "originalSha256": "0c9a4f11cf67a1aea65eb1b2753b490c28f9dc8706ae4b1e4cdfbc0b507bc6b4",
+      "snapshotSha256": "cc8b506eedeca7004c75b98a97ba7584e7d602218f33dcb7b98cdd31373b8efa"
+    },
+    {
+      "originalPath": "src/modules/recommendations/domain/candidate-filters.ts",
+      "file": "src/modules/recommendations/evaluation/baseline-candidate-filters.ts",
+      "originalSha256": "666a8e127b0d45d42aa94a378cf75489c64f365fb470f86008064c24949003b0",
+      "snapshotSha256": "a655b88a671a1dc1bdfb79ee02369c5d02add8d2415b15aec0ff89861283af2a"
+    }
+  ]
+}

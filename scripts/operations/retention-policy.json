@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "personalMemory": "PRESERVE",
+  "batchSize": 100,
+  "scopes": {
+    "expiredSessions": null,
+    "expiredLoginLimits": null,
+    "abandonedGenerations": null
+  }
+}

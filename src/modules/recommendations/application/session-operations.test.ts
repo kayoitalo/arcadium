@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ first: vi.fn(), unique: vi.fn(), create: vi.fn(), update: vi.fn(), recent: vi.fn(), updateMany: vi.fn(), many: vi.fn() }));
-vi.mock("@/lib/db/prisma", () => ({ prisma: {
+vi.mock("@/lib/db/prisma", () => { const db = {
   recommendationSession: { findFirst: mocks.first, findUnique: mocks.unique, create: mocks.create, update: mocks.update, updateMany: mocks.updateMany, findMany: mocks.many },
   recommendationItem: { findMany: mocks.recent },
-} }));
+}; return { prisma: { ...db, $transaction: (fn: any) => fn({ ...db, $queryRaw: async () => [{ id: "owner" }] }) } }; });
 import { RecommendationService } from "./recommendation-service";
 import { ALGORITHM_VERSION } from "../domain/recommendation.types";
+import { TerritoryService } from "./territory-service";
+import { TERRITORY_VERSION } from "../domain/territories";
 let sessions: any[];
 const candidates = ["One", "Two", "Three"].map((trackName) => ({ artistName: "Band", trackName, source: "similar_artist" }));
 const source = () => ({ id: "source", userId: "owner", mode: "SAFE", context: "WORKING", profilePeriod: "7d:85:70",
@@ -51,6 +53,25 @@ function service() {
   return service;
 }
 describe("explicit session operations", () => {
+  it("freezes the selected territory across MORE and replays before resolving the catalog", async () => {
+    const svc = service();
+    const destination = { version: TERRITORY_VERSION, genre: "dub", scope: "artist-tag" as const, capturedAt: new Date().toISOString(), artists: [] };
+    const resolve = vi.spyOn(TerritoryService.prototype, "resolve").mockResolvedValue(destination);
+    const generate = vi.spyOn(TerritoryService.prototype, "candidates").mockResolvedValue([{ artistName: "Other", trackName: "Door (Live)", source: "territory_catalog",
+      evidence: [{ kind: "territory_tag", source: "catalog", genre: "dub", seedArtist: "Other" }] }]);
+    const input = { userId: "owner", mode: "BALANCED" as const, intent: "TERRITORY" as const, operation: "NEW_ENTRY" as const, requestKey: "door", size: 6,
+      territory: { version: TERRITORY_VERSION, genre: "dub" } };
+    const first = await svc.generateSession(input);
+    expect((await svc.generateSession(input)).sessionId).toBe(first.sessionId);
+    const more = await svc.generateSession({ userId: "owner", mode: "BALANCED", operation: "MORE", sessionId: first.sessionId, requestKey: "door-more", size: 8 });
+    expect(more.settings.destination).toEqual(destination); expect(more.coverage?.requested).toBe(6);
+    expect(resolve).toHaveBeenCalledOnce(); expect(generate).toHaveBeenCalledTimes(2);
+    expect((svc as any).generateCandidates).not.toHaveBeenCalled();
+  });
+  it("refuses unsupported restrictions before a reservation or provider work", async () => {
+    await expect(service().generateSession({ userId: "owner", mode: "BALANCED", intent: "REPERTOIRE", operation: "NEW_ENTRY", requestKey: "unsupported", restrictions: { moment: "WORKING" } })).rejects.toMatchObject({ status: 422, code: "INSUFFICIENT_EVIDENCE" });
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
   it("requires an explicit edition instead of generating a ranked session labeled as an album", async () => {
     const svc = service();
     await expect(svc.generateSession({ userId: "owner", mode: "BALANCED", intent: "ALBUM", operation: "NEW_ENTRY", requestKey: "album" })).rejects.toMatchObject({ status: 400 });

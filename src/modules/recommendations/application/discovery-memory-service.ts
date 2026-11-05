@@ -33,7 +33,7 @@ export class DiscoveryMemoryService {
       }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 6,
       select: { id: true, createdAt: true, currentRank: true, discoveryContext: true, _count: { select: { items: true } },
         exports: { where: { userId }, orderBy: { createdAt: "desc" }, take: 5, select: { createdAt: true, mode: true, totalItems: true, resolvedCount: true } },
-        items: { orderBy: { rank: "asc" }, take: 20, select: { id: true, artistName: true, trackName: true, reason: true, rank: true, exposedAt: true, scoreComponents: true,
+        items: { orderBy: { rank: "asc" }, take: 20, select: { id: true, artistName: true, trackName: true, reason: true, rank: true, exposedAt: true, scoreComponents: true, appleMusicUrl: true,
           events: { where: { userId }, orderBy: { createdAt: "desc" }, take: 10, select: { createdAt: true } },
           feedback: { where: { userId }, orderBy: [{ revision: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }, { id: "desc" }], take: 11,
             select: { id: true, type: true, channel: true, revision: true, note: true, details: true, createdAt: true, revisesId: true } } } } },
@@ -45,7 +45,7 @@ export class DiscoveryMemoryService {
         exports: row.exports.map((event) => ({ ...event, createdAt: event.createdAt.toISOString() })),
         anchor: context?.journey.anchor ? { artistName: context.journey.anchor.artistName, trackName: context.journey.anchor.trackName } : null,
         album: context?.journey.album ?? null,
-        items: row.items.map(({ scoreComponents, ...item }) => ({ ...item, ...sourceSnapshots(scoreComponents), events: undefined, starts: item.events.map((event) => ({ createdAt: event.createdAt.toISOString() })), exposedAt: item.exposedAt?.toISOString() ?? null, moreFeedback: item.feedback.length > 10,
+        items: row.items.map(({ scoreComponents, ...item }) => ({ ...item, ...sourceSnapshots(scoreComponents, item), events: undefined, starts: item.events.map((event) => ({ createdAt: event.createdAt.toISOString() })), exposedAt: item.exposedAt?.toISOString() ?? null, moreFeedback: item.feedback.length > 10,
           feedback: item.feedback.slice(0, 10).map((entry) => ({ ...entry, createdAt: entry.createdAt.toISOString() })) })) };
     }), nextCursor: rows.length > 5 && last ? Buffer.from(JSON.stringify({ at: last.createdAt.toISOString(), id: last.id })).toString("base64url") : null,
     limits: { sessions: 5, itemsPerSession: 20, feedbackPerItem: 10 } };

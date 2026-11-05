@@ -12,6 +12,7 @@ export interface TrackPreview {
   artworkUrl?: string;
   /** A faixa no Apple Music: quem oferece a prévia ganha o link junto. */
   appleMusicUrl?: string;
+  catalogFacts?: { durationMs: number | null; fetchedAt: string };
   /** Guarda a entidade devolvida; texto compatível não confirma um MBID. */
   identity?: {
     source: "itunes";
