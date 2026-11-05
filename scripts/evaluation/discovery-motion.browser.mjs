@@ -137,6 +137,11 @@ try {
       writeFileSync(path.join(output, `${name}-editions.png`), Buffer.from(entryScreenshot.data, "base64"));
     }
     if (portrait) {
+      const missing = await cdp("Runtime.evaluate", { expression: "window.prepareMissingPortraitCapture()", awaitPromise: true });
+      if (missing.exceptionDetails) throw new Error(JSON.stringify(missing.exceptionDetails));
+      const missingLayout = await cdp("Page.getLayoutMetrics");
+      const missingScreenshot = await cdp("Page.captureScreenshot", { format: "png", captureBeyondViewport: true, clip: { x:0, y:0, width, height:Math.min(missingLayout.cssContentSize.height,6000), scale:1 } });
+      writeFileSync(path.join(output, name+"-no-photo.png"), Buffer.from(missingScreenshot.data,"base64"));
       const prepared = await cdp("Runtime.evaluate", { expression: "window.prepareConversationCapture()", awaitPromise: true });
       if (prepared.exceptionDetails) throw new Error(JSON.stringify(prepared.exceptionDetails));
       const conversationScreenshot = await cdp("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });

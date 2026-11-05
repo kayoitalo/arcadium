@@ -33,7 +33,7 @@ Five screens, one narrator. The home screen is **the conversation**: the reading
 
 | Provider | Role |
 |---|---|
-| **Last.fm** | Listening history (`user.getRecentTracks`), similar artists for discovery, short artist/album facts for the readings |
+| **Last.fm** | Listening history (`user.getRecentTracks`), similar artists for discovery, short artist/album facts for the readings, and artist profile/photo fallback within the same API |
 | **MusicBrainz** + **Cover Art Archive** | Artist metadata, tags and album covers (1 req/s) |
 | **iTunes Search API** | Covers, 30 s previews, exact track durations, release year and genre — no key needed |
 | **Gemini** | Reading packs: several readings per period plus a comment for each record |

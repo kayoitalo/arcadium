@@ -14,12 +14,20 @@ describe("editorial presentation", () => {
     expect(mocks.register).toHaveBeenCalledWith({ data: [{ userId: "owner", key: editorialKey(first), headline: "Band · destaques de reprodução" }], skipDuplicates: true });
     expect(mocks.read).toHaveBeenCalledWith({ where: { userId: "owner", key: { in: [editorialKey(first)] } } });
   });
-  it("offers quiet/revisit states while preserving the version used to reject stale receipts", async () => {
+  it("keeps seen topics visible on initial load and preserves versions; only explicit silence makes it quiet", async () => {
     mocks.read.mockResolvedValue([{ key: editorialKey(first), dismissed: false, seenAt: new Date(), version: 2 }]);
     const view = { moments: [first], writing: false, hasHistory: true };
-    expect((await new EditorialService().present("owner", view, false)).quiet).toBe(true);
+    const initial = await new EditorialService().present("owner", view, false);
+    expect(initial.quiet).toBe(false); expect(initial.moments[0].headline).toBe(first.headline);
     expect((await new EditorialService().present("owner", view, true)).moments[0].editorialVersion).toBe(2);
     mocks.read.mockResolvedValue([{ key: editorialKey(first), dismissed: true, seenAt: null, version: 2 }]);
     expect((await new EditorialService().present("owner", view, true)).moments).toEqual([]);
+  });
+  it("prioritizes new topics over recently seen topics without removing either", async () => {
+    const other = { ...first, headline: "Another topic", evidence: { ...first.evidence, rows: [{ label: "Other", sub: "", plays: 5 }] } } as ConversationMoment;
+    mocks.read.mockResolvedValue([{ key: editorialKey(first), dismissed: false, seenAt: new Date(), version: 1 }]);
+    const view = { moments: [first, other], writing: false, hasHistory: true };
+    expect((await new EditorialService().present("owner", view, false)).moments.map(row => row.headline)).toEqual([other.headline, first.headline]);
+    expect((await new EditorialService().present("owner", view, true)).moments.map(row => row.headline)).toEqual([first.headline, other.headline]);
   });
 });

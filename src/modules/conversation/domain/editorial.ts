@@ -12,6 +12,7 @@ export function editorialSubject(moment: ConversationMoment) {
   if (e.kind === "transition") return `${e.from.track} → ${e.to.track} · passagens entre músicas`;
   return `Épocas na escuta: ${e.focus.slice().sort().join(", ")}`;
 }
+/** Priority eligibility; a recently seen reading remains visible in the conversation. */
 export function editorialAvailable(memory: { dismissed: boolean; seenAt: Date | null } | undefined, revisit: boolean, now = Date.now()) {
   return !memory?.dismissed && (revisit || !memory?.seenAt || now - memory.seenAt.getTime() >= 72 * 60 * 60 * 1000);
 }

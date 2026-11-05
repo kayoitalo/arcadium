@@ -8,6 +8,13 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 const request = (source: string) => new Request("https://app.test/api/cover?u=" + encodeURIComponent(source));
 describe("existing Spotify image proxy", () => {
+  it("allows Last.fm artist images through the existing host with no redirects or active documents", async () => {
+    const url = "https://lastfm.freetls.fastly.net/i/u/300x300/synthetic.jpg";
+    const req = () => new Request(request(url).url + "&kind=portrait");
+    expect((await GET(req())).status).toBe(200); expect(fetch).toHaveBeenCalledWith(expect.any(URL), expect.objectContaining({ redirect: "error" }));
+    vi.mocked(fetch).mockResolvedValue(new Response("<svg/>", { headers: { "Content-Type": "image/svg+xml" } }));
+    expect((await GET(req())).status).toBe(415);
+  });
   it("requires authentication before upstream work", async () => {
     auth.mockResolvedValue({ response: new Response(null, { status: 401 }) });
     expect((await GET(request("https://i.scdn.co/image/abc"))).status).toBe(401); expect(fetch).not.toHaveBeenCalled();

@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { sameRecordingText } from "@/lib/music/recording-match";
+import { artistPhotoSchema, lastfmArtistPageURL, lastfmPortraitImageURL, type ArtistPhotoResult } from "@/modules/enrichment/domain/artist-portrait";
 import type {
   ArtistReach,
   ExternalTrack,
@@ -46,6 +48,8 @@ let requestQueue: Promise<unknown> = Promise.resolve();
 let lastRequestAt = 0;
 let unavailableUntil = 0;
 const pending = new Map<string, Promise<unknown>>();
+const portraitCache = new Map<string, { value: ArtistPhotoResult; expires: number }>();
+const portraitInfoSchema = z.object({ artist: z.object({ name: z.string(), url: z.string(), image: z.array(z.object({ "#text": z.string(), size: z.string() })).max(20).default([]) }) });
 
 interface CacheEntry<T> {
   value: T;
@@ -102,6 +106,29 @@ export class LastFmSimilarArtistProvider implements SimilarArtistProvider {
 
   isConfigured(): boolean {
     return Boolean(this.apiKey);
+  }
+
+  /** Profile/photo uses the same Last.fm queue, cooldown and request coalescing. */
+  async getArtistPortrait(artistName: string): Promise<ArtistPhotoResult> {
+    if (!this.isConfigured()) return { status: "MISSING", reason: "NOT_CONFIGURED" };
+    const cached = portraitCache.get(artistName);
+    if (cached && cached.expires > Date.now()) return cached.value;
+    const payload = await this.request({ method: "artist.getinfo", artist: artistName, autocorrect: "0" }, portraitInfoSchema, Date.now() + 2500);
+    if (!payload) throw new Error("Last.fm portrait temporarily unavailable");
+    const artist = payload.artist; const sourceUrl = lastfmArtistPageURL(artist.url);
+    let value: ArtistPhotoResult;
+    const slug = sourceUrl ? decodeURIComponent(new URL(sourceUrl).pathname.slice(7).replace(/\/$/, "").replace(/\+/g, " ")) : "";
+    if (!sourceUrl || !sameRecordingText(artistName, artist.name) || !sameRecordingText(artistName, slug)) value = { status: "MISSING", reason: "AMBIGUOUS" };
+    else {
+      const profile = { provider: "lastfm" as const, artistName: artist.name, sourceUrl };
+      const order = ["small", "medium", "large", "extralarge", "mega"];
+      const image = artist.image.map(row => ({ url: lastfmPortraitImageURL(row["#text"]), rank: order.indexOf(row.size) })).filter(row => row.url).sort((a, b) => b.rank - a.rank)[0];
+      value = image ? artistPhotoSchema.parse({ ...profile, status: "READY", imageUrl: image.url, checkedAt: new Date().toISOString() })
+        : { status: "MISSING", reason: artist.image.some(row => row["#text"].includes("2a96cbd8b46e442fc41c2b86b821562f")) ? "PLACEHOLDER" : "NO_IMAGE", profile };
+    }
+    portraitCache.delete(artistName); portraitCache.set(artistName, { value, expires: Date.now() + (value.status === "READY" ? 86400000 : 3600000) });
+    while (portraitCache.size > 64) portraitCache.delete(portraitCache.keys().next().value!);
+    return value;
   }
 
   async getSimilarArtists(artistName: string, limit: number): Promise<SimilarArtist[]> {
@@ -182,17 +209,18 @@ export class LastFmSimilarArtistProvider implements SimilarArtistProvider {
   private async request<T>(
     params: Record<string, string>,
     schema: z.ZodType<T>,
+    deadline = Infinity,
   ): Promise<T | null> {
     if (!this.isConfigured()) return null;
     const key = JSON.stringify(params);
     const existing = pending.get(key) as Promise<T | null> | undefined;
     if (existing) { this.diagnostics.coalesced++; return existing; }
     const task = requestQueue.then(async () => {
-      if (Date.now() >= this.deadline) { this.diagnostics.deadlineStops++; return null; }
+      if (Date.now() >= Math.min(this.deadline, deadline)) { this.diagnostics.deadlineStops++; return null; }
       if (unavailableUntil > Date.now() && (this.timing.minIntervalMs ?? 300) > 0) { this.diagnostics.skippedAfterFailure++; return null; }
       const delay = lastRequestAt + (this.timing.minIntervalMs ?? 300) - Date.now();
       if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
-      if (Date.now() >= this.deadline) { this.diagnostics.deadlineStops++; return null; }
+      if (Date.now() >= Math.min(this.deadline, deadline)) { this.diagnostics.deadlineStops++; return null; }
       lastRequestAt = Date.now();
       return this.performRequest(params, schema);
     });
