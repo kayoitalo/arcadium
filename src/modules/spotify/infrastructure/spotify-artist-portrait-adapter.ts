@@ -7,6 +7,7 @@ import { invalidateSpotifyCatalogToken, isSpotifyCatalogConfigured, spotifyCatal
 const artistRefSchema = z.object({ id: spotifyArtistIdSchema, name: z.string() });
 const searchSchema = z.object({ tracks: z.object({ items: z.array(z.object({ name: z.string(), artists: z.array(artistRefSchema).max(100) })).max(10), next: z.string().nullable() }) });
 const profileSchema = artistRefSchema.extend({ images: z.array(z.object({ url: z.string(), width: z.number().nullable(), height: z.number().nullable() })).max(20) });
+const artistSearchSchema = z.object({ artists: z.object({ items: z.array(profileSchema).max(10) }) });
 const cache = new Map<string, { value?: ArtistPhotoResult; expires: number }>();
 const pending = new Map<string, Promise<ArtistPhotoResult>>();
 let active = false;
@@ -19,7 +20,7 @@ function remember(key: string, value: { value?: ArtistPhotoResult; expires: numb
 export class SpotifyArtistPortraitAdapter implements ArtistPortraitProvider {
   constructor(private interval = 1100) {}
   async lookup(reference: ArtistPortraitReference): Promise<ArtistPhotoResult> {
-    if (!reference.artistName.trim() || !reference.trackName.trim()) return { status: "MISSING", reason: "NO_REFERENCE" };
+    if (!reference.artistName.trim()) return { status: "MISSING", reason: "NO_REFERENCE" };
     if (!isSpotifyCatalogConfigured()) return { status: "MISSING", reason: "NOT_CONFIGURED" };
     const key = JSON.stringify([reference.artistName, reference.trackName]);
     const saved = cache.get(key);
@@ -50,27 +51,33 @@ export class SpotifyArtistPortraitAdapter implements ArtistPortraitProvider {
     return response.json();
   }
   private async load(reference: ArtistPortraitReference): Promise<ArtistPhotoResult> {
-    // Quotes/newlines would alter the search filter. No broad-name fallback.
-    if (/["\\\r\n]/.test(reference.artistName + reference.trackName)) return { status: "MISSING", reason: "NO_MATCH" };
+    // Photos belong to the artist profile, not to a specific recording version.
+    if (/["\\\r\n]/.test(reference.artistName)) return { status: "MISSING", reason: "NO_MATCH" };
     const token = await spotifyCatalogToken();
-    const query = new URLSearchParams({ q: `artist:"${reference.artistName}" track:"${reference.trackName}"`, type: "track", market: "BR", limit: "10" });
-    const found = searchSchema.safeParse(await this.request(`search?${query}`, token));
+    const query = new URLSearchParams({ q: `artist:"${reference.artistName}"`, type: "artist", market: "BR", limit: "10" });
+    const found = artistSearchSchema.safeParse(await this.request(`search?${query}`, token));
     if (!found.success) throw new SpotifyUnavailable();
-    const matches = new Map<string, string>();
-    for (const track of found.data.tracks.items) {
-      if (!sameRecordingText(reference.trackName, track.name)) continue;
-      for (const artist of track.artists) if (sameRecordingText(reference.artistName, artist.name)) matches.set(artist.id, artist.name);
+    const candidates = new Map(found.data.artists.items.filter(artist => sameRecordingText(reference.artistName, artist.name)).map(artist => [artist.id, artist]));
+    if (!candidates.size) return { status: "MISSING", reason: "NO_MATCH" };
+    let artistId = candidates.keys().next().value!;
+    if (candidates.size > 1) {
+      if (!reference.trackName.trim() || /["\\\r\n]/.test(reference.trackName)) return { status: "MISSING", reason: "AMBIGUOUS" };
+      const trackQuery = new URLSearchParams({ q: `artist:"${reference.artistName}" track:"${reference.trackName}"`, type: "track", market: "BR", limit: "10" });
+      const tracks = searchSchema.safeParse(await this.request(`search?${trackQuery}`, token));
+      if (!tracks.success) throw new SpotifyUnavailable();
+      const matches = new Set<string>();
+      for (const track of tracks.data.tracks.items) {
+        if (!sameRecordingText(reference.trackName, track.name)) continue;
+        for (const artist of track.artists) if (candidates.has(artist.id) && sameRecordingText(reference.artistName, artist.name)) matches.add(artist.id);
+      }
+      if (matches.size !== 1) return { status: "MISSING", reason: "AMBIGUOUS" };
+      artistId = matches.values().next().value!;
     }
-    if (!matches.size) return { status: "MISSING", reason: "NO_MATCH" };
-    if (matches.size !== 1) return { status: "MISSING", reason: "AMBIGUOUS" };
-    const [artistId] = matches.keys();
-    const profile = profileSchema.safeParse(await this.request(`artists/${artistId}`, token));
-    if (!profile.success) throw new SpotifyUnavailable();
-    if (profile.data.id !== artistId || !sameRecordingText(reference.artistName, profile.data.name)) return { status: "MISSING", reason: "AMBIGUOUS" };
-    const image = profile.data.images.filter(image => portraitImageURL(image.url)).sort((a, b) => (a.width ?? 0) - (b.width ?? 0));
+    const profile = candidates.get(artistId)!;
+    const image = profile.images.filter(image => portraitImageURL(image.url)).sort((a, b) => (a.width ?? 0) - (b.width ?? 0));
     const chosen = image.find(image => (image.width ?? 0) >= 640) ?? image.at(-1);
     if (!chosen) return { status: "MISSING", reason: "NO_IMAGE" };
-    return artistPhotoSchema.parse({ status: "READY", provider: "spotify", artistId, artistName: profile.data.name,
+    return artistPhotoSchema.parse({ status: "READY", provider: "spotify", artistId, artistName: profile.name,
       imageUrl: chosen.url, sourceUrl: `https://open.spotify.com/artist/${artistId}`, checkedAt: new Date().toISOString() });
   }
 }

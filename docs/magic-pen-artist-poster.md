@@ -27,14 +27,11 @@ A comparação é de contrato e integração, sem medição de cobertura entre c
 
 O servidor usa **Client Credentials** com os mesmos `SPOTIFY_CLIENT_ID` e `SPOTIFY_CLIENT_SECRET` existentes. Token de aplicação somente em memória, com compartilhamento de chamadas simultâneas e renovação antes da expiração. Não usa tokens de usuário, novo escopo OAuth, conexão de conta ou perfil pessoal. Exportação de playlist mantém o OAuth anterior. Sem credenciais Spotify, a rota pode tentar Last.fm com a chave existente. Não foram adicionadas variáveis, dependências, migrations, contratação ou infraestrutura.
 
-`POST /api/artist-portrait` exige autenticação/origem e um nome do histórico da conta. Uma consulta agrupada escolhe somente a faixa mais observada desse artista (desempate pelo título). O cliente não fornece URL, identificador de catálogo, faixa ou usuário. São enviados ao catálogo Spotify apenas o nome selecionado e esse título de referência, sem contagens, datas, demais escutas ou dados pessoais. Nenhuma gravação no banco.
+`POST /api/artist-portrait` exige autenticação/origem e um nome do histórico da conta. Uma consulta agrupada escolhe somente a faixa mais observada desse artista (desempate pelo título). O cliente não fornece URL, identificador de catálogo, faixa ou usuário. É enviado ao catálogo Spotify o nome selecionado; o título de referência só é enviado para desempatar homônimos, sem contagens, datas, demais escutas ou dados pessoais. Nenhuma gravação no banco.
 
-Até **duas chamadas de catálogo por referência sem cache**:
+Uma chamada de catálogo para buscar diretamente o artista; até duas quando há homônimos. Busca artist retorna nome, ID e imagens. Exige nome correspondente e um único perfil; só quando há mais de um candidato usa a faixa observada como desempate, preservando sua versão. Não depende de encontrar uma gravação para carregar foto de perfil único. Sem paginação, outro título ou escolha por popularidade. Ver [comparação e sondagem pública](artist-photo-provider-comparison.md).
 
-1. Busca Spotify por artista e faixa, com loja BR e até dez resultados. Compara texto completo preservando versão/participações; nomes de tributos e títulos diferentes não correspondem. Não segue paginação nem tenta outro título. A alternativa Last.fm não depende desse título e tem escopo pelo nome do perfil.
-2. Exige um único ID de artista entre as correspondências observadas. Consulta esse perfil e confere novamente ID/nome; escolhe imagem adequada, preferindo pelo menos 640 px quando disponível.
-
-Correspondência textual corroborada por faixa não é identidade global certificada ou equivalência de MBID. Homônimos encontrados são recusados; o limite de dez resultados não permite excluir homônimos fora da amostra. Ausência de match/foto é uma lacuna, não falha de rede. Nenhuma imagem é aceita somente por posição/popularidade do resultado.
+Correspondência textual de perfil não certifica identidade global ou equivalência de MBID. O limite de dez resultados não permite excluir homônimos fora da amostra; ambiguidade observada e não resolvida continua sem foto.
 
 A primeira consulta com token frio acrescenta **uma chamada de autorização**; token válido é reutilizado. Imagem pelo proxy é uma requisição adicional. Uma busca de foto ativa por processo, espaçamento de 1.100 ms entre chamadas de catálogo e timeout de 6 s em cada chamada; sem retry automático. Requisições iguais compartilham trabalho; outro artista enquanto ocupado recebe falha temporária.
 
