@@ -1,5 +1,7 @@
 # Conversa visível e imagens nas fontes existentes
 
+> Estado posterior confirmado em 04/11/2026: fotos Spotify reais funcionaram depois de configurar as variáveis também na preview. Spotify é a única fonte de fotografias; a alternativa Last.fm foi removida. As comparações/implementações anteriores abaixo registram a investigação histórica. A busca reserva o espaço da imagem e usa fade sem deslocar nome/dados: [decisão atual e validação](portrait-stable-loading.md). Nenhuma nova fonte foi ativada.
+
 Revisão solicitada em 04/11/2026 no PR 17. O proprietário rejeitou abrir a Conversa sem assuntos já disponíveis e relatou novamente o cartaz sem fotografia. Não adicionar outra API para resolver cobertura.
 
 ## Conversa

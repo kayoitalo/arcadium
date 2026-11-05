@@ -1,5 +1,7 @@
 # Fotos de artista: comparação e sondagem pública
 
+> Estado posterior confirmado em 04/11/2026: fotos Spotify reais funcionaram depois de configurar as variáveis também na preview. Spotify é a única fonte de fotografias; a alternativa Last.fm foi removida. As comparações/implementações anteriores abaixo registram a investigação histórica. A busca reserva o espaço da imagem e usa fade sem deslocar nome/dados: [decisão atual e validação](portrait-stable-loading.md). Nenhuma nova fonte foi ativada.
+
 04/11/2026, PR 17. O proprietário trouxe TheAudioDB e Discogs para avaliação de limites, qualidade e disponibilidade, sem autorizar uma contratação. Nenhum deles foi integrado automaticamente ao app nesta rodada.
 
 ## Spotify: correção da consulta existente

@@ -16,5 +16,6 @@ export function useArtistPhoto(name?:string) {
       .catch(()=>{if(!controller.signal.aborted)setState({name,value:null,error:true,loading:false});});},300);
     return()=>{clearTimeout(timer);controller.abort();};
   },[name,attempt]);
-  return {...(state.name===name?state:{value:null,error:false,loading:Boolean(name)}),retry:()=>{if(name)cache.current.delete(name);setAttempt(n=>n+1);}};
+  const saved = name ? cache.current.get(name) : undefined;
+  return {...(state.name===name?state:saved?{value:saved,error:false,loading:false}:{value:null,error:false,loading:Boolean(name)}),retry:()=>{if(name)cache.current.delete(name);setAttempt(n=>n+1);}};
 }

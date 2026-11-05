@@ -3,15 +3,15 @@ import { useState } from "react";
 import { Portrait } from "../../src/components/conversa/portrait";
 import { Conversa } from "../../src/components/conversa/conversa";
 import type { ConversationMoment } from "../../src/modules/conversation/domain/conversation.types";
-const key = "a".repeat(64); const qa = { requests: [] as { url: string; body: Record<string, unknown> }[], failDismiss: false, restored: false, failPhoto: true };
+const key = "a".repeat(64); const qa = { requests: [] as { url: string; body: Record<string, unknown> }[], failDismiss: false, restored: false, failPhoto: true, holdPhoto: true, releasePhoto: null as (()=>void)|null };
 window.fetch = async (input, init) => {
   const url = String(input); const body = JSON.parse(String(init?.body ?? "{}")); qa.requests.push({ url, body });
   await new Promise(requestAnimationFrame);
   const response = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
   if (url === "/api/portrait") return response({ asOf: "2026-11-02T12:00:00Z", timezone: "America/Sao_Paulo", total: 40, artists: [{ name: "Artista de teste", plays: 20, days: 3 }, { name: "Outro nome fictício", plays: 13, days: 8 }, { name: "Uma colaboração fictícia com um nome comprido", plays: 7, days: 4 }], changes: [{ name: "Artista de teste", current: 5, previous: 15 }, { name: "Outro nome fictício", current: 3, previous: 0 }] });
   if(url==="/api/artist-portrait"){
-    if(body.artistName==="Outro nome fictício"){if(qa.failPhoto){qa.failPhoto=false;return response({},503);}return response({status:"MISSING",reason:"PLACEHOLDER",profile:{provider:"lastfm",artistName:String(body.artistName),sourceUrl:"https://www.last.fm/music/Outro+nome+fict%C3%ADcio"}});}
-    if(String(body.artistName).startsWith("Uma colaboração"))return response({status:"READY",provider:"lastfm",artistName:String(body.artistName),imageUrl:"https://lastfm.freetls.fastly.net/i/u/300x300/Synthetic.jpg",sourceUrl:"https://www.last.fm/music/Uma+colabora%C3%A7%C3%A3o+fict%C3%ADcia+com+um+nome+comprido",checkedAt:"2026-11-04T12:00:00.000Z"});
+    if(qa.holdPhoto&&body.artistName==="Artista de teste")await new Promise<void>(resolve=>{qa.releasePhoto=()=>{qa.holdPhoto=false;resolve();};});
+    if(body.artistName==="Outro nome fictício"){if(qa.failPhoto){qa.failPhoto=false;return response({},503);}return response({status:"MISSING",reason:"NO_IMAGE"});}
     return response({status:"READY",provider:"spotify",artistId:"1a2b3c4d5e6f7g8h9i0jKl",artistName:String(body.artistName),imageUrl:"https://i.scdn.co/image/Synthetic",sourceUrl:"https://open.spotify.com/artist/1a2b3c4d5e6f7g8h9i0jKl",checkedAt:"2026-11-03T12:00:00.000Z"});
   }
   if (url === "/api/editorial") {
@@ -32,7 +32,18 @@ function button(label: string) { const node = [...document.querySelectorAll("but
 async function runChecks() {
   const passed: string[] = [];
   await wait(() => document.body.textContent?.includes("20 reproduções em 3 dias distintos"), "observed portrait");
+  await wait(()=>qa.releasePhoto,"deliberately pending photo metadata");
+  await document.fonts.ready;
+  const positions=()=>["h2","strong"].map(selector=>{const box=document.querySelector("[data-portrait-poster] "+selector)!.getBoundingClientRect();return {x:box.x,y:box.y,width:box.width,height:box.height};});
+  const initialPositions=positions();
+  const fixedText=(phase:string)=>positions().forEach((box,index)=>Object.entries(box).forEach(([key,value])=>assert(Math.abs(value-initialPositions[index][key as keyof typeof box])<1.5,"Artist text moved during "+phase+": "+key)));
+  assert(document.querySelector('[data-portrait-poster][data-photo="true"]'),"Reserve the photo column before metadata arrives");
+  qa.releasePhoto!();
+  await wait(()=>document.querySelector('[data-portrait-poster] figure [data-loaded="false"] > img'),"deliberately pending image bytes");
+  fixedText("image download");
   await wait(()=>document.querySelector('[data-portrait-poster] [data-loaded="true"]'),"loaded credited portrait");
+  fixedText("image loaded");
+  passed.push("stable name and counts before metadata, during image download and after load");
   await wait(()=>document.querySelector('[data-portrait-poster][data-pen-ready="true"]'),"name, image and observed metric pen gestures");
   assert(!document.querySelector("svg[data-pose]"),"The narrator must have no literal face");
   assert(document.querySelector('[data-portrait-poster] h2 [data-marked="true"]'),"Selected artist must be marked by the real pen");
@@ -43,14 +54,14 @@ async function runChecks() {
   assert(qa.requests.filter(row=>row.url==="/api/portrait").length===callsBeforeSelection,"Selecting an artist must reuse the fetched portrait");
   await wait(()=>document.body.textContent?.includes("A foto não veio agora"),"temporary photo failure");
   button("tentar a foto novamente").click();
-  await wait(()=>document.body.textContent?.includes("devolveu uma imagem genérica"),"missing photo typography");
+  await wait(()=>document.body.textContent?.includes("O Spotify não trouxe uma foto identificada"),"missing photo typography");
   assert(document.querySelector('[data-portrait-poster] h2')?.textContent==="Outro nome fictício","A missing image must retain artist identity");
   await wait(()=>document.querySelector('[data-portrait-poster][data-pen-ready="true"] h2 [data-marked="true"]'),"pen reacting to a different artist even without a photograph");
   assert(document.querySelector('[data-portrait-poster][data-photo="false"] [data-empty="true"] > div')?.getBoundingClientRect().height===0,"A missing photo must not leave an empty giant poster");
-  assert(document.querySelector('a[href="https://www.last.fm/music/Outro+nome+fict%C3%ADcio"]'),"A placeholder must keep the real Last.fm profile link");
+  assert(!document.querySelector('a[href*="last.fm"]'),"Photos must not offer or query the removed fallback");
   [...document.querySelectorAll<HTMLButtonElement>("button")].find(node=>node.textContent?.includes("Uma colaboração"))!.click();
-  await wait(()=>document.querySelector('[data-portrait-poster] img[alt$="Last.fm"]')&&document.querySelector('[data-loaded="true"]'),"Last.fm photo from the existing alternative");
-  assert(document.body.textContent?.includes("Foto e perfil:"),"Last.fm needs its own attribution");
+  await wait(()=>document.querySelector('[data-portrait-poster] img[alt$="Spotify"]')&&document.querySelector('[data-loaded="true"]'),"Spotify photo after another selection");
+  assert(document.querySelector('[data-portrait-poster] img[alt="Spotify"]'),"Selected photo needs Spotify attribution");
   button("02 a fase recente dois recortes de 30 dias").click();
   await wait(()=>document.body.textContent?.includes("5 agora · 15 no período anterior"),"recent perspective");
   assert(document.body.textContent?.includes("5 agora · 15 no período anterior"), "Recent and previous windows must remain separate");
@@ -77,5 +88,5 @@ async function runChecks() {
   return { passed, viewport: innerWidth, reduced: matchMedia("(prefers-reduced-motion: reduce)").matches, requests: qa.requests.length };
 }
 async function prepareConversationCapture(){ button("trocar fixture").click(); await wait(()=>document.querySelector("#assunto-0"),"conversation capture"); window.scrollTo({top:0,behavior:"instant"}); await new Promise(r=>setTimeout(r,1000)); }
-async function prepareMissingPortraitCapture(){ [...document.querySelectorAll<HTMLButtonElement>("button")].find(node=>node.textContent?.includes("Outro nome fictício"))!.click(); await wait(()=>document.body.textContent?.includes("devolveu uma imagem genérica")&&document.querySelector('[data-portrait-poster][data-pen-ready="true"]'),"compact missing-photo capture"); window.scrollTo({top:0,behavior:"instant"}); }
+async function prepareMissingPortraitCapture(){ [...document.querySelectorAll<HTMLButtonElement>("button")].find(node=>node.textContent?.includes("Outro nome fictício"))!.click(); await wait(()=>document.body.textContent?.includes("O Spotify não trouxe uma foto identificada")&&document.querySelector('[data-portrait-poster][data-pen-ready="true"]'),"compact missing-photo capture"); window.scrollTo({top:0,behavior:"instant"}); }
 Object.assign(window, { runDiscoveryChecks: runChecks, prepareConversationCapture, prepareMissingPortraitCapture });

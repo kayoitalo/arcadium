@@ -2,22 +2,22 @@
 
 Revisão de 03/11/2026 no PR 17. O proprietário esclareceu que a presença do amigo é a **caneta mágica**, como na Conversa: viaja, grifa, circula e reage ao conteúdo. A figura literal com rosto/fones foi retirada. A composição escolhida foi **Cartaz do artista**: foto, nome grande e a caneta conectando imagem e escutas.
 
-O proprietário pediu em seguida manter as APIs já acordadas. **Wikidata/Commons foram removidos**, incluindo adaptador, contratos de crédito e autorização dos novos hosts no proxy. A funcionalidade reutiliza **Spotify e Last.fm**, provedores já integrados. Não reintroduzir fornecedor fora desse escopo. A [revisão de 04/11](conversation-visible-artist-sources.md) mantém assuntos vistos na Conversa e acrescenta getInfo Last.fm como alternativa documentada.
+O proprietário pediu em seguida manter as APIs já acordadas. **Wikidata/Commons foram removidos**, incluindo adaptador, contratos de crédito e autorização dos novos hosts no proxy. A fotografia usa **somente Spotify**, provedor já integrado. Não reintroduzir fornecedor fora desse escopo. A [revisão de 04/11](conversation-visible-artist-sources.md) mantém assuntos vistos na Conversa; a alternativa Last.fm inicialmente acrescentada foi retirada após confirmação do Spotify real. Ver [carregamento estável e fonte única](portrait-stable-loading.md).
 
 ## Composição e gestos
 
 - Índice horizontal de nomes, cartaz com foto e tipografia grande, números observados ao lado. No celular, nome, foto e dados se reorganizam, com retorno ao índice.
 - O mesmo `usePen`/`Trace` da Conversa mede alvos reais: grifa o nome, contorna a área da foto depois do carregamento e circula dias distintos ou reproduções recentes. Troca de artista/perspectiva refaz os alvos; não há sublinhado CSS fingindo ser a caneta.
 - A caneta também grifa a pergunta de versão ao abrir um disco e circula o capítulo aberto no diário. Uma camada por página, sem rosto/mascote ou animação decorativa em loop.
-- Movimento reduzido preserva marcas e controles sem viagem animada. Imagem mantém forma/proporção, sem filtros, recorte, animação ou sobreposição. Contorno da caneta fica fora da área da foto.
-- Foto ausente mantém composição tipográfica. Falha temporária oferece nova tentativa; ambas permitem escolher outro nome, ler os números e seguir para o histórico.
+- Movimento reduzido preserva marcas e controles sem viagem animada. Imagem mantém forma/proporção, sem filtros, recorte ou sobreposição; entrada por opacidade de 220 ms, desativada com movimento reduzido. Contorno da caneta fica fora da área da foto.
+- Durante a consulta/download, área de imagem reservada e texto em posição definitiva. Foto ausente mantém composição tipográfica. Falha temporária oferece nova tentativa; ambas permitem escolher outro nome, ler os números e seguir para o histórico.
 
 ## Escolha entre os provedores existentes
 
 | Provedor | O que oferece / decisão |
 | --- | --- |
 | Spotify | Objeto próprio de artista com imagens e endpoint documentado. Melhor opção integrável para foto de perfil: reutiliza Client ID/Secret já previstos. Escolhido. |
-| Last.fm | `artist.getInfo` ainda documenta imagens, mas a documentação sozinha não confirma cobertura atual ou ausência de placeholders. Alternativa implementada com getInfo exato; placeholders são rejeitados. Não foi feita sondagem autenticada; não alegar indisponibilidade universal. |
+| Last.fm | `artist.getInfo` ainda documenta imagens, mas a documentação sozinha não confirma cobertura atual ou ausência de placeholders. Sondagem real relatada retornou placeholder para Linkin Park; isso não mede a cobertura global. Alternativa de fotografia retirada após confirmação do Spotify real; demais funções Last.fm preservadas. |
 | iTunes / Cover Art Archive | Os adaptadores existentes fornecem capas de lançamentos, que não devem ser apresentadas como foto de artista. |
 | MusicBrainz | Identificadores/metadados e relações podem apontar a imagens externas; seguir essas relações ampliaria novamente as fontes de imagem. Não usado para a foto. |
 
@@ -25,7 +25,7 @@ A comparação é de contrato e integração, sem medição de cobertura entre c
 
 ## Autorização, identidade e limites
 
-O servidor usa **Client Credentials** com os mesmos `SPOTIFY_CLIENT_ID` e `SPOTIFY_CLIENT_SECRET` existentes. Token de aplicação somente em memória, com compartilhamento de chamadas simultâneas e renovação antes da expiração. Não usa tokens de usuário, novo escopo OAuth, conexão de conta ou perfil pessoal. Exportação de playlist mantém o OAuth anterior. Sem credenciais Spotify, a rota pode tentar Last.fm com a chave existente. Não foram adicionadas variáveis, dependências, migrations, contratação ou infraestrutura.
+O servidor usa **Client Credentials** com os mesmos `SPOTIFY_CLIENT_ID` e `SPOTIFY_CLIENT_SECRET` existentes. Token de aplicação somente em memória, com compartilhamento de chamadas simultâneas e renovação antes da expiração. Não usa tokens de usuário, novo escopo OAuth, conexão de conta ou perfil pessoal. Exportação de playlist mantém o OAuth anterior. Sem credenciais Spotify, a rota informa falta de configuração; não consulta outra fonte. Não foram adicionadas variáveis, dependências, migrations, contratação ou infraestrutura.
 
 `POST /api/artist-portrait` exige autenticação/origem e um nome do histórico da conta. Uma consulta agrupada escolhe somente a faixa mais observada desse artista (desempate pelo título). O cliente não fornece URL, identificador de catálogo, faixa ou usuário. É enviado ao catálogo Spotify o nome selecionado; o título de referência só é enviado para desempatar homônimos, sem contagens, datas, demais escutas ou dados pessoais. Nenhuma gravação no banco.
 
@@ -49,10 +49,10 @@ Fonte visível com **logo oficial Spotify branco**, link ao perfil e nome de cat
 
 ## Verificação e revisão
 
-550 testes em 102 arquivos e build passaram; ver também a revisão de Last.fm/Conversa. Testes da integração cobrem propriedade/referência observada, versões/tributos/homônimos, coerência de perfil/CDN, cache/singleflight, token reutilizado/expirado, 401/403/429, falta de configuração e ausência de retries. Proxy verifica bloqueio das fontes retiradas. Banco, tokens e respostas são simulados.
+545 testes em 101 arquivos, tipos e build passaram; ver também a revisão de carregamento estável. Testes da integração cobrem propriedade/referência observada, versões/tributos/homônimos, coerência de perfil/CDN, cache/singleflight, token reutilizado/expirado, 401/403/429, falta de configuração e ausência de retries. Proxy verifica bloqueio das fontes retiradas. Banco, tokens e respostas são simulados.
 
-Chrome headless passou três grupos de retrato/editorial/foto em 1280/1920/390 px e 390 px com movimento reduzido. Componentes/fontes reais, nomes/dados e imagem explicitamente sintéticos; logo oficial local. Verifica gestos da caneta, atribuição/link, troca de artista, foto ausente/erro, janelas e largura.
+Chrome headless passou quatro grupos de retrato/editorial/foto/geometria estável em 1280/1920/390 px e 390 px com movimento reduzido. Componentes/fontes reais, nomes/dados e imagem explicitamente sintéticos; logo oficial local. Verifica gestos da caneta, atribuição/link, troca de artista, foto ausente/erro, janelas e largura, além da posição do nome/número antes/durante/depois de metadados e download separados.
 
 Este workspace não tem credenciais Spotify/Last.fm no ambiente do processo. Não foram lidos ou copiados segredos de outro checkout, acessado banco real, criado playlist ou feita consulta autenticada real. A sondagem anterior do Commons não valida Spotify e não representa mais a implementação.
 
-Na preview com as credenciais Spotify existentes: abrir **teu retrato**, escolher nomes/perspectivas, conferir foto/fonte e dados conhecidos, incluindo nomes brasileiros e homônimos. Sem credenciais, match ou foto, conferir cartaz tipográfico; falha temporária oferece nova tentativa. Observar caneta, teclado, celular e movimento reduzido. Cobertura e disponibilidade reais da conta permanecem para essa revisão, sem adicionar fornecedor fora do escopo. Last.fm documentado e integrado é a alternativa; disponibilidade real de fotos não é garantida pelo contrato.
+Na preview com as credenciais Spotify existentes: abrir **teu retrato**, escolher nomes/perspectivas, conferir foto/fonte e dados conhecidos, incluindo nomes brasileiros e homônimos. Sem credenciais, match ou foto, conferir cartaz tipográfico; falha temporária oferece nova tentativa. Observar caneta, teclado, celular e movimento reduzido. O proprietário confirmou foto Spotify real após incluir as variáveis na preview (estavam somente em Production). Isso confirma o caso observado, sem medir cobertura geral; a nova transição permanece para revisão. Last.fm não é alternativa para fotos.

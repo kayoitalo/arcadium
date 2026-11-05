@@ -28,8 +28,9 @@ export function Portrait() {
   const lifetime = data?.artists.find((row) => row.name === selected?.name); const recent = data?.changes.find((row) => row.name === selected?.name);
   const image=useArtistPhoto(selected?.name); const photo=image.value?.status==="READY"?image.value:null;
   const missing=image.value?.status==="MISSING"?image.value:null;
-  const missingText=missing?.reason==="NOT_CONFIGURED" ? "As fontes de fotos não estão disponíveis neste ambiente." : missing?.reason==="PLACEHOLDER" ? "O Last.fm encontrou o perfil, mas devolveu uma imagem genérica." : missing?.reason==="AMBIGUOUS" ? "Encontrei uma dúvida na identificação. Prefiro deixar a foto de fora." : "A fonte não trouxe uma foto identificada deste artista.";
+  const missingText=missing?.reason==="NOT_CONFIGURED" ? "As fotos do Spotify não estão disponíveis neste ambiente." : missing?.reason==="AMBIGUOUS" ? "Encontrei uma dúvida na identificação. Prefiro deixar a foto de fora." : "O Spotify não trouxe uma foto identificada deste artista.";
   const imageKey=selected?.name+":"+(photo?.imageUrl??""); const photoReady=Boolean(photo&&loadedPhoto===imageKey&&failedPhoto!==imageKey);
+  const reservePhoto=Boolean(image.loading||photo&&failedPhoto!==imageKey);
   const inkKey="portrait:"+view+":"+selected?.name+":"+visit;
   const pen = usePen(stage, (origin) => {
     const gestures: import("@/components/amigo/trace").TraceGesture[] = [];
@@ -77,14 +78,11 @@ export function Portrait() {
             </button></li>)}</ol>
             <p className={styles.note}>{view === "all" ? "Até vinte artistas com mais reproduções importadas. Escolha um para abrir suas anotações." : "Até doze destaques por reproduções nos últimos 30 dias, com os 30 anteriores ao lado."}</p>
           </div>
-          {selected ? <article className={styles.feature} data-portrait-poster data-photo={Boolean(photo&&failedPhoto!==imageKey)} data-pen-ready={pen.done.has(inkKey+":count") && (!photoReady || pen.done.has(inkKey+":photo"))}>
+          {selected ? <article className={styles.feature} data-portrait-poster data-photo={reservePhoto} data-pen-ready={pen.done.has(inkKey+":count") && (!photoReady || pen.done.has(inkKey+":photo"))}>
+            <div className={styles.posterCopy}>
             <p className={styles.eyebrow}>{view === "all" ? lifetime && lifetime.plays > 1 ? "um nome que voltou" : "um nome registrado" : "duas páginas do mesmo caderno"}</p>
             <h2 ref={artistHeading} tabIndex={-1}><span ref={artistMark} className={styles.artistMark} data-marked={pen.started.has(inkKey+":name")}>{selected.name}</span></h2>
-            <figure className={styles.posterPhoto} data-empty={!photo||failedPhoto===imageKey}><div ref={photoRef} className={styles.photoSpace} data-loaded={photoReady}>
-              {photo&&failedPhoto!==imageKey ? <img src={coverProxyUrl(photo.imageUrl)!+"&kind=portrait"} alt={photo.artistName+" — foto do "+(photo.provider==="spotify"?"Spotify":"Last.fm")} onLoad={()=>setLoadedPhoto(imageKey)} onError={()=>setFailedPhoto(imageKey)} />
-                : <div className={styles.typePoster} aria-hidden="true"><span>um nome<br/>em cartaz.</span><small>o rastro está nas escutas.</small></div>}
-            </div><figcaption>{photo&&photoReady ? <>{photo.provider==="spotify" ? <a className={styles.spotifyCredit} href={photo.sourceUrl} target="_blank" rel="noreferrer"><img src="/brands/spotify-logo-white.svg" width="84" height="26" alt="Spotify" />ver {photo.artistName} no Spotify ↗</a> : <a href={photo.sourceUrl} target="_blank" rel="noreferrer">Foto e perfil: {photo.artistName} no Last.fm ↗</a>}<span className={styles.identitySource}>{photo.provider==="spotify"?"Foto do perfil no catálogo · faixa usada só para distinguir homônimos.":"Foto informada pelo Last.fm · perfil correspondente ao nome."}</span></>
-              : image.loading||photo&&failedPhoto!==imageKey ? <span role="status">Conferindo uma foto deste artista…</span> : image.error||failedPhoto===imageKey ? <>A foto não veio agora. <button onClick={()=>{setFailedPhoto(null);image.retry();}}>tentar a foto novamente</button></> : <>{missingText}{missing?.profile&&<> <a href={missing.profile.sourceUrl} target="_blank" rel="noreferrer">ver perfil no Last.fm ↗</a></>}</>}</figcaption></figure>
+
             <button className={styles.backToIndex} onClick={() => { indexRef.current?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.focus({preventScroll:true}); indexRef.current?.scrollIntoView({block:"start",behavior:reduced?"instant":"smooth"}); }}>escolher outro nome ↑</button>
             {view === "all" && lifetime && <>
               <div className={styles.numbers}><div><strong>{count(lifetime.plays)}</strong><span>reproduções</span></div><div><strong ref={metricRef}>{count(lifetime.days)}</strong><span>dias distintos</span></div></div>
@@ -97,6 +95,13 @@ export function Portrait() {
               <p className={styles.annotation}>↳ o agora, com o antes logo ao lado.</p>
             </>}
             <Link className={styles.follow} href={`/history?search=${encodeURIComponent(selected.name)}`}>seguir as reproduções de {selected.name} →</Link>
+            </div>
+            <figure className={styles.posterPhoto} data-empty={!reservePhoto}><div ref={photoRef} className={styles.photoSpace} data-loaded={photoReady}>
+              {!photoReady&&reservePhoto&&<div className={styles.photoPending} aria-hidden="true"><span>foto do artista</span><small>um instante.</small></div>}
+              {photo&&failedPhoto!==imageKey ? <img key={imageKey} src={coverProxyUrl(photo.imageUrl)!+"&kind=portrait"} alt={photo.artistName+" — foto do Spotify"} onLoad={()=>setLoadedPhoto(imageKey)} onError={()=>setFailedPhoto(imageKey)} />
+                : null}
+            </div><figcaption>{photo&&photoReady ? <><a className={styles.spotifyCredit} href={photo.sourceUrl} target="_blank" rel="noreferrer"><img src="/brands/spotify-logo-white.svg" width="84" height="26" alt="Spotify" />ver {photo.artistName} no Spotify ↗</a><span className={styles.identitySource}>Foto do perfil no catálogo · faixa usada só para distinguir homônimos.</span></>
+              : reservePhoto ? <span role="status">Conferindo uma foto deste artista…</span> : image.error||failedPhoto===imageKey ? <>A foto não veio agora. <button onClick={()=>{setFailedPhoto(null);image.retry();}}>tentar a foto novamente</button></> : missingText}</figcaption></figure>
           </article> : <p>Nenhum artista neste recorte.</p>}
         </section>
       </>}

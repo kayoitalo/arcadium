@@ -1,6 +1,6 @@
 import { authorizeApi } from "@/lib/security/api-auth";
 import { NextResponse } from "next/server";
-import { portraitImageURL, lastfmPortraitImageURL } from "@/modules/enrichment/domain/artist-portrait";
+import { portraitImageURL } from "@/modules/enrichment/domain/artist-portrait";
 
 /**
  * Espelha capas dos provedores na mesma origem.
@@ -48,7 +48,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid URL." }, { status: 400 });
   }
 
-  if (!isAllowed(target) || portrait && !portraitImageURL(raw) && !lastfmPortraitImageURL(raw)) {
+  if (!isAllowed(target) || portrait && !portraitImageURL(raw)) {
     return NextResponse.json({ error: "Host not allowed." }, { status: 403 });
   }
 
