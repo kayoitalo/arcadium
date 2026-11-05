@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import manifest from "../evaluation/baseline-manifest.json";
 describe("paired evaluation and missing judgments", () => {
   it("keeps the reviewed baseline snapshot immutable", () => {
-    for (const file of manifest.files) expect(createHash("sha256").update(readFileSync(file.file)).digest("hex")).toBe(file.snapshotSha256);
+    for (const file of manifest.files) expect(createHash("sha256").update(readFileSync(file.file, "utf8").replace(/\r\n/g, "\n")).digest("hex")).toBe(file.snapshotSha256);
   });
   it("reports undercoverage and adherence without converting novelty into interest", () => {
     const result = evaluateDiscovery(fixture);

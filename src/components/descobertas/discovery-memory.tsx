@@ -15,6 +15,7 @@ import styles from "./discovery-memory.module.css";
 import { MemoryTools } from "./memory-tools";
 import { EditionCredit } from "./album-journeys";
 import { ContextExcerpt } from "./track-context";
+import { ListeningCueExcerpt } from "./listening-cues";
 import { ListeningNote } from "@/components/amigo/listening-note";
 
 const when = (value: string) => new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
@@ -87,6 +88,7 @@ export function DiscoveryMemory() {
           <ol className={styles.tracks}>{session.items.map((item) => <li key={item.id}>
             <h3>{item.trackName}</h3><p>{item.artistName}</p>
             {item.reason && <p className={styles.note}>{item.reason}</p>}
+            {item.listeningCues && <DiscoveryDisclosure className={styles.details} summary="pistas desta versão, com fonte"><ListeningCueExcerpt value={item.listeningCues} /></DiscoveryDisclosure>}
             {Object.values(item.culturalContext ?? {}).map((value) => value && <DiscoveryDisclosure key={value.kind} className={styles.details} summary={`contexto consultado · ${value.kind === "album" ? "álbum" : "música"}`}><ContextExcerpt value={value} /></DiscoveryDisclosure>)}
             <p className={styles.note}>{item.exposedAt ? `Indicação vista em ${when(item.exposedAt)}.` : "Sem registro de exposição."}</p>
             {item.starts?.map((event, index) => <p className={styles.note} key={index}>Prévia iniciada no player em {when(event.createdAt)}. Isso não indica escuta completa.</p>)}

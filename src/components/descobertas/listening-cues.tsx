@@ -4,6 +4,14 @@ import { privateFetch } from "@/lib/http/private-fetch";
 import { listeningCuesSchema, type ListeningCues as Cues } from "@/modules/recommendations/domain/listening-cues";
 import { DiscoveryDisclosure } from "./discovery-disclosure";
 import styles from "./album-journeys.module.css";
+export function ListeningCueExcerpt({ value }: { value: Cues }) {
+  return <>
+    {value.status === "INSUFFICIENT_EVIDENCE" && <p>Não há evidência suficiente para uma pista desta versão. Você pode ouvir e registrar o que percebeu; não vou inventar atributos sonoros.</p>}
+    {value.cues.map((cue) => <article className={styles.context} key={cue.kind}><p><strong>{cue.fact}</strong></p><p>{cue.invitation}</p>
+      <p><a href={cue.source.url} target="_blank" rel="noreferrer">Entrada da faixa no Apple Music ↗</a> · metadados de <time dateTime={cue.source.fetchedAt}>{new Date(cue.source.fetchedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</time></p></article>)}
+    <p>{value.limitation}</p>
+  </>;
+}
 export function ListeningCues({ itemId, mediaReady }: { itemId: string; mediaReady: boolean }) {
   const [open, setOpen] = useState(false); const [value, setValue] = useState<Cues | null>(null);
   const [error, setError] = useState(false); const [attempt, setAttempt] = useState(0);
@@ -18,9 +26,6 @@ export function ListeningCues({ itemId, mediaReady }: { itemId: string; mediaRea
   return <DiscoveryDisclosure summary="pistas para esta versão, com fonte" open={open} onOpenChange={setOpen} className={styles.contextDisclosure}>
     {!value && !error && <p role="status">Conferindo os metadados desta versão…</p>}
     {error && <p role="alert">Não consegui conferir as pistas. <button onClick={() => setAttempt((n) => n + 1)}>tentar novamente</button></p>}
-    {value?.status === "INSUFFICIENT_EVIDENCE" && <p>Não há evidência suficiente para uma pista desta versão. Você pode ouvir e registrar o que percebeu; não vou inventar atributos sonoros.</p>}
-    {value?.cues.map((cue) => <article className={styles.context} key={cue.kind}><p><strong>{cue.fact}</strong></p><p>{cue.invitation}</p>
-      <p><a href={cue.source.url} target="_blank" rel="noreferrer">Entrada da faixa no Apple Music ↗</a> · metadados de <time dateTime={cue.source.fetchedAt}>{new Date(cue.source.fetchedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</time></p></article>)}
-    {value && <p>{value.limitation}</p>}
+    {value && <ListeningCueExcerpt value={value} />}
   </DiscoveryDisclosure>;
 }

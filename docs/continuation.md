@@ -4,6 +4,8 @@ Atualizado em 02/11/2026. Este registro recupera na base atual a continuidade do
 
 ## Rodada de 04/11/2026 — após merge do PR 17
 
+Entrega agrupada no [PR 18](https://github.com/kayoitalo/arcadium/pull/18), aberto para revisão, sem merge. Roteiro, validações e pendências ficam descritos no PR e nos documentos abaixo.
+
 - PR 17 confirmado pela API GitHub como mergeado em `6a9799c`, head `6ac105b`; Vercel do head com sucesso. Master atualizada e branch `codex/territories-evidence-operations` criada com workspace inicialmente limpo. Sem presumir nova aprovação manual.
 - Implementados [territórios, repertório restrito, pistas de catálogo e operação](territories-evidence-operations.md). Destino e restrições persistem na sessão; cobertura curta/falha é explícita. Proximidade não promete outro universo. [Curadorias v1](curation-proposals.md) permanecem propostas, com fontes e âncoras, sem aprovação ou ativação no ranking.
 - [Avaliação pareada](evaluation-replay.md) agora tem controle do motor atual congelado, hash dos snapshots/pools, métricas estruturais e julgamentos humanos separados. Preparo Lite/Flash é offline e não executa IA. Pistas sonoras específicas e comparação qualitativa real permanecem pendentes de evidência/revisão.

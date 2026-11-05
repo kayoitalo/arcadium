@@ -6,7 +6,7 @@
 
 `pnpm exec vitest run --config scripts/evaluation/replay.config.mts` executa a fixture sintética de descoberta e prepara a comparação narrativa. Resultados ficam em `.local/evaluation/`, ignorada pelo Git e preservada entre builds. Não há SDK, credencial de provedor ou acesso a histórico.
 
-O motor de controle tem snapshots de ranking, composição e elegibilidade extraídos do commit de origem, com manifest/hashes verificáveis em `src/modules/recommendations/evaluation`. Pesos/perfis/presets e cálculo de público estão congelados no snapshot de ranking. Tipos e utilitário de chave de feedback são compartilhados; mudanças nesses contratos exigem revisão do controle. O tratamento usa as funções atuais e o recorte de destino.
+O motor de controle tem snapshots de ranking, composição e elegibilidade extraídos do commit de origem, com manifest/hashes verificáveis em `src/modules/recommendations/evaluation`. O hash usa UTF-8/LF, normalizando CRLF no checkout Windows. Pesos/perfis/presets e cálculo de público estão congelados no snapshot de ranking. Tipos e utilitário de chave de feedback são compartilhados; mudanças nesses contratos exigem revisão do controle. O tratamento usa as funções atuais e o recorte de destino.
 
 Uma entrada contém versão, origem `SYNTHETIC` ou `OBSERVED_SNAPSHOT`, data, pedido, perfil reduzido e pools pareados. A fixture não é o motor online completo: geração e rede são representadas pelos pools fornecidos. Para comparar fontes reais, capturar ambos os pools sob condições equivalentes, com procedência, sem publicar histórico/payloads pessoais. `ARCADIUM_EVALUATION_INPUT` seleciona um arquivo local. A validação recusa contratos inválidos e julgamentos duplicados; o hash identifica a entrada efetivamente normalizada.
 
