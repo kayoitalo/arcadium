@@ -1,10 +1,10 @@
 "use client";
 
 import { privateFetch } from "@/lib/http/private-fetch";
+import Link from "next/link";
 
 import { AnimatePresence, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Aviso } from "@/components/amigo/aviso";
 import { Capa, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
 import { band, frame } from "@/components/amigo/gestures";
@@ -20,8 +20,9 @@ import { MAX_SELECTED_TRACKS, selectionKey } from "./selection";
 import styles from "./descobertas.module.css";
 import { DiscoveryEntry } from "./discovery-entry";
 import { DiscoveryTrack } from "./discovery-track";
+import { AlbumProgress } from "./album-journeys";
+import { TrackContext } from "./track-context";
 import { discoveryEntryLabel } from "./discovery-view";
-import { DiscoveryHistory } from "./discovery-history";
 import { DiscoveryDisclosure } from "./discovery-disclosure";
 import { DiscoveryTransition, useDiscoveryScene } from "./discovery-transition";
 import type { DiscoveryContext, DiscoveryIntent } from "@/modules/recommendations/domain/discovery-intent";
@@ -42,24 +43,13 @@ interface Candidate {
   feedback?: Partial<Record<FeedbackChannel, FeedbackEntry>>;
   sourceUrl?: string | null;
   isRevisit?: boolean;
+  scoreComponents?: { albumEdition?: { disc: number; number: number } };
 }
 
 type Action = "liked" | "saved" | "known" | "skipped" | "disliked" | "mismatch" | "curious" | "unheard";
 type LoadOperation = "BOOTSTRAP" | "RESUME" | "MORE" | "NEW_ENTRY" | "DEEPEN";
 type SearchOptions = { intent?: DiscoveryIntent; itemId?: string; sessionId?: string };
 type Journey = DiscoveryContext["journey"] & { rootSessionId: string };
-
-interface ExportResult {
-  playlistTitle?: string;
-  playlistUrl?: string;
-  mode?: string;
-  resolvedCount?: number;
-  addedCount?: number;
-  partial?: boolean;
-  totalItems?: number;
-  m3uPayload?: string;
-  error?: string;
-}
 
 const FEEDBACK_API: Record<Action, string> = {
   liked: "LIKED",
@@ -88,7 +78,7 @@ const CORNERS = [
  * capa e vibra com o som. Embaixo, o mapa que decide onde ele procura, e
  * o que você separou para levar.
  */
-export function Descobertas() {
+export function Descobertas({ initialSessionId = null }: { initialSessionId?: string | null } = {}) {
   const reduced = Boolean(useReducedMotion());
   const [proximity, setProximity] = useState(55);
   const [fame, setFame] = useState(50);
@@ -98,7 +88,6 @@ export function Descobertas() {
   const [mediaState, setMediaState] = useState("idle");
   const [mediaAttempt, setMediaAttempt] = useState(0);
   const [mapOpen, setMapOpen] = useState(false);
-  const [collectionOpen, setCollectionOpen] = useState(false);
   const headlineRef = useRef<HTMLHeadingElement>(null);
   const [queue, setQueue] = useState<Candidate[] | null>(null);
   const [index, setIndex] = useState(0);
@@ -117,14 +106,9 @@ export function Descobertas() {
   const lastLoad = useRef<{ proximity: number; fame: number; operation: LoadOperation; options?: SearchOptions }>({ proximity: 55, fame: 50, operation: "BOOTSTRAP" });
   const pendingFeedback = useRef<{ signature: string; key: string } | null>(null);
   const [decided, setDecided] = useState<Record<string, Action>>({});
-  const [exported, setExported] = useState<"running" | ExportResult | null>(null);
-  const [exportHidden, setExportHidden] = useState(false);
-  const modalOpen = Boolean(exported) && !exportHidden;
   const [saving, setSaving] = useState(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const savingRef = useRef(false);
-  const exportRef = useRef(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
   const selection = useSelection();
   const kept = selection.items;
   const requestRef = useRef(0);
@@ -132,7 +116,11 @@ export function Descobertas() {
   const stageRef = useRef<HTMLDivElement>(null);
   const markRef = useRef<HTMLSpanElement>(null);
   const coverRef = useRef<HTMLDivElement>(null);
-  const sound = useSound();
+  const sound = useSound((url) => {
+    if (current?.previewUrl === url && scene.ready && sessionId) void privateFetch("/api/discovery-events", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ itemId: current.id, requestKey: crypto.randomUUID() }),
+    }).catch(() => undefined);
+  });
   const { stop, toggle } = sound;
   const signal = usePulse(stageRef, sound.playing, sound.read);
 
@@ -190,7 +178,7 @@ export function Descobertas() {
     } finally { if (token === requestRef.current) setBusy(false); }
   }, [applySession, stop]);
 
-  useEffect(() => { void load(55, 50, "BOOTSTRAP"); return () => { requestRef.current += 1; }; }, [load]);
+  useEffect(() => { void load(55, 50, initialSessionId ? "RESUME" : "BOOTSTRAP", initialSessionId ? { sessionId: initialSessionId } : {}); return () => { requestRef.current += 1; }; }, [load, initialSessionId]);
 
   const move = useCallback((nextProximity: number, nextFame: number) => {
     setDraftProximity(nextProximity);
@@ -241,7 +229,7 @@ export function Descobertas() {
     requestAnimationFrame(() => document.getElementById("mapa-descoberta")?.scrollIntoView({ behavior: reduced ? "instant" : "smooth", block: "start" }));
   };
   useEffect(() => {
-    if (!scene.ready || choosing || busy || modalOpen || !current || !headlineRef.current) return;
+    if (!scene.ready || choosing || busy || !current || !headlineRef.current) return;
     const headline = headlineRef.current;
     headline.tabIndex = -1;
     headline.focus({ preventScroll: true });
@@ -253,7 +241,7 @@ export function Descobertas() {
 
   useEffect(() => {
     const element = suggestionRef.current;
-    if (!scene.ready || !element || !current || !sessionId || busy || modalOpen || choosing || !("IntersectionObserver" in window)) return;
+    if (!scene.ready || !element || !current || !sessionId || busy || choosing || !("IntersectionObserver" in window)) return;
     let active = true;
     let visible = false;
     let sent = false;
@@ -274,7 +262,7 @@ export function Descobertas() {
     observer.observe(element);
     document.addEventListener("visibilitychange", expose);
     return () => { active = false; observer.disconnect(); document.removeEventListener("visibilitychange", expose); };
-  }, [current?.id, sessionId, busy, modalOpen, choosing, scene.ready, scene.visit]);
+  }, [current?.id, sessionId, busy, choosing, scene.ready, scene.visit]);
 
   const moveTo = async (nextIndex: number) => {
     if (!sessionId || savingRef.current || busy || changing || !queue) return;
@@ -298,9 +286,9 @@ export function Descobertas() {
 
   const decide = useCallback(
     async (action: Action | "retract", revisesId?: string) => {
-      if (!scene.ready || !current || busy || savingRef.current || !selection.ready) return;
+      if (!scene.ready || !current || busy || savingRef.current || ((action === "liked" || action === "saved") && !selection.ready)) return;
       if ((action === "liked" || action === "saved") && selection.items.length >= MAX_SELECTED_TRACKS && !selection.items.some((item) => selectionKey(item) === selectionKey(current))) {
-        setFeedbackError("A lista está com 200 faixas. Leva pro Spotify ou remove uma antes de guardar mais.");
+        setFeedbackError("A coleção está com 200 faixas. Remova uma antes de guardar outra.");
         return;
       }
       savingRef.current = true;
@@ -324,9 +312,8 @@ export function Descobertas() {
         if (!response.ok) throw new Error(payload.error ?? "Não consegui guardar tua resposta. A faixa continua aqui.");
         pendingFeedback.current = null;
         const states = payload.states as Candidate["feedback"];
-        if (states?.collection?.type === "SAVE_FOR_LATER") selection.add({ ...current, action: "saved" });
-        else if (states?.preference?.type === "LIKED") selection.add({ ...current, action: "liked" });
-        else if (action === "disliked" || action === "retract") selection.remove({ ...current, action: "liked" });
+        // Collection changes commit with feedback; a failed refresh must not resubmit a vote.
+        void selection.refresh(true);
         setQueue((previous) => previous?.map((item) => item.id === current.id ? { ...item, feedback: states } : item) ?? null);
         if (action !== "retract") setDecided((previous) => ({ ...previous, [current.id]: action }));
         if (payload.currentRank != null) setIndex(payload.currentRank - 1);
@@ -347,11 +334,11 @@ export function Descobertas() {
   }, [current, toggle, scene.ready]);
 
   useEffect(() => {
-    if (!scene.ready || !current || modalOpen || choosing || busy) return;
+    if (!scene.ready || !current || choosing || busy) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return;
       const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest("input, textarea, select, details, [role='group']")) return;
+      if (target?.closest("input, textarea, select, details, button, a, [role='group']")) return;
       // num botão ou link com foco, espaço e Enter são dele
       if ((event.key === " " || event.key === "Enter") && target?.closest("button, a")) return;
       const key = event.key.toLowerCase();
@@ -371,7 +358,7 @@ export function Descobertas() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [current, decide, modalOpen, choosing, busy, toggleSound, scene.ready]);
+  }, [current, decide, choosing, busy, toggleSound, scene.ready]);
 
   /** As sugestões desta busca, nos mesmos eixos que você regulou. */
   const dots = useMemo<MapDot[]>(
@@ -387,65 +374,6 @@ export function Descobertas() {
         })),
     [queue, decided, current?.id],
   );
-
-  const exportKept = async () => {
-    if (exportRef.current || kept.length === 0) return;
-    exportRef.current = true;
-    setExportHidden(false);
-    setExported("running");
-    try {
-      const response = await privateFetch("/api/spotify/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tracks: kept.map((item) => ({ trackName: item.trackName, artistName: item.artistName })) }),
-      });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error ?? "A exportação falhou.");
-      setExported(payload.data as ExportResult);
-    } catch (cause) {
-      setExported({ error: cause instanceof Error ? cause.message : "A exportação falhou." });
-    } finally {
-      exportRef.current = false;
-    }
-  };
-
-  const downloadM3u = (result: ExportResult) => {
-    const blob = new Blob([result.m3uPayload ?? ""], { type: "audio/x-mpegurl" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${result.playlistTitle ?? "arcadium"}.m3u`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  };
-
-  useEffect(() => {
-    if (!modalOpen) return;
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const previousOverflow = document.body.style.overflow;
-    const header = document.getElementById("arcadium-header");
-    const headerWasInert = header?.inert;
-    if (header) header.inert = true;
-    document.body.style.overflow = "hidden";
-    dialogRef.current?.focus();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { event.preventDefault(); setExportHidden(true); }
-      if (event.key !== "Tab") return;
-      const elements = dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), [tabindex="0"]');
-      if (!elements?.length) { event.preventDefault(); dialogRef.current?.focus(); return; }
-      const first = elements[0];
-      const last = elements[elements.length - 1];
-      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialogRef.current)) { event.preventDefault(); first.focus(); }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      if (header) header.inert = headerWasInert ?? false;
-      document.removeEventListener("keydown", onKey);
-      if (previous?.isConnected) previous.focus();
-    };
-  }, [modalOpen]);
 
   // ---------- onde o traço vai ----------
 
@@ -524,15 +452,15 @@ export function Descobertas() {
     top = (
       <Aviso
         window="pra ouvir depois"
-        headline={kept.length > 0 ? `Você separou ${kept.length}.` : "Chegamos ao fim desta busca."}
+        headline={intent === "ALBUM" ? "Chegamos à última faixa desta edição." : kept.length > 0 ? `Você separou ${kept.length}.` : "Chegamos ao fim desta busca."}
         narrative={
           kept.length > 0
             ? "Tua pilha para depois está aqui. Dá para levar pro Spotify ou continuar descobrindo."
             : "A gente pode seguir essas pistas ou escolher outro caminho."
         }
       >
-        {kept.length > 0 && <Resposta onClick={() => void exportKept()}>levar {kept.length} pro Spotify</Resposta>}
-        <Resposta onClick={() => void load(proximity, fame, "MORE")}>busca mais nesse canto</Resposta>
+        {kept.length > 0 && <Resposta href="/discovery/collection">ver tuas {kept.length} faixas separadas →</Resposta>}
+        {intent !== "ALBUM" && <Resposta onClick={() => void load(proximity, fame, "MORE")}>busca mais nesse canto</Resposta>}
         <Resposta onClick={showEntries}>escolher outro caminho</Resposta>
         {index > 0 && <Resposta onClick={() => void moveTo(index - 1)}>rever a anterior</Resposta>}
       </Aviso>
@@ -544,6 +472,7 @@ export function Descobertas() {
           {journey.anchor ? <>Este caminho parte de “{journey.anchor.trackName}”, de {journey.anchor.artistName}.</> : "Este passo continua uma busca anterior."}
           {journey.parentSessionId && <> <button className={styles.textButton} disabled={busy || saving} onClick={() => void load(proximity, fame, "RESUME", { sessionId: journey.parentSessionId })}>voltar ao passo anterior →</button></>}
         </div>}
+        {journey?.album && <AlbumProgress album={journey.album} tracks={queue} index={index} disabled={saving || busy || changing} onMove={(position) => void moveTo(position)} />}
         <DiscoveryTrack title={current.trackName} artist={current.artistName} reason={current.reason} isRevisit={current.isRevisit}
           sectionRef={suggestionRef} headlineRef={headlineRef} markRef={markRef} marked={penInPlace && pen.started.has("grifo:" + current.id)}
           entryLabel={discoveryEntryLabel(proximity, intent)} index={index} total={queue.length} onChangeEntry={showEntries}
@@ -593,63 +522,34 @@ export function Descobertas() {
           {index > 0 && <Resposta onClick={() => void moveTo(index - 1)} disabled={saving}>rever a anterior</Resposta>}
           {index < queue.length - 1 && <Resposta onClick={() => void moveTo(index + 1)} disabled={saving}>próxima sem avaliar</Resposta>}
         </DiscoveryDisclosure>
+        <TrackContext key={`context:${current.id}`} itemId={current.id} albumName={current.albumName} />
+        {current.albumName && intent !== "ALBUM" && <Link className={styles.textButton} href={`/discovery/albums?item=${encodeURIComponent(current.id)}`}>ouvir o álbum desta indicação →</Link>}
         <div className={styles.continuity}>
           <p><span>{String(index + 1).padStart(2, "0")}</span> de {String(queue.length).padStart(2, "0")} indicações <span className={styles.continuityNote}>· teu lugar fica guardado</span></p>
           <div>
             <button className={styles.textButton} disabled={busy || saving} onClick={() => void load(proximity, fame, "DEEPEN", { itemId: current.id, intent: intent === "CONNECTIONS" ? "CONNECTIONS" : "DISCOVER" })}>buscar novidades a partir desta faixa ↗</button>
             {index > 0 && <button className={styles.textButton} disabled={saving} onClick={() => void moveTo(index - 1)}>← anterior</button>}
-            <button className={styles.textButton} disabled={saving} onClick={() => void load(proximity, fame, "MORE")}>buscar mais nesse caminho ↗</button>
-            {intent !== "REPERTOIRE" && <button className={styles.textButton} disabled={saving} onClick={openMap}>ajustar caminho</button>}
+            {intent !== "ALBUM" && <button className={styles.textButton} disabled={saving} onClick={() => void load(proximity, fame, "MORE")}>buscar mais nesse caminho ↗</button>}
+            {intent !== "REPERTOIRE" && intent !== "ALBUM" && <button className={styles.textButton} disabled={saving} onClick={openMap}>ajustar caminho</button>}
           </div>
         </div>
       </div>
     );
   }
 
-  const result = exported && exported !== "running" ? exported : null;
 
   return (
     <div ref={stageRef} className={styles.stage}>
-      <div inert={modalOpen}>
-      <div className={styles.pageTools}><span>uma boa música pode abrir outro caminho.</span><button className={styles.textButton} onClick={() => {
-        setCollectionOpen(true); requestAnimationFrame(() => document.getElementById("colecao-descoberta")?.scrollIntoView({ behavior: reduced ? "instant" : "smooth" }));
-      }}>para depois <span className={styles.pillCount}>{kept.length}</span></button></div>
+      <div>
+      <div className={styles.pageTools}><span>uma faixa de cada vez.</span><Link className={styles.textButton} href="/discovery/collection">para depois <span className={styles.pillCount}>{kept.length}</span></Link></div>
+      {selection.error && <p role="alert">{selection.error} <Link href="/discovery/collection">abrir tua coleção</Link></p>}
       <AnimatePresence mode="wait" initial={false}>
         {scene.identity !== null
           ? <DiscoveryTransition key={scene.key} visit={scene.visit} onReady={scene.onReady}>{top}</DiscoveryTransition>
           : <div key="other">{top}</div>}
       </AnimatePresence>
-      <DiscoveryHistory currentSessionId={sessionId} currentRank={index + 1} busy={busy || saving || changing} onResume={(id) => void load(proximity, fame, "RESUME", { sessionId: id })} />
 
-      <DiscoveryDisclosure id="colecao-descoberta" className={styles.collection} bodyClassName={styles.disclosureContent} open={collectionOpen} onOpenChange={setCollectionOpen}
-        summary={<><span>Para depois <span className={styles.pillCount}>{kept.length}</span></span><span aria-hidden="true">↘</span></>}>
-          <p className={styles.mapNote}>O que você curtiu ou separou para ouvir depois. Essa pilha fica neste navegador.</p>
-          {exported && exportHidden && <p className={styles.quiet} role="status">
-            {exported === "running" ? "Levando tua lista pro Spotify… " : "A última exportação terminou. "}
-            <button type="button" className={styles.remove} onClick={() => setExportHidden(false)}>ver {exported === "running" ? "andamento" : "resultado"}</button>
-          </p>}
-          {kept.length === 0 ? (
-            <p className={styles.quiet}>O que você curtir ou guardar fica aqui, pra levar pro Spotify.</p>
-          ) : (
-            <>
-              <ol className={styles.kept}>
-                {kept.map((item) => (
-                  <li key={item.id}>
-                    <span className={styles.keptTrack}>
-                      {item.trackName} <span className={styles.keptHow}>{item.artistName}</span>
-                    </span>
-                    <span className={styles.keptHow}>{HOW[item.action]}</span>
-                    <button type="button" className={styles.remove} onClick={() => selection.remove(item)} aria-label={`Remover ${item.trackName} da lista`}>remover</button>
-                  </li>
-                ))}
-              </ol>
-              <Respostas inline label="Levar">
-                <Resposta onClick={() => void exportKept()}>levar {kept.length} pro Spotify</Resposta>
-              </Respostas>
-            </>
-          )}
-      </DiscoveryDisclosure>
-      {intent !== "REPERTOIRE" && <DiscoveryDisclosure id="mapa-descoberta" className={styles.adjustments} bodyClassName={styles.map} open={mapOpen} onOpenChange={setMapOpen}
+      {intent !== "REPERTOIRE" && intent !== "ALBUM" && <DiscoveryDisclosure id="mapa-descoberta" className={styles.adjustments} bodyClassName={styles.map} open={mapOpen} onOpenChange={setMapOpen}
         summary={<><span><span className={styles.eyebrow}>teu caminho, com mais detalhe</span><strong>Ajustar a descoberta</strong></span><span aria-hidden="true">↘</span></>}>
           <div><h2 className={styles.mapTitle}>Qual é a distância da próxima pista?</h2>
             <p className={styles.mapNote}>Mais perto das tuas referências ou um passo para fora. No outro eixo, o tamanho do público. Os ajustes só valem quando você iniciar a busca.</p>
@@ -671,35 +571,7 @@ export function Descobertas() {
       {penInPlace && <PenLayer pen={pen} signal={signal} reduced={reduced} />}
       </div>
 
-      {modalOpen && createPortal(
-        <div className={styles.overlay}>
-          <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="levar-titulo" className={styles.dialog}>
-            <h2 id="levar-titulo">
-              {exported === "running"
-                ? "Levando pro Spotify…"
-                : result?.error
-                  ? "Não deu pra levar."
-                  : `Achei ${result?.resolvedCount ?? 0} de ${result?.totalItems ?? kept.length}.`}
-            </h2>
-            {exported === "running" && <p>Tô procurando cada uma no catálogo do Spotify.</p>}
-            {result?.error && <p data-kind="erro">{result.error}</p>}
-            {result && !result.error && (
-              <p>
-                {result.mode === "SPOTIFY_API"
-                  ? result.partial
-                    ? `A playlist foi criada, mas só ${result.addedCount ?? 0} faixas foram adicionadas. Parte do envio falhou.`
-                    : "A playlist já tá na tua conta."
-                  : "Baixa a lista e abre no teu player, ou conecta o Spotify em ajustes pra eu criar a playlist direto."}
-              </p>
-            )}
-            <Respostas inline label="Depois de levar">
-              {result?.playlistUrl && <Resposta href={result.playlistUrl}>abrir no Spotify</Resposta>}
-              {result?.m3uPayload && <Resposta onClick={() => downloadM3u(result)}>baixar .m3u</Resposta>}
-              <Resposta onClick={() => setExportHidden(true)}>fechar</Resposta>
-            </Respostas>
-          </div>
-        </div>, document.body
-      )}
+
     </div>
   );
 }

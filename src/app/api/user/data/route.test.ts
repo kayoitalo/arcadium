@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
-  auth: vi.fn(), findUser: vi.fn(), events: vi.fn(), runs: vi.fn(), connections: vi.fn(), lock: vi.fn(), transaction: vi.fn(),
+  auth: vi.fn(), findUser: vi.fn(), events: vi.fn(), count: vi.fn(), runs: vi.fn(), connections: vi.fn(), lock: vi.fn(), transaction: vi.fn(),
 }));
 vi.mock("@/lib/security/api-auth", () => ({ authorizeApi: mocks.auth }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: {
   $transaction: mocks.transaction,
-  user: { findUnique: mocks.findUser }, listeningEvent: { deleteMany: mocks.events },
+  user: { findUnique: mocks.findUser }, listeningEvent: { deleteMany: mocks.events, count: mocks.count },
   syncRun: { deleteMany: mocks.runs }, providerConnection: { deleteMany: mocks.connections },
 } }));
 import { DELETE, GET } from "./route";
@@ -15,6 +15,7 @@ beforeEach(() => {
   mocks.auth.mockResolvedValue({ userId: "authenticated-owner" });
   mocks.findUser.mockResolvedValue({ id: "authenticated-owner", email: "owner@test", connections: [], listeningEvents: [] });
   mocks.events.mockResolvedValue({ count: 1 });
+  mocks.count.mockResolvedValue(9000);
   mocks.lock.mockResolvedValue([]);
   mocks.transaction.mockImplementation((task) => task({
     $queryRaw: mocks.lock, listeningEvent: { deleteMany: mocks.events },
@@ -27,6 +28,8 @@ describe("personal data ownership", () => {
     const response = await GET(new Request("https://app.test/api/user/data"));
     expect(mocks.findUser).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "authenticated-owner" } }));
     expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(mocks.count).toHaveBeenCalledWith({ where: { userId: "authenticated-owner" } });
+    expect(await response.json()).toMatchObject({ totalListeningEvents: 9000, exportedListeningEvents: 0, exportScope: { kind: "recent-listening-events", limit: 5000 } });
   });
   it("limits history, sync-run and connection deletion to the authenticated account", async () => {
     await DELETE(new Request("https://app.test/api/user/data", { method: "DELETE" }));

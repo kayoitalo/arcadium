@@ -9,6 +9,11 @@
   position: relative;
   isolation: isolate;
 }
+.threadHead { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 20px 40px; align-items: end; padding: 20px 0; border-bottom: 1px solid var(--fio-2); }
+.threadHead nav { display: flex; gap: 10px; max-width: 100%; overflow-x: auto; }
+.threadHead button { min-width: 40px; min-height: 44px; padding: 8px; border: 0; background: transparent; color: var(--tinta-3); font: inherit; font-size: 12px; border-bottom: 1px solid var(--fio-2); cursor: pointer; }
+.threadHead button[aria-pressed="true"] { color: var(--tinta); border-bottom-color: var(--marca); }
+.stage > nav { background: var(--papel); border-top: 1px solid var(--fio-2); padding-top: 16px; }
 
 .block {
   position: relative;
@@ -17,7 +22,7 @@
   column-gap: clamp(28px, 6vw, 112px);
   align-items: center;
   min-height: 60dvh;
-  padding: clamp(40px, 6vh, 72px) 0;
+  padding: clamp(40px, 6vh, 72px) 0 130px;
 }
 
 .block:first-child { min-height: 74dvh; }

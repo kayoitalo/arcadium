@@ -12,12 +12,14 @@ import { useSound, type SoundStep } from "@/components/amigo/use-sound";
 import type { ConversationMoment, Evidence } from "@/modules/conversation/domain/conversation.types";
 import { decadeLabel, ProvaDecadas, ProvaLista, ProvaTransicao } from "./provas";
 import styles from "./conversa.module.css";
+import { privateFetch } from "@/lib/http/private-fetch";
+import { ListeningNote } from "@/components/amigo/listening-note";
 
 /*
  * A conversa: a tela inicial. Um fio que se rola e se revisita — o
  * assunto da vez é o que cruza o meio da tela, o que ele já disse fica
  * mais apagado, e o que você mandou esquecer fica riscado (e ele não
- * volta a falar daquilo: o navegador lembra).
+ * volta a falar daquilo: a conta lembra).
  *
  * Cada frase chega com a prova que cita, sempre na tela e em repouso. O
  * traço dele grifa o fim da manchete, mede o salto entre duas capas e
@@ -31,27 +33,6 @@ const FIM = {
 };
 
 const REPLY = "Justo. Finge que eu não falei nada.";
-
-/** Os assuntos que você mandou esquecer, por chave: ele não volta neles. */
-const FORGOTTEN = "arcadium:esquecidos";
-
-function readForgotten(): string[] {
-  try {
-    const parsed: unknown = JSON.parse(window.localStorage.getItem(FORGOTTEN) ?? "[]");
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeForgotten(update: (keys: string[]) => string[]) {
-  try {
-    // só os mais recentes: chave de leitura velha não volta mais mesmo
-    window.localStorage.setItem(FORGOTTEN, JSON.stringify(update(readForgotten()).slice(-200)));
-  } catch {
-    // sem armazenamento, o esquecimento vale só para esta visita
-  }
-}
 
 function stepsOf(evidence: Evidence | null | undefined): SoundStep[] {
   if (!evidence) return [];
@@ -95,8 +76,9 @@ function ruler(bar: HTMLElement, origin: DOMRect): { base: Point[]; box: ReturnT
 
 export function Conversa({ moments: all }: { moments: ConversationMoment[] }) {
   const reduced = Boolean(useReducedMotion());
-  const [forgotten] = useState(() => new Set(readForgotten()));
-  const moments = useMemo(() => all.filter((moment) => !forgotten.has(moment.key)), [all, forgotten]);
+  const moments = all;
+  const [editorialError, setEditorialError] = useState<string | null>(null);
+  const editorialBusy = useRef(false);
   // o fim também é um bloco do fio
   const total = moments.length + 1;
 
@@ -109,6 +91,21 @@ export function Conversa({ moments: all }: { moments: ConversationMoment[] }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const parts = useRef(new Map<string, HTMLElement>());
   const dismissTimer = useRef(0);
+  useEffect(() => {
+    const key = moments[active]?.editorialKey;
+    const element = parts.current.get(`${active}:headline`);
+    if (!key || !element || !("IntersectionObserver" in window)) return;
+    let visible = false; let sent = false; let pending = false; let alive = true;
+    const expose = async () => {
+      if (!alive || sent || pending || !visible || document.visibilityState !== "visible") return;
+      pending = true;
+      try { const response = await privateFetch("/api/editorial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, version: moments[active]?.editorialVersion ?? 0, action: "SEEN" }) }); sent = response.ok; }
+      catch { /* A failed read receipt does not dismiss a topic. */ } finally { pending = false; }
+    };
+    const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting && entry.intersectionRatio >= .5; void expose(); }, { threshold: .5 });
+    observer.observe(element); document.addEventListener("visibilitychange", expose);
+    return () => { alive = false; observer.disconnect(); document.removeEventListener("visibilitychange", expose); };
+  }, [active, moments]);
 
   const register = useCallback(
     (index: number) => (part: string) => (node: HTMLElement | null) => {
@@ -302,20 +299,26 @@ export function Conversa({ moments: all }: { moments: ConversationMoment[] }) {
   }, [active, canExpand]);
 
   /** "nada a ver" risca o assunto e o esquece; no assunto riscado, desfaz. */
-  const dismiss = useCallback(() => {
+  const dismiss = useCallback(async () => {
     const moment = moments[active];
-    if (!moment) return;
+    if (!moment || editorialBusy.current) return;
+    if (moment.editorialKey) {
+      editorialBusy.current = true; setEditorialError(null);
+      try {
+        const response = await privateFetch("/api/editorial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: moment.editorialKey, action: activeDismissed ? "RESTORE" : "DISMISS" }) });
+        if (!response.ok) throw new Error("Não consegui guardar essa escolha. O assunto continua disponível.");
+      } catch (cause) { setEditorialError(cause instanceof Error ? cause.message : "Falha ao guardar escolha."); return; }
+      finally { editorialBusy.current = false; }
+    }
     window.clearTimeout(dismissTimer.current);
     if (activeDismissed) {
       setDismissed((current) => current.filter((index) => index !== active));
-      writeForgotten((keys) => keys.filter((key) => key !== moment.key));
       return;
     }
     stop();
     setDismissed((current) => [...current, active]);
     setExpanded((current) => current.filter((index) => index !== active));
     forget(`${active}:`);
-    writeForgotten((keys) => (keys.includes(moment.key) ? keys : [...keys, moment.key]));
     dismissTimer.current = window.setTimeout(() => go(active + 1), 1400);
   }, [active, activeDismissed, forget, go, moments, stop]);
 
@@ -324,7 +327,7 @@ export function Conversa({ moments: all }: { moments: ConversationMoment[] }) {
       if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return;
       // tecla sem foco em nada chega com o documento (ou a janela) como alvo
       const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (target?.closest("input, textarea, select, button, a, summary, [contenteditable='true']")) return;
       const key = event.key.toLowerCase();
       // em botão ou link com foco, Enter e espaço são dele
       if ((key === "enter" || key === " ") && target?.closest("button, a")) return;
@@ -348,6 +351,10 @@ export function Conversa({ moments: all }: { moments: ConversationMoment[] }) {
 
   return (
     <div ref={stageRef} className={styles.stage}>
+      <div className={styles.threadHead}>
+        <ListeningNote label="andei reparando"><p>Tem umas coisas no teu histórico que renderam assunto. Vem por aqui.</p></ListeningNote>
+        <nav aria-label="Assuntos da conversa">{moments.map((moment,index) => <button key={moment.key} aria-label={`Ir ao assunto ${index+1}`} aria-pressed={index===active} onClick={() => go(index)}>{String(index+1).padStart(2,"0")}</button>)}</nav>
+      </div>
       {[...moments, null].map((moment, index) => {
         const isActive = index === active;
         const isDismissed = dismissed.includes(index);
@@ -414,6 +421,7 @@ export function Conversa({ moments: all }: { moments: ConversationMoment[] }) {
       <PenLayer pen={{ ...pen, notes }} signal={signal} reduced={reduced} />
 
       <Respostas>
+        {editorialError && <p className={styles.position} role="alert">{editorialError}</p>}
         {sound.error && <p className={styles.position} role="alert">{sound.error}</p>}
         <p className={styles.position} aria-live="polite" aria-atomic="true">
           {atEnd ? "Fim da conversa" : `Assunto ${active + 1} de ${moments.length} · ${moments[active]?.window ?? ""}`}

@@ -86,3 +86,7 @@
     margin-left: 0;
   }
 }
+
+.link { position:relative; }
+.link[aria-current="page"] { border-color:transparent; }
+.activeLine { position:absolute; left:2px; right:2px; bottom:-1.5px; height:1.5px; background:var(--tinta); }

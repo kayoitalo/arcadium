@@ -12,6 +12,12 @@ const first: SelectedTrack = { id: "1", artistName: "Artist", trackName: "First"
 const second: SelectedTrack = { ...first, id: "2", trackName: "Second" };
 
 describe("cross-tab selection storage", () => {
+  it("preserves unreadable or unsupported browser copies instead of deleting them", () => {
+    const storage = memoryStorage();
+    for (const raw of ["broken json", JSON.stringify([{ ...first, action: "future-action" }]), JSON.stringify(Array(201).fill(first))]) {
+      storage.setItem("owner", raw); migrateSelection(storage, "owner"); expect(storage.getItem("owner")).toBe(raw);
+    }
+  });
   it("keeps additions from two tabs even if both initially read an empty list", () => {
     const storage = memoryStorage();
     expect(readStoredSelection(storage, "owner")).toEqual([]);

@@ -6,6 +6,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { SECTIONS, sectionFor } from "@/components/layout/sections";
 import styles from "./app-shell.module.css";
 import { LogoutButton } from "./logout-button";
+import { motion, useReducedMotion } from "framer-motion";
 
 /**
  * O cabeçalho do app: o nome e as telas, em texto. A tela atual é a que
@@ -13,6 +14,7 @@ import { LogoutButton } from "./logout-button";
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const reduced = Boolean(useReducedMotion());
   const current = sectionFor(pathname);
   const navRef = useRef<HTMLElement>(null);
   const barRef = useRef<HTMLElement>(null);
@@ -50,6 +52,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               aria-current={section.href === current.href ? "page" : undefined}
             >
               {section.label}
+              {section.href === current.href && <motion.span className={styles.activeLine} layoutId="main-navigation-line" transition={{ duration: reduced ? 0 : .24, ease: "easeOut" }} />}
             </Link>
           ))}
         </nav>

@@ -8,6 +8,12 @@ import { SessionMediaService } from "./session-media-service";
 beforeEach(() => vi.resetAllMocks());
 const item = () => ({ id: "i", sessionId: "s", artistName: "Band", trackName: "Song", scoreComponents: { evidence: ["keep"] }, coverUrl: null });
 describe("session media", () => {
+  it("never searches for replacement media when the selected album edition lacks a preview", async () => {
+    db.findFirst.mockResolvedValue({ ...item(), scoreComponents: { albumEdition: { collectionId: "42" } }, previewUrl: null });
+    const findPreview = vi.fn(); const findTrackCover = vi.fn();
+    expect(await new SessionMediaService({ findPreview } as any, { findTrackCover } as any).resolve("owner", "s", "i")).toMatchObject({ status: "unavailable", previewUrl: null });
+    expect(findPreview).not.toHaveBeenCalled(); expect(findTrackCover).not.toHaveBeenCalled(); expect(db.update).not.toHaveBeenCalled();
+  });
   it("checks ownership before external work", async () => {
     db.findFirst.mockResolvedValue(null);
     const findPreview = vi.fn();

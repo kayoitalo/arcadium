@@ -44,7 +44,9 @@ export async function GET(request: Request) {
         status: c.status,
         lastSyncedAt: c.lastSyncedAt,
       })),
-      totalListeningEvents: user.listeningEvents.length,
+      totalListeningEvents: await prisma.listeningEvent.count({ where: { userId } }),
+      exportedListeningEvents: user.listeningEvents.length,
+      exportScope: { kind: "recent-listening-events", limit: 5000, discoveryMemory: "/discovery/memory", collection: "/api/collection?download=1" },
       listeningEvents: user.listeningEvents.map((e) => ({
         playedAt: e.playedAt,
         artistName: e.rawArtistName,

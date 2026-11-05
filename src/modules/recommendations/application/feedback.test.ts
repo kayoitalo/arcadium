@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ transaction: vi.fn(), lock: vi.fn(), item: vi.fn(), update: vi.fn(),
-  history: vi.fn(), create: vi.fn(), sessionUpdate: vi.fn(), owned: vi.fn(), expose: vi.fn(), session: vi.fn() }));
+  history: vi.fn(), create: vi.fn(), sessionUpdate: vi.fn(), owned: vi.fn(), expose: vi.fn(), session: vi.fn(),
+  entry: vi.fn(), entryCount: vi.fn(), entryUpsert: vi.fn(), entryDelete: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: { $transaction: mocks.transaction,
   recommendationItem: { findFirst: mocks.owned, updateMany: mocks.expose } } }));
 import { RecommendationService } from "./recommendation-service";
@@ -10,6 +11,8 @@ let history: any[];
 const preview = { source: "itunes", sourceId: "123", match: "compatible-text-v1", artistName: "Band", trackName: "Song (Live)" };
 beforeEach(() => {
   vi.resetAllMocks(); history = [];
+  mocks.lock.mockResolvedValue([{ id: "owner" }]); mocks.entryCount.mockResolvedValue(0); mocks.entry.mockResolvedValue(null);
+  mocks.entryUpsert.mockImplementation(async ({ create }) => { mocks.entry.mockResolvedValue(create); return create; });
   mocks.item.mockResolvedValue({ id: "item", rank: 1, sessionId: "session", artistName: "Band", trackName: "Song (Live)", trackId: null,
     scoreComponents: { previewIdentity: preview }, session: { userId: "owner", currentRank: 1 } });
   mocks.history.mockImplementation(async () => [...history]);
@@ -17,6 +20,7 @@ beforeEach(() => {
   mocks.transaction.mockImplementation((task) => task({ $queryRaw: mocks.lock,
     recommendationItem: { findUnique: mocks.item, update: mocks.update, findFirst: mocks.owned, updateMany: mocks.expose },
     recommendationSession: { update: mocks.sessionUpdate, findFirst: mocks.session },
+    collectionEntry: { findUnique: mocks.entry, count: mocks.entryCount, upsert: mocks.entryUpsert, deleteMany: mocks.entryDelete },
     recommendationFeedback: { findMany: mocks.history, create: mocks.create } }));
 });
 const submit = (type: any, options: any = {}) => new RecommendationService().submitFeedback("owner", "item", type, undefined, "session", options);
@@ -35,6 +39,18 @@ describe("append-only scoped feedback", () => {
     expect(history).toHaveLength(2);
     expect(result.states.preference?.type).toBe("DISLIKED");
     expect(mocks.sessionUpdate).toHaveBeenCalledOnce();
+    expect(mocks.entryUpsert).toHaveBeenCalledOnce();
+  });
+  it("refuses a new collection entry at capacity before committing feedback or progress", async () => {
+    mocks.entryCount.mockResolvedValue(200);
+    await expect(submit("LIKED", { advance: true })).rejects.toMatchObject({ status: 409 });
+    expect(mocks.create).not.toHaveBeenCalled(); expect(mocks.sessionUpdate).not.toHaveBeenCalled();
+  });
+  it("does not re-add a manually removed entry on a negative response or replay", async () => {
+    await submit("LIKED", { requestKey: "like" });
+    mocks.entry.mockResolvedValue(null); mocks.entryUpsert.mockClear();
+    await submit("DISLIKED", { requestKey: "dislike" }); await submit("LIKED", { requestKey: "like" });
+    expect(mocks.entryUpsert).not.toHaveBeenCalled(); expect(mocks.entryDelete).not.toHaveBeenCalled();
   });
   it("can like, dislike and like again, preserving the old records and explicit saves", async () => {
     await submit("LIKED"); await submit("SAVE_FOR_LATER"); await submit("DISLIKED"); await submit("LIKED");

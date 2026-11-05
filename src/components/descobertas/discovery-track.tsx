@@ -15,7 +15,7 @@ export function DiscoveryTrack({ title, artist, reason, isRevisit, artwork, meta
       <span className={styles.eyebrow}>descoberta <span className={styles.barSlash}>/</span> {entryLabel}</span>
       <button className={styles.textButton} onClick={onChangeEntry}>trocar caminho ↗</button>
     </div>
-    <p className={styles.pathContext}>{entryLabel === "Do meu repertório" ? "Uma seleção do teu histórico. Não precisa ser novidade para valer o play." : entryLabel === "Perto do que eu gosto"
+    <p className={styles.pathContext}>{entryLabel === "Um álbum em ordem" ? "A ordem da edição que você escolheu. Uma faixa de cada vez, no teu tempo." : entryLabel === "Do meu repertório" ? "Uma seleção do teu histórico. Não precisa ser novidade para valer o play." : entryLabel === "Perto do que eu gosto"
       ? "Buscando novidades com ligações mais diretas ao teu repertório."
       : entryLabel === "Outras conexões"
         ? "Buscando ligações menos diretas. Pode haver novidades dentro dos gêneros que você já escuta."
@@ -23,12 +23,12 @@ export function DiscoveryTrack({ title, artist, reason, isRevisit, artwork, meta
     <div className={styles.block}>
       <div className={styles.trackCopy}>
         <section ref={sectionRef} aria-label="A sugestão da vez">
-        <p className={styles.trackCounter}><span>{String(index + 1).padStart(2, "0")}</span> / {String(total).padStart(2, "0")} <i /> {isRevisit ? "uma revisita" : "separei essa pra você"}</p>
+        <p className={styles.trackCounter}><span>{String(index + 1).padStart(2, "0")}</span> / {String(total).padStart(2, "0")} <i /> {entryLabel === "Um álbum em ordem" ? "a próxima do disco" : isRevisit ? "uma revisita" : "separei essa pra você"}</p>
         <Fala className={styles.trackSpeech} level={1} headline={title} mark={[title]} markRef={markRef} headlineRef={headlineRef} marked={marked} />
         <p className={styles.artist}>{artist}</p>
         </section>
         <div className={styles.reason}><span className={styles.reasonMark} aria-hidden="true">↳</span><div>
-          <h2>Por que essa?</h2><p>{reason ?? "Vale ouvir e me contar o que achou."}</p>
+          <h2>{entryLabel === "Um álbum em ordem" ? "Neste ponto do disco" : "Por que essa?"}</h2><p>{reason ?? "Vale ouvir e me contar o que achou."}</p>
         </div></div>
         <div className={styles.listenControl}>
           <button className={styles.playButton} disabled={!canPlay} onClick={onPlay} aria-pressed={playing} aria-label={playing ? "Parar prévia" : "Ouvir prévia"}>

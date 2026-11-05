@@ -201,6 +201,7 @@ export class RecommendationService {
       effective = { ...input, ...settings, intent: input.intent ?? (previousContext?.intent === "CONNECTIONS" ? "CONNECTIONS" : "DISCOVER") };
     }
     const intent = effective.intent ?? "DISCOVER";
+    if (intent === "ALBUM") throw new DiscoveryConflict("Escolha uma edição para iniciar a jornada de álbum.", 400);
     if (this.strategy === "legacy" && (anchor || intent === "REPERTOIRE")) throw new DiscoveryConflict("Esse caminho precisa do motor híbrido. Você pode continuar nas buscas anteriores.", 409);
     const continuing = Boolean(source && (operation === "MORE" || operation === "DEEPEN"));
     const discovery: DiscoveryContext = { version: 1, intent, journey: {

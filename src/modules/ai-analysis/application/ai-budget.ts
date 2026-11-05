@@ -1,17 +1,17 @@
 import { prisma } from "@/lib/db/prisma";
 
 /**
- * Teto de chamadas à IA, contado a partir dos próprios registros de
- * execução — cada tentativa vira uma linha em AIAnalysisRun antes da
- * chamada sair, então a contagem inclui o que falhou. Falha também gasta
- * cota, e ignorar isso seria contar errado justamente no dia ruim.
+ * Teto local por conta: cada tentativa SDK, inclusive retry e fallback,
+ * reserva uma linha sob bloqueio do usuário antes da chamada. Falhas
+ * continuam contadas; registros legados permanecem conservadoramente
+ * na janela, sem reconstruir tentativas que não foram medidas.
  *
  * O TTL de cada texto controla o frescor; este teto controla o custo.
  * São coisas diferentes: sem o teto, um laço ou um bug esvazia a cota do
  * dia e o app fica sem narrativa até a virada.
  *
- * Padrão de 12/dia e 3/hora contra as 20/dia do free tier — 60% do
- * orçamento, com 8 chamadas de reserva para teste manual e imprevisto.
+ * Padrão conservador de 12 por 24h e 3 por hora. Não representa a cota
+ * global nem preços do provedor, que dependem da configuração externa.
  */
 export const DAILY_LIMIT = Number(process.env.AI_DAILY_LIMIT ?? 12);
 export const HOURLY_LIMIT = Number(process.env.AI_HOURLY_LIMIT ?? 3);
@@ -31,12 +31,12 @@ function since(hours: number): Date {
 
 export async function readBudget(userId: string): Promise<BudgetState> {
   const [usedToday, usedThisHour] = await Promise.all([
-    prisma.aIAnalysisRun.count({ where: { userId, createdAt: { gte: since(24) } } }),
-    prisma.aIAnalysisRun.count({ where: { userId, createdAt: { gte: since(1) } } }),
+    prisma.aIAnalysisRun.count({ where: { userId, provider: { not: "gemini-pack" }, createdAt: { gte: since(24) } } }),
+    prisma.aIAnalysisRun.count({ where: { userId, provider: { not: "gemini-pack" }, createdAt: { gte: since(1) } } }),
   ]);
 
-  const blockedBy =
-    usedThisHour >= HOURLY_LIMIT ? "hour" : usedToday >= DAILY_LIMIT ? "day" : undefined;
+  const blockedBy = !Number.isInteger(DAILY_LIMIT) || !Number.isInteger(HOURLY_LIMIT) || DAILY_LIMIT < 0 || HOURLY_LIMIT < 0 ? "day"
+    : usedThisHour >= HOURLY_LIMIT ? "hour" : usedToday >= DAILY_LIMIT ? "day" : undefined;
 
   return {
     usedToday,
@@ -46,4 +46,27 @@ export async function readBudget(userId: string): Promise<BudgetState> {
     allowed: !blockedBy,
     blockedBy,
   };
+}
+
+export class AiBudgetError extends Error { readonly reason = "quota"; constructor() { super("A cota de tentativas de IA foi atingida."); } }
+export function budgetRefused(error: unknown) {
+  let cause = error;
+  for (let depth = 0; depth < 4 && cause && typeof cause === "object"; depth++) {
+    if (cause instanceof AiBudgetError) return true;
+    cause = (cause as { cause?: unknown }).cause;
+  }
+  return false;
+}
+/** Every physical SDK call, including retry/fallback, reserves under the same user lock. */
+export async function reserveAttempt(userId: string, model: string) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
+    const where = { userId, provider: { not: "gemini-pack" } };
+    const [day, hour] = await Promise.all([
+      tx.aIAnalysisRun.count({ where: { ...where, createdAt: { gte: since(24) } } }),
+      tx.aIAnalysisRun.count({ where: { ...where, createdAt: { gte: since(1) } } }),
+    ]);
+    if (!Number.isInteger(DAILY_LIMIT) || !Number.isInteger(HOURLY_LIMIT) || DAILY_LIMIT <= day || HOURLY_LIMIT <= hour) throw new AiBudgetError();
+    return tx.aIAnalysisRun.create({ data: { userId, kind: "ATTEMPT", provider: "gemini", model, status: "PENDING" }, select: { id: true } });
+  });
 }

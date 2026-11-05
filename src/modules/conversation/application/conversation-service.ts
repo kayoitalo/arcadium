@@ -44,7 +44,7 @@ import {
  * o número da frase e o da tela são o mesmo número.
  */
 
-const PERIODS: PeriodKey[] = ["7d", "30d", "1y", "all"];
+const PERIODS: PeriodKey[] = ["7d", "30d", "1y"];
 /** Linhas de lista na prova; a tela mostra 5 e "me mostra mais" abre o resto. */
 const ROWS = 10;
 /** Abaixo disso o retrato das décadas é parcial demais para ser prova. */
@@ -460,6 +460,8 @@ export class ConversationService {
       hasHistory: true,
     };
     cache.set(cacheKey, { at: Date.now(), value: view });
+    for (const [key, entry] of cache) if (Date.now() - entry.at >= CACHE_MS) cache.delete(key);
+    while (cache.size > 64) cache.delete(cache.keys().next().value!);
     return { view, refresh };
   }
 }

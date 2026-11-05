@@ -1,5 +1,6 @@
 import { authorizeApi } from "@/lib/security/api-auth";
 import { NextResponse } from "next/server";
+import { portraitImageURL } from "@/modules/enrichment/domain/artist-portrait";
 
 /**
  * Espelha capas dos provedores na mesma origem.
@@ -16,9 +17,11 @@ const ALLOWED_HOSTS = new Set([
   "archive.org",
   "i.scdn.co",
 ]);
+const PORTRAIT_HOST = "i.scdn.co";
 
 function isAllowed(url: URL): boolean {
   if (url.protocol !== "https:") return false;
+  if(url.hostname === PORTRAIT_HOST)return !url.port&&!url.username&&!url.password&&/^\/image\/[a-zA-Z0-9]+$/.test(url.pathname);
   if (ALLOWED_HOSTS.has(url.hostname)) return true;
   // *.mzstatic.com é o CDN de artwork da Apple, usado pelas capas do iTunes
   return (
@@ -31,7 +34,9 @@ function isAllowed(url: URL): boolean {
 export async function GET(request: Request) {
   const access = await authorizeApi(request);
   if (access.response) return access.response;
-  const raw = new URL(request.url).searchParams.get("u");
+  const params = new URL(request.url).searchParams;
+  const portrait = params.get("kind") === "portrait";
+  const raw = params.get("u");
   if (!raw) {
     return NextResponse.json({ error: "Missing 'u' parameter." }, { status: 400 });
   }
@@ -43,14 +48,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid URL." }, { status: 400 });
   }
 
-  if (!isAllowed(target)) {
+  if (!isAllowed(target) || portrait && !portraitImageURL(raw)) {
     return NextResponse.json({ error: "Host not allowed." }, { status: 403 });
   }
 
   try {
     const upstream = await fetch(target, {
       headers: { "User-Agent": "Arcadium/0.1 (+cover-proxy)", Accept: "image/*" },
-      redirect: "follow",
+      redirect: portrait || target.hostname === PORTRAIT_HOST ? "error" : "follow",
       signal: AbortSignal.timeout(8000),
     });
 
@@ -58,7 +63,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Upstream failed." }, { status: 502 });
     }
 
-    const contentType = upstream.headers.get("content-type") ?? "image/jpeg";
+    const contentType = upstream.headers.get("content-type") ?? (portrait || target.hostname === PORTRAIT_HOST ? "" : "image/jpeg");
+    if((portrait || target.hostname === PORTRAIT_HOST)&&!["image/jpeg","image/png","image/webp"].includes(contentType.split(";")[0].trim().toLowerCase()))return NextResponse.json({error:"Not a portrait image."},{status:415});
     if (!contentType.startsWith("image/")) {
       return NextResponse.json({ error: "Not an image." }, { status: 415 });
     }

@@ -9,6 +9,7 @@ import { describeRefresh } from "@/components/ai/refresh-report";
 import { Aviso } from "@/components/amigo/aviso";
 import { Resposta, Respostas } from "@/components/amigo/fala";
 import styles from "./ajustes.module.css";
+import { DiscoveryHealth } from "./discovery-health";
 
 interface SyncForm {
   username: string;
@@ -267,7 +268,7 @@ export function Ajustes() {
     });
 
   const eraseEverything = () => {
-    if (!confirm("Apagar todo o teu histórico? Isso não pode ser desfeito.")) return;
+    if (!confirm("Apagar as reproduções e desconectar as fontes? Buscas, respostas, coleção e leituras salvas permanecem. Isso não pode ser desfeito.")) return;
     void run("erase", async () => {
       const response = await privateFetch("/api/user/data", { method: "DELETE" });
       const payload = await response.json();
@@ -442,18 +443,22 @@ export function Ajustes() {
         )}
       </Secao>
 
+      <DiscoveryHealth />
       <Secao title="teus dados">
-        <p className={styles.hint}>Tudo que está guardado aqui é teu, e sai daqui quando você quiser — em JSON, de uma vez.</p>
+        <p className={styles.hint}>A cópia do histórico traz até 5.000 reproduções recentes. Na memória das descobertas, você consulta e baixa recortes de buscas e respostas; a coleção tem sua própria cópia em JSON.</p>
         <div className={styles.actions}>
           <Respostas inline label="Dados">
             <Resposta href="/api/user/data" download>
-              baixar cópia
+              baixar histórico de reprodução
             </Resposta>
+            <Resposta href="/discovery/memory">memória das descobertas</Resposta>
+            <Resposta href="/discovery?collection=1">minha coleção</Resposta>
           </Respostas>
           <button type="button" className={styles.danger} onClick={eraseEverything} disabled={busy}>
-            apagar tudo
+            apagar reproduções e conexões
           </button>
         </div>
+        <p className={styles.small}>Apagar reproduções e conexões não remove buscas, respostas, coleção nem leituras salvas.</p>
       </Secao>
     </div>
   );

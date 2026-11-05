@@ -1,13 +1,20 @@
 // Browser-only synthetic fixture. No credentials, database, provider or real audio.
 import { createRoot } from "react-dom/client";
+import { useState } from "react";
+import { CollectionDesk } from "../../src/components/descobertas/collection-desk";
+import { DiscoveryNavigation, DiscoveryPageTransition } from "../../src/components/descobertas/discovery-navigation";
 import { Descobertas } from "../../src/components/descobertas/descobertas";
 import { SelectionProvider } from "../../src/components/descobertas/selection-provider";
+import type { SelectedTrack } from "../../src/components/descobertas/selection";
 
 const requests: { url: string; body: Record<string, unknown>; title: string; ready: boolean }[] = [];
-const qa = { requests, failFeedback: false, failHistory: false, plays: 0, pauses: 0 };
+const qa = { requests, failFeedback: false, failHistory: false, failCollection: false, plays: 0, pauses: 0, collection: [] as SelectedTrack[] };
 const tracks = [1, 2, 3].map((n) => ({ id: `item-${n}`, artistName: "Artista fictício", trackName: `Faixa ${n} (Ao vivo)`,
   albumName: null, genre: null, reason: "Uma referência fictícia para testar a interface.", position: null, rank: n }));
 let rank = 1;
+const legacy = { ...tracks[2], action: "saved" as const };
+qa.collection = [{ ...tracks[0], action: "saved" }];
+localStorage.setItem("arcadium:selection:synthetic-motion", JSON.stringify([legacy, { ...legacy, trackName: "Faixa estrangeira" }]));
 const payload = () => ({ sessionId: "synthetic", currentRank: rank, items: tracks, settings: { intent: "DISCOVER" } });
 const response = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
 window.fetch = async (input, init) => {
@@ -18,6 +25,21 @@ window.fetch = async (input, init) => {
   // Force a frame between request and response, as on a real connection.
   await new Promise(requestAnimationFrame);
   if (init?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+  if (url === "/api/spotify/export") return response({ data: { mode:"M3U", playlistTitle:"synthetic", totalItems:qa.collection.length, resolvedCount:qa.collection.length, m3uPayload:"#EXTM3U\n#EXTINF:-1,Synthetic artist - Synthetic track\n" } });
+  if (url === "/api/discovery-events") return response({ success: true });
+  if (url === "/api/collection") {
+    if (qa.failCollection) return response({}, 503);
+    if (init?.method === "DELETE") { qa.collection = qa.collection.filter((item) => item.artistName !== body.artistName || item.trackName !== body.trackName); return response({ success: true }); }
+    if (init?.method === "POST") {
+      const imported: string[] = []; const importedItems: SelectedTrack[] = []; const skipped: string[] = [];
+      for (const item of body.items as SelectedTrack[]) {
+        if (tracks.some((track) => track.id === item.id && track.trackName === item.trackName)) { imported.push(item.id); importedItems.push(item); if (!qa.collection.some((entry) => entry.id === item.id)) qa.collection.push(item); }
+        else skipped.push(item.id);
+      }
+      return response({ imported, importedItems, skipped });
+    }
+    return response({ items: qa.collection });
+  }
   if (url.endsWith("?history=1")) return qa.failHistory ? response({}, 503) : response({ sessions: [{ sessionId: "synthetic",
     createdAt: "2026-11-01T12:00:00Z", currentRank: rank, total: tracks.length, intent: "DISCOVER", journey: null,
     firstTrack: { artistName: "Artista fictício", trackName: tracks[0].trackName } }] });
@@ -44,7 +66,13 @@ Object.defineProperty(window, "AudioContext", { value: class {
   close() { return Promise.resolve(); }
 } });
 
-createRoot(document.getElementById("root")!).render(<SelectionProvider userId="synthetic-motion"><Descobertas /></SelectionProvider>);
+function Fixture() {
+ const [area,setArea]=useState("/discovery");
+ return <SelectionProvider userId="synthetic-motion"><div onClick={(event)=>{const link=(event.target as Element).closest<HTMLAnchorElement>("a[href]");if(link&&["/discovery","/discovery/collection"].includes(link.getAttribute("href")!)){event.preventDefault();setArea(link.getAttribute("href")!);}}}>
+ <DiscoveryNavigation pathname={area}/><DiscoveryPageTransition key={area}>{area==="/discovery"?<Descobertas/>:<CollectionDesk/>}</DiscoveryPageTransition>
+ </div></SelectionProvider>;
+}
+createRoot(document.getElementById("root")!).render(<Fixture/>);
 
 const frame = () => new Promise(requestAnimationFrame);
 async function wait(check: () => unknown, label: string) {
@@ -78,6 +106,7 @@ async function runChecks() {
   await wait(() => Boolean(document.querySelector('button[aria-label="Ouvir prévia"]:not(:disabled)')), "synthetic media");
   (document.querySelector('button[aria-label="Ouvir prévia"]') as HTMLButtonElement).click();
   await wait(() => qa.plays === 1 && document.querySelector('button[aria-label="Parar prévia"]'), "explicit preview");
+  await wait(() => requests.some((row) => row.url === "/api/discovery-events" && row.body.itemId === "item-1"), "confirmed preview event");
   qa.failFeedback = true; button("pula →").click();
   await wait(() => document.querySelector('[role="alert"]')?.textContent?.includes("Falha simulada"), "feedback failure");
   assert(ready(1) && !expose(2) && qa.pauses > 0, "Failure must keep the same track and stop sound");
@@ -93,6 +122,7 @@ async function runChecks() {
   }
   await wait(() => ready(2) && expose(2), "second incoming scene");
   assert(feedbackCount() === before + 1 && qa.plays === 1, "Rapid actions must not skip another track or autoplay");
+  assert(!requests.some((row) => row.url === "/api/discovery-events" && row.body.itemId === "item-2"), "An unplayed incoming track must not acquire a preview-start event");
   assert(document.activeElement === document.querySelector("h1"), "Focus must move after the new title mounts");
   assert(requests.filter((r) => r.body.operation === "EXPOSE").every((r) => r.ready && r.title.includes(r.body.itemId === "item-1" ? "Faixa 1" : "Faixa 2")), "Exposure must refer to the mounted visible track");
   passed.push("rapid votes, exit/entry, focus, pen and exposure stay synchronized");
@@ -109,21 +139,10 @@ async function runChecks() {
   review.summary.click(); await wait(() => !review.details.open && !review.details.querySelector("textarea"), "review closed");
   passed.push("disclosure closing, focus recovery and interrupted reopening");
 
-  const history = disclosure("Caminhos anteriores"); history.summary.click();
-  await wait(() => history.details.querySelector('[aria-current="step"]'), "history");
-  assert(history.details.textContent?.includes("posição 2") && history.details.textContent.includes("você está aqui"), "History must show the live cursor");
-  history.summary.click(); await wait(() => !history.details.open, "close history");
-  qa.failHistory = true; history.summary.click();
-  await wait(() => history.details.querySelector('[role="alert"]'), "history error");
-  assert(history.details.querySelector('[aria-current="step"]'), "Refresh errors must retain the previous list");
-  qa.failHistory = false; button("tentar novamente", history.details).click();
-  await wait(() => !history.details.querySelector('[role="alert"]'), "history retry");
-  await wait(() => !button("continuar →", history.details).disabled, "history retry completion");
-  button("continuar →", history.details).click();
-  await wait(() => ready(2) && document.activeElement === document.querySelector("h1"), "resume the same item in a fresh scene");
-  await wait(() => document.querySelector("h1")!.getBoundingClientRect().top >= 0, "resume scroll into view");
-  passed.push("history cursor, retained list on error, retry and same-item resume");
-
+  assert(![...document.querySelectorAll("summary")].some((node)=>node.textContent?.includes("Caminhos anteriores")), "History belongs to the separate Paths area");
+  assert(document.querySelector('a[href="/discovery/memory"]') && document.querySelector('a[href="/discovery/albums"]'), "Workspace navigation must expose separate areas");
+  assert(!qa.requests.some((r)=>r.url.endsWith("?history=1")), "Listening should not fetch a second history panel");
+  passed.push("separate discovery, album, collection and memory areas without duplicate panels");
   button("← anterior").click(); await wait(() => ready(1), "backward transition");
   button("trocar caminho ↗").click(); await wait(() => !document.querySelector('[data-discovery-scene]'), "entry return");
   button("continuar →").click(); await wait(() => ready(1), "same item after entry");
@@ -134,13 +153,48 @@ async function runChecks() {
   passed.push("backward/entry return, pen redraw, reduced motion and viewport width");
   // Playing and stopping must update the wave without unmounting the pen.
   const pen = document.querySelector('svg[data-layer="under"]');
+  await wait(() => document.querySelector('button[aria-label="Ouvir prévia"]:not(:disabled)'), "media after resume");
   (document.querySelector('button[aria-label="Ouvir prévia"]') as HTMLButtonElement).click();
   await wait(() => qa.plays === 2 && document.querySelector('button[aria-label="Parar prévia"]'), "second explicit preview");
   assert(document.querySelector('svg[data-layer="under"]') === pen, "Playback must preserve the mounted pen");
   (document.querySelector('button[aria-label="Parar prévia"]') as HTMLButtonElement).click(); await frame();
   assert(document.querySelector('svg[data-layer="under"]') === pen, "Stopping must preserve the mounted pen");
   passed.push("play/pause preserve the pen lifecycle");
+  document.querySelector<HTMLAnchorElement>('#discovery-navigation a[href="/discovery/collection"]')!.click();
+  await wait(()=>document.body.textContent?.includes("Isso aqui ficou pra depois."),"collection page");
+  const collection = {details: document.getElementById("root")!};
+  await wait(() => collection.details.querySelector('button[aria-label="Remover Faixa 1 (Ao vivo) da lista"]'), "account collection");
+  assert(qa.collection.length === 1, "Legacy collection must not be uploaded automatically");
+  button("trazer para a conta", collection.details).click();
+  await wait(() => qa.collection.length === 2 && document.querySelector('[role="alert"]')?.textContent?.includes("Parte da lista local"), "explicit partial import");
+  assert(localStorage.getItem("arcadium:selection:synthetic-motion:track:" + encodeURIComponent("artista fictício\u0000faixa estrangeira")), "Unmatched legacy entry must remain local");
+  qa.failCollection = true; button("atualizar coleção").click();
+  await wait(() => document.querySelector('[role="alert"]')?.textContent?.includes("Não consegui atualizar"), "collection refresh failure");
+  assert(collection.details.querySelector('button[aria-label="Remover Faixa 1 (Ao vivo) da lista"]'), "Refresh failure must keep the last account snapshot");
+  qa.failCollection = false; button("atualizar coleção").click();
+  await wait(() => !document.querySelector('[role="alert"]'), "collection refresh retry");
+  (collection.details.querySelector('button[aria-label="Remover Faixa 1 (Ao vivo) da lista"]') as HTMLButtonElement).click();
+  await wait(() => !collection.details.querySelector('button[aria-label="Remover Faixa 1 (Ao vivo) da lista"]'), "account remove");
+  assert(qa.collection.length === 1 && feedbackCount() === before + 1, "Removing a collection entry must not send negative feedback");
+  const exportButton=[...document.querySelectorAll<HTMLButtonElement>("button")].find((node)=>node.textContent?.includes("levar 1 pro Spotify"))!;
+  exportButton.focus(); exportButton.click(); exportButton.click();
+  await wait(()=>document.querySelector('[role="dialog"]')?.textContent?.includes("Achei 1 de 1"),"collection export result");
+  assert(qa.requests.filter((r)=>r.url==="/api/spotify/export").length===1,"Duplicate export activation must remain guarded");
+  assert(document.getElementById("discovery-navigation")!.inert,"Export dialog must make workspace navigation inert");
+  document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}));
+  await wait(()=>!document.querySelector('[role="dialog"]')&&!document.getElementById("discovery-navigation")!.inert,"export escape");
+  assert(!document.getElementById("discovery-navigation")!.inert&&document.activeElement===exportButton,"Closing export must restore focus and area navigation");
+  assert(feedbackCount()===before+1,"Exporting must not create feedback");
+  passed.push("account collection, explicit partial import, retained browser copy, retry and independent removal");
+  document.querySelector<HTMLAnchorElement>('#discovery-navigation a[href="/discovery"]')!.click();
+  await wait(()=>document.querySelector("#mapa-descoberta"),"discovery tab return");
+  assert(qa.plays === 2,"Switching areas must not autoplay");
   return { passed, reduced, viewport: innerWidth, requests: requests.length };
 }
 
-Object.assign(window, { arcadiumQA: qa, runDiscoveryChecks: runChecks });
+async function prepareCollectionCapture(){
+ document.querySelector<HTMLAnchorElement>('#discovery-navigation a[href="/discovery/collection"]')!.click();
+ await wait(()=>document.querySelector("h1")?.textContent?.includes("Isso aqui"),"collection capture");
+ window.scrollTo({top:0,behavior:"instant"}); await new Promise(r=>setTimeout(r,600));
+}
+Object.assign(window, { arcadiumQA: qa, runDiscoveryChecks: runChecks, prepareCollectionCapture });

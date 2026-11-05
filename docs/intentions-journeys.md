@@ -1,5 +1,7 @@
 # Intenções, aprofundamento e caminhos anteriores
 
+Entrega do PR 16, agora confirmada como mergeada na master `def1f77`. O incremento seguinte reúne [coleção na conta, memória e continuidade na Conversa](discovery-memory.md); os limites de escopo abaixo registram a entrega original.
+
 Base: master `4c1aa4f`, após merge do PR 15 e aprovação manual relatada pelo proprietário. Por solicitação do proprietário, este PR combina um recorte funcional da etapa 6 com sua interface e navegação da etapa 7. Não conclui integralmente essas etapas.
 
 Hipótese: separar descoberta de repertório conhecido e permitir aprofundar uma faixa explicitamente escolhida torna a exploração mais útil do que depender apenas dos presets do mapa. Cada busca preserva sua intenção e pode continuar como um passo de um caminho, sem apagar os anteriores.
@@ -56,4 +58,4 @@ As fixtures usam os componentes/CSS/fontes reais, dados fictícios e nenhum banc
 6. Testar repetição da requisição e duas abas: sem sessão duplicada para a mesma chave, avanço indevido ou sobrescrita da sessão original. Registrar qualquer diferença observada no PostgreSQL da cópia.
 7. Seguir o [roteiro de movimento e acessibilidade](discovery-motion.md): troca curta de faixa, caneta/foco corretos, painéis e histórico, retomada do mesmo item, falha de rede sem avanço, cliques rápidos, ausência de autoplay e movimento reduzido.
 
-Portas de entrada por território com curadoria aprovada, seleção estrita por mood/gênero, jornadas de álbum em ordem, coleção na conta e timeline completa permanecem pendentes. Não foram substituídas por promessas nos textos desta interface.
+Na entrega do PR 16 permaneciam pendentes álbuns, coleção e timeline; foram acrescentados no PR 17. Ver [álbuns/contexto](albums-sourced-context.md) e [memória/retrato](portrait-editorial-operations.md). Portas curadas e seleção estrita por mood/gênero ainda dependem de cobertura e aprovação.

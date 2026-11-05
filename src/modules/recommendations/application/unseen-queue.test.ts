@@ -27,6 +27,12 @@ beforeEach(() => {
     recommendationSession: { findFirst: mocks.session }, recommendationItem: { update: mocks.update } }));
 });
 describe("evidenced corrections to unseen items", () => {
+  it("never reranks an ordered album after track feedback", async () => {
+    session.algorithmVersion = "album-v1"; const service = new RecommendationService();
+    const build = vi.spyOn(service as any, "buildUserProfile"); const original = session.items.map((item: any) => item.rank);
+    expect(await (service as any).refreshUnseenSession("owner", "session", "voted")).toBe(false);
+    expect(session.items.map((item: any) => item.rank)).toEqual(original); expect(build).not.toHaveBeenCalled(); expect(mocks.update).not.toHaveBeenCalled();
+  });
   it("reranks only unseen slots, preserving shown identities, reasons and preview evidence", async () => {
     const service = new RecommendationService();
     profile.feedbackMap.set(trackFeedbackKey("Seed", "Reference"), "LIKED");

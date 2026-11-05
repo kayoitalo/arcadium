@@ -1,3 +1,4 @@
+import { spotifyFetch } from "./spotify-http";
 import { PlaylistProvider, PlaylistSearchResult, PlaylistResult } from "../domain/playlist-provider.interface";
 import { SpotifyAuthError } from "../domain/spotify-errors";
 import { compatibleRecording } from "@/lib/music/recording-match";
@@ -44,7 +45,7 @@ export class SpotifyAdapter implements PlaylistProvider {
     });
 
     try {
-      const response = await fetch(`https://api.spotify.com/v1/search?${query}`, {
+      const response = await spotifyFetch(`https://api.spotify.com/v1/search?${query}`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           Accept: "application/json",
@@ -95,7 +96,7 @@ export class SpotifyAdapter implements PlaylistProvider {
     description: string
   ): Promise<PlaylistResult | null> {
     try {
-      const response = await fetch("https://api.spotify.com/v1/me/playlists", {
+      const response = await spotifyFetch("https://api.spotify.com/v1/me/playlists", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -147,7 +148,7 @@ export class SpotifyAdapter implements PlaylistProvider {
     for (let i = 0; i < validUris.length; i += chunkSize) {
       const chunk = validUris.slice(i, i + chunkSize);
       try {
-        const response = await fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/items`, {
+        const response = await spotifyFetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/items`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${accessToken}`,

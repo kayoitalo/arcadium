@@ -198,3 +198,8 @@
  .kept li { gap: 12px; grid-template-columns: minmax(0,1fr) auto; }
  .kept li > .keptHow { display: none; }
 }
+
+.reasonMark > svg { width: 48px; height: 52px; }
+.entryIntro > aside { align-self: center; max-width: 42ch; }
+
+@media(min-width:761px) { .entryIntro { grid-template-columns: minmax(0,1.4fr) minmax(280px,.9fr); } }

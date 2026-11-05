@@ -19,7 +19,8 @@ export interface SoundStep {
   seconds?: number;
 }
 
-export function useSound() {
+export function useSound(onStarted?: (url: string) => void) {
+  const startedRef = useRef(onStarted); startedRef.current = onStarted;
   const context = useRef<AudioContext | null>(null);
   const analyser = useRef<AnalyserNode | null>(null);
   const buffer = useRef<Uint8Array<ArrayBuffer> | null>(null);
@@ -108,7 +109,7 @@ export function useSound() {
         audio.currentTime = 0;
         setLoading(true);
         void audio.play().then(() => {
-          if (token === playbackRun.current) setLoading(false);
+          if (token === playbackRun.current) { setLoading(false); startedRef.current?.(steps[index].url); }
         }).catch(() => {
           if (token !== playbackRun.current) return;
           stop();
