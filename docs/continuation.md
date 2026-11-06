@@ -2,6 +2,19 @@
 
 Atualizado em 02/11/2026. Este registro recupera na base atual a continuidade do PR 14 que existia apenas na revisão permanente `da2055a9805ff6d39bdcac1d1211c80bde19c229`.
 
+## Rodada de 04/11/2026 — após merge do PR 17
+
+Entrega agrupada no [PR 18](https://github.com/kayoitalo/arcadium/pull/18), aberto para revisão, sem merge. Roteiro, validações e pendências ficam descritos no PR e nos documentos abaixo.
+
+- PR 17 confirmado pela API GitHub como mergeado em `6a9799c`, head `6ac105b`; Vercel do head com sucesso. Master atualizada e branch `codex/territories-evidence-operations` criada com workspace inicialmente limpo. Sem presumir nova aprovação manual.
+- Implementados [territórios, repertório restrito, pistas de catálogo e operação](territories-evidence-operations.md). Destino e restrições persistem na sessão; cobertura curta/falha é explícita. Proximidade não promete outro universo. [Curadorias v1](curation-proposals.md) permanecem propostas, com fontes e âncoras, sem aprovação ou ativação no ranking.
+- [Avaliação pareada](evaluation-replay.md) agora tem controle do motor atual congelado, hash dos snapshots/pools, métricas estruturais e julgamentos humanos separados. Preparo Lite/Flash é offline e não executa IA. Pistas sonoras específicas e comparação qualitativa real permanecem pendentes de evidência/revisão.
+- Geração comum passa a usar bloqueio da conta na reserva e bloqueio/releitura na finalização, protegendo contra concorrência e retomada de trabalho cancelado. Retenção operacional configurável com simulação/hash, lotes limitados e todos os prazos desativados por padrão; memória pessoal preservada.
+- Proprietário forneceu a conexão e confirmou a branch preview por captura. Cinco cenários PostgreSQL reais passaram em schema descartável, incluindo migrations, retries/feedback/coleção, rollback/recuperação, retenção e plano de consulta com 5.000 sessões sintéticas. Schema removido ao terminar; produção e dados copiados da preview não foram usados. Nova migration contém somente três índices e ainda deve passar pelo deploy da aplicação da preview após build. Nenhuma exclusão automática foi ativada.
+- QA de regressão: escuta/coleção, memória, álbuns/contexto e retrato em 1280/1920/390 px e movimento reduzido passaram com dados/áudio/imagens sintéticos. Novo runner cobre portas, restrições, pistas, lacunas/retry e teclado. 566 testes/109 arquivos, dois testes de replay/preparo offline, tipos/build, schema e diff real sem drift passaram; cinco cenários PostgreSQL e cinco runners de navegador nas quatro configurações aprovados por automação. Aceitação manual e qualidade musical não foram inferidas.
+
+Os registros abaixo são históricos. Onde dizem que o PR 17 está em revisão ou que concorrência PostgreSQL ainda não foi ensaiada, prevalece o estado desta rodada; isso não transforma testes sintéticos em aprovação musical/manual.
+
 ## Estado confirmado
 
 - Ajuste de 04/11/2026 após confirmação do proprietário: fotos Spotify funcionaram quando as variáveis também foram configuradas na preview (estavam só em Production). O retrato agora reserva a área da imagem desde a busca e mantém nome/números no lugar durante metadados/download, com fade de 220 ms e movimento reduzido. Removida a alternativa Last.fm apenas para fotografias; histórico/descoberta/contexto permanecem. [Comportamento, limites e teste de geometria](portrait-stable-loading.md). 545 testes/101 arquivos, tipos/build e quatro grupos de retrato nas quatro configurações passaram com dados/imagem sintéticos. Foto real confirmada pelo proprietário; nova transição ainda para revisão. Sem nova API, migration, IA ou infraestrutura. Os registros anteriores sobre alternativa Last.fm são históricos.
@@ -37,12 +50,12 @@ Atualizado em 02/11/2026. Este registro recupera na base atual a continuidade do
 
 ## Próximos trabalhos
 
-1. Conferir PR/branch e checks atuais, sem presumir merge ou deploy. Na Vercel, observar `build:deploy` e o destino isolado da preview; o painel remoto não foi alterado nesta sessão.
-2. A decisão desta rodada é adiar incorporação do ListenBrainz ao ranking padrão; manter opt-in. Para adoção futura, completar a [amostra pública](../scripts/evaluation/listenbrainz-sample.json) e resolver a semântica de grupos canônicos/versões. Popularidade dos grupos ainda não foi medida; o controle de versão segue inconclusivo.
-3. O build removeu as capturas e avaliações temporárias de `.next/evaluation/`. As notas pessoais foram recuperadas a partir das declarações explícitas desta conversa em `.local/evaluation/`, agora ignorada pelo Git e preservada entre builds. Não são snapshots reconstruídos dos provedores e não foram publicados/sincronizados com produção. As métricas públicas versionadas permanecem disponíveis. Comparações locais por uma referência não são o motor completo.
-4. Intenções/jornadas do PR 16 estão mergeadas. Curadoria de territórios e filtros estritos seguem pendentes; álbuns em ordem foram implementados para revisão no PR 17; a adoção de outra fonte não é pré-requisito para esse trabalho.
-5. Coleção/diário e continuidade na Conversa foram agrupados no incremento atual. Exportação integral/gestão, conversa/retrato e contexto com fonte também foram implementados para revisão no mesmo PR. Após aceitação, seguir curadoria, pistas por gravação e consolidação conforme [plano](evolution-plan.md), refinando pelos resultados.
-6. Revisar o incremento de [memória](discovery-memory.md) na preview isolada antes do merge: coleção em dois dispositivos, importação/retry, diário/filtros/paginação, revisão por retomada, downloads e ausência de autoplay. Incluir o roteiro ampliado de exportação integral/exclusão por escopo, retrato/memória editorial e álbuns/contexto. A aceitação manual destas ampliações ainda não foi relatada.
+1. Conferir checks/deploy do novo PR e a migration no schema da aplicação da preview; não fazer merge sem revisão do proprietário.
+2. Revisar territórios/repertório/pistas no roteiro da entrega, com dados reais e escuta explícita. Curadoria de gravações e filtros de momento/voz/instrumentação permanecem sem aprovação/cobertura.
+3. Completar amostra observada pareada e julgamentos de adequação, interesse e surpresa útil. Executar avaliação qualitativa Lite/Flash apenas dentro do orçamento e controles existentes, por decisão posterior; o preparo não fez chamadas.
+4. ListenBrainz continua experimental e fora do ranking. Canonização/identidade de versões, cobertura representativa e contribuição exclusiva permanecem pendentes.
+5. Escolher prazos de retenção operacional somente após revisar a simulação. Não ativar exclusão automática de memória pessoal. Repetir os ensaios isolados quando alterações de consulta/concorrência justificarem; a amostra atual não mede carga de produção.
+6. Preservar `.local/evaluation/` entre builds. Não publicar conexões, notas pessoais, pools observados ou payloads completos. Os artefatos desta rodada distinguem PostgreSQL real com dados sintéticos de fixtures de navegador e avaliações ainda não realizadas.
 
 ## Limites preservados
 

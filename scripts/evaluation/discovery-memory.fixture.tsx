@@ -5,10 +5,14 @@ import { SelectionProvider } from "../../src/components/descobertas/selection-pr
 import { DiscoveryMemory } from "../../src/components/descobertas/discovery-memory";
 import { DiscoveryRecall } from "../../src/components/descobertas/discovery-recall";
 import type { MemoryPage, MemorySession } from "../../src/modules/recommendations/domain/discovery-memory";
+import { buildListeningCues } from "../../src/modules/recommendations/domain/listening-cues";
 
 const qa = { requests: [] as string[], fail: false };
 const makeSession = (id: string, trackName: string): MemorySession => ({ id, createdAt: "2026-11-02T12:00:00Z", currentRank: 1,
   total: 1, intent: "DISCOVER", anchor: null, items: [{ id: `item-${id}`, artistName: "Artista fictício", trackName, rank: 1,
+    listeningCues: buildListeningCues({ artistName: "Artista fictício", trackName, appleMusicUrl: "https://music.apple.com/br/album/synthetic/42?i=43", scoreComponents: {
+      previewIdentity: { source: "itunes", sourceId: "43", artistName: "Artista fictício", trackName, match: "compatible-text-v1" }, catalogFacts: { durationMs: 185000, fetchedAt: "2026-11-04T12:00:00Z" },
+    } }),
     reason: "A partir de uma referência observada.", exposedAt: "2026-11-02T12:01:00Z", moreFeedback: true,
     feedback: [{ id: "withdrawn", type: "RETRACTED", channel: "preference", note: "Mudei de ideia <script>não executa</script>", details: null, createdAt: "2026-11-02T12:03:00Z", revisesId: "like" },
       { id: "like", type: "LIKED", channel: "preference", note: "Gostei do instrumental", details: { aspects: ["INSTRUMENTAL"] }, createdAt: "2026-11-02T12:02:00Z", revisesId: null }] }] });
@@ -59,6 +63,9 @@ async function runChecks() {
   assert(document.body.textContent?.includes("Há respostas anteriores fora deste recorte"), "Audit truncation must be visible");
   assert(!document.querySelector("blockquote script") && document.querySelector("blockquote")?.textContent?.includes("<script>"), "User notes must remain text");
   assert(document.querySelector('a[href*="download=1"]'), "Filtered-page export must remain available");
+  const cue = [...document.querySelectorAll<HTMLElement>("summary")].find((node) => node.textContent?.includes("pistas desta versão"))!;
+  const reads = qa.requests.length; cue.click(); await wait(() => document.body.textContent?.includes("3:05"), "reused cue snapshot");
+  assert(qa.requests.length === reads && document.querySelector('a[href*="i=43"]'), "Memory cues must reuse the sourced snapshot without a fresh lookup"); cue.click();
   passed.push("owned timeline, version text, withdrawal audit, explicit limits and escaped notes");
   button("mais antigas →").click();
   await wait(() => document.querySelector('a[href="/discovery?session=old"]'), "older page");

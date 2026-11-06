@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "id": "synthetic-territory-1",
+  "provenance": "SYNTHETIC",
+  "baseline": "v3-hybrid-3@6a9799c",
+  "treatment": "v3-hybrid-4",
+  "capturedAt": "2026-11-05T00:00:00.000Z",
+  "size": 3,
+  "request": { "intent": "TERRITORY", "genre": "dub" },
+  "profile": { "knownArtists": ["Synthetic Known"], "knownTracks": [], "topGenres": ["rock"] },
+  "pools": {
+    "baseline": [
+      { "artistName": "Synthetic Near A", "trackName": "Reference A", "source": "similar_track", "genre": "rock", "evidence": [{ "kind": "track_similarity", "source": "lastfm", "seedArtist": "Synthetic Known", "seedTrack": "Seed", "rank": 1 }] },
+      { "artistName": "Synthetic Near B", "trackName": "Reference B", "source": "similar_track", "genre": "rock", "evidence": [{ "kind": "track_similarity", "source": "lastfm", "seedArtist": "Synthetic Known", "seedTrack": "Seed", "rank": 2 }] }
+    ],
+    "treatment": [
+      { "artistName": "Synthetic Dub A", "trackName": "Door (Live)", "source": "territory_catalog", "genre": "dub", "evidence": [{ "kind": "territory_tag", "source": "catalog", "genre": "dub", "seedArtist": "Synthetic Dub A" }] },
+      { "artistName": "Synthetic Dub B", "trackName": "Door B", "source": "territory_catalog", "genre": "dub", "evidence": [{ "kind": "territory_tag", "source": "catalog", "genre": "dub", "seedArtist": "Synthetic Dub B" }] },
+      { "artistName": "Synthetic Outside", "trackName": "Must not fill", "source": "similar_artist", "genre": "rock", "evidence": [] }
+    ]
+  },
+  "measurements": {
+    "baseline": { "endToEndMs": null, "providerAttempts": null, "inputTokens": null, "outputTokens": null },
+    "treatment": { "endToEndMs": null, "providerAttempts": null, "inputTokens": null, "outputTokens": null }
+  },
+  "judgments": []
+}

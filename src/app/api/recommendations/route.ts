@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   const { proximity, fame, ...input } = body.data;
   try {
     const session = await new RecommendationService().generateSession({
-      ...input, userId: access.userId, size: 8,
+      ...input, userId: access.userId, size: input.intent === "TERRITORY" ? 6 : 8,
       dials: proximity !== undefined && fame !== undefined ? { proximity, fame } : undefined,
     });
     return NextResponse.json(session, { headers: { "Cache-Control": "private, no-store" } });

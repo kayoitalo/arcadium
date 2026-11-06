@@ -14,7 +14,7 @@ describe("session recording provenance", () => {
       const session = await new RecommendationService().getSession("s", "owner");
       expect(session?.items[0].id).toBe("item");
       expect(session?.items[0].previewUrl).toBeNull();
-      expect(mocks.session).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "s", userId: "owner" } }));
+      expect(mocks.session).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "s", userId: "owner", status: "ACTIVE" } }));
     },
   );
   it("returns the preview and its source identity for matching recording text", async () => {

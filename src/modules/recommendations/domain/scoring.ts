@@ -65,6 +65,9 @@ export function calculateScore(components: ScoreComponents, _mode: Recommendatio
 }
 export function buildEvidenceReason(candidate: RawCandidate, profile: UserProfile): string {
   const evidence = relations(candidate, profile);
+  const territory = evidence.find((entry) => entry.kind === "territory_tag");
+  if (territory) return `Você escolheu artistas associados a ${territory.genre}. O catálogo registra essa tag para ${candidate.artistName}; ela não certifica o gênero desta gravação. Sem reprodução desse artista no histórico importado ao escolher a porta.`;
+  if (evidence.some((entry) => entry.kind === "repertoire_metadata")) return "Do teu repertório, com o gênero do álbum e/ou duração catalogada que você pediu. Esses metadados não descrevem o som da gravação.";
   const repertoire = evidence.find((entry) => entry.kind === "history_repertoire");
   if (repertoire) return `Do teu repertório: há ${repertoire.playCount} reproduções registradas desta faixa.`;
   if (candidate.isRevisit) {

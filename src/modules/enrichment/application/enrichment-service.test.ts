@@ -36,7 +36,7 @@ describe("owner-scoped enrichment", () => {
     mocks.albums.mockResolvedValue([{ id: "album", artistId: "band", artist: { name: "Band" }, itunesCollectionId: "collection" }]);
     mocks.tracks.mockResolvedValue([
       { id: "studio", name: "Song", durationMs: null, artist: { name: "Band" } },
-      { id: "live", name: "Song (Live)", durationMs: null, artist: { name: "Band" } },
+      { id: "live", name: "Song (Live)", durationMs: 999, artist: { name: "Band" } },
     ]);
     const catalog = { lookupTracks: vi.fn().mockResolvedValue([
       { trackId: "guest", artistName: "Other Band", name: "Song", previewUrl: "wrong-artist" },
@@ -45,7 +45,7 @@ describe("owner-scoped enrichment", () => {
     const summary = await new EnrichmentService(undefined, undefined, catalog as unknown as ItunesCatalogAdapter).enrichAlbumsFromCatalog("owner");
     expect(summary.tracksUpdated).toBe(1);
     expect(mocks.trackUpdate).toHaveBeenCalledExactlyOnceWith({ where: { id: "live" }, data: {
-      durationMs: 123, previewUrl: "live-preview", itunesTrackId: "live-id", appleMusicUrl: "store",
+      durationMs: 123, previewUrl: "live-preview", itunesTrackId: "live-id", appleMusicUrl: "store", enrichedAt: expect.any(Date),
     } });
   });
 });

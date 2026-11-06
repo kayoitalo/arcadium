@@ -47,6 +47,7 @@ export class ItunesPreviewAdapter implements PreviewProvider {
           url: track.previewUrl,
           artworkUrl: track.artworkUrl ?? undefined,
           appleMusicUrl: track.appleMusicUrl ?? undefined,
+          catalogFacts: { durationMs: track.durationMs, fetchedAt: new Date().toISOString() },
           identity: {
             source: "itunes", sourceId: track.trackId,
             artistName: track.artistName, trackName: track.name,

@@ -38,7 +38,11 @@ export class AlbumJourneyService {
       const previous = await prisma.recommendationSession.findUnique({ where: { userId_requestKey: { userId, requestKey } } });
       if (!previous || previous.requestFingerprint !== fingerprint) throw new DiscoveryConflict("Chave já utilizada em outro pedido.");
       if (previous.status === "GENERATING" && previous.updatedAt.getTime() < Date.now() - 5 * 60_000) {
-        await prisma.recommendationSession.updateMany({ where: { id: previous.id, status: "GENERATING", updatedAt: previous.updatedAt }, data: { status: "FAILED" } });
+        const changed = await prisma.recommendationSession.updateMany({ where: { id: previous.id, status: "GENERATING", updatedAt: previous.updatedAt }, data: { status: "FAILED" } });
+        if (changed.count === 0) {
+          const session = await new RecommendationService().getSession(previous.id, userId);
+          if (session) return session;
+        }
         throw new DiscoveryConflict("A tentativa anterior foi interrompida. Inicie outra tentativa.", 409, "GENERATION_FAILED");
       }
       if (previous.status !== "ACTIVE") throw new DiscoveryConflict(previous.status === "GENERATING" ? "A jornada está sendo preparada. Tente novamente em instantes." : "Não consegui preparar a jornada. Inicie outra tentativa.", 409,
@@ -75,7 +79,9 @@ export class AlbumJourneyService {
       }
       await prisma.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT "id" FROM "RecommendationSession" WHERE "id" = ${reservation.id} AND "userId" = ${userId} FOR UPDATE`;
-        const current = await tx.recommendationSession.findFirst({ where: { id: reservation.id, userId, status: "GENERATING" } });
+        await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
+        const current = await tx.recommendationSession.findFirst({ where: { id: reservation.id, userId, status: "GENERATING",
+          updatedAt: { gte: new Date(Date.now() - 5 * 60_000) } } });
         if (!current) throw new DiscoveryConflict("Esta tentativa foi encerrada. Inicie outra jornada.");
         await tx.recommendationSession.update({ where: { id: reservation.id }, data: { status: "ACTIVE",
           discoveryContext: { version: 1, intent: "ALBUM", journey: { action: "ALBUM", album: edition.album } },
@@ -84,6 +90,7 @@ export class AlbumJourneyService {
             reason: `Disco ${track.disc}, faixa ${track.number} de “${edition.album.albumName}”, na edição que você escolheu.`,
             coverUrl: edition.album.artworkUrl, previewUrl: track.previewUrl, appleMusicUrl: track.sourceUrl ?? edition.album.sourceUrl,
             scoreComponents: { albumEdition: { ...edition.album, trackId: track.trackId, disc: track.disc, number: track.number },
+              catalogFacts: { durationMs: track.durationMs, fetchedAt: edition.album.fetchedAt },
               previewIdentity: { source: "itunes", sourceId: track.trackId, artistName: track.artistName, trackName: track.trackName, match: "compatible-text-v1" } } })) },
         } });
       });

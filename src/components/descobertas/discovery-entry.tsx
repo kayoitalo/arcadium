@@ -28,7 +28,7 @@ export function DiscoveryEntry({ busy, hasSession, currentRank, total, onChoose,
     <p className={styles.eyebrow}><span className={styles.smallRule} /> descoberta musical</p>
     <div className={styles.entryIntro}>
       <Fala level={1} headline={"Hoje, a curiosidade\nvai por onde?"} mark={["por onde?"]} markRef={mark} marked={pen.started.has("entry-curiosity")} />
-      <ListeningNote label="eu procuro, você dá o play"><p>Uma novidade perto das tuas referências ou uma volta ao repertório. Qual caminho te chama hoje?</p></ListeningNote>
+      <ListeningNote label="eu procuro, você dá o play"><p>Uma novidade perto das tuas referências, outro universo com destino escolhido ou uma volta ao repertório. Qual caminho te chama hoje?</p></ListeningNote>
     </div>
     <div className={styles.entryChoices}>
       {DISCOVERY_ENTRIES.map((entry) => <button className={styles.entryChoice} key={entry.id} disabled={busy}
@@ -44,7 +44,7 @@ export function DiscoveryEntry({ busy, hasSession, currentRank, total, onChoose,
     </div>
     {hasSession && <div className={styles.resumeStrip}>
       <span className={styles.resumeMark} aria-hidden="true">↳</span>
-      <p><strong>A tua última busca continua aqui.</strong><span>{currentRank <= total ? `Você parou na indicação ${currentRank} de ${total}.` : "As indicações e respostas ficaram guardadas."}</span></p>
+      <p><strong>A tua última busca continua aqui.</strong><span>{total === 0 ? "A busca ficou guardada com o pedido e o resultado vazio." : currentRank <= total ? `Você parou na indicação ${currentRank} de ${total}.` : "As indicações e respostas ficaram guardadas."}</span></p>
       <button onClick={onResume} disabled={busy}>continuar <span aria-hidden="true">→</span></button>
     </div>}
     <PenLayer pen={pen} signal={signal} reduced={reduced} />
