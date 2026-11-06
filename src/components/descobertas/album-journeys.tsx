@@ -9,6 +9,7 @@ import { textLines } from "@/components/amigo/measure";
 import { usePen } from "@/components/amigo/use-pen";
 import { useReducedMotion } from "framer-motion";
 import type { AlbumSource, EditionSummary } from "@/modules/recommendations/domain/album-journey";
+import { CARTOLA_JOURNEY_HREF, findCuratedAlbum, type CurationCredit } from "@/modules/recommendations/domain/curated-albums";
 import { DiscoveryDisclosure } from "./discovery-disclosure";
 import styles from "./album-journeys.module.css";
 
@@ -19,12 +20,17 @@ export function EditionCredit({ album }: { album: EditionSummary }) {
     {album.explicitness && <> · {album.explicitness === "explicit" ? "conteúdo explícito" : album.explicitness === "cleaned" ? "letras editadas" : "sem letras explícitas"}</>}
     {" · "}<a href={album.sourceUrl} target="_blank" rel="noreferrer">conferir esta versão ↗</a></p>;
 }
-export function AlbumProgress({ album, tracks, index, disabled, onMove }: { album: EditionSummary;
+export function EditorialCredit({ curation }: { curation: CurationCredit }) {
+  return <p className={styles.note}>{curation.title} · curadoria v{curation.version}{" · "}
+    <a href={curation.sourceUrl} target="_blank" rel="noreferrer">fonte editorial ↗</a></p>;
+}
+export function AlbumProgress({ album, curation, tracks, index, disabled, onMove }: { album: EditionSummary; curation?: CurationCredit;
   tracks: { id: string; trackName: string; artistName: string; scoreComponents?: { albumEdition?: { disc: number; number: number } } }[];
   index: number; disabled: boolean; onMove: (index: number) => void }) {
   return <section className={styles.progress} aria-label="Edição escolhida">
     <p className={styles.eyebrow}>um álbum, do começo ao fim</p><h2>{album.albumName}</h2><p>{album.artistName}</p>
     <EditionCredit album={album} />
+    {curation && <EditorialCredit curation={curation} />}
     <DiscoveryDisclosure summary="ordem das faixas" className={styles.contextDisclosure}>
       <ol className={styles.tracklist}>{tracks.map((track, position) => <li key={track.id}>
         <button disabled={disabled || position === index} aria-current={position === index ? "step" : undefined} onClick={() => onMove(position)}>
@@ -36,9 +42,10 @@ export function AlbumProgress({ album, tracks, index, disabled, onMove }: { albu
     </DiscoveryDisclosure>
   </section>;
 }
-export function AlbumJourneys({ initialItem = null, onBegin = (id) => window.location.assign(`/discovery?session=${encodeURIComponent(id)}`) }: {
-  initialItem?: string | null; onBegin?: (id: string) => void;
+export function AlbumJourneys({ initialItem = null, initialCuration = null, onBegin = (id) => window.location.assign(`/discovery?session=${encodeURIComponent(id)}`) }: {
+  initialItem?: string | null; initialCuration?: string | null; onBegin?: (id: string) => void;
 }) {
+  const curation = initialCuration && !initialItem ? findCuratedAlbum(initialCuration) : null;
   const [draft, setDraft] = useState(""); const [query, setQuery] = useState(""); const [attempt, setAttempt] = useState(0);
   const [library, setLibrary] = useState<{ albums: AlbumReference[]; more: boolean } | null>(null);
   const [loading, setLoading] = useState(true); const [libraryError, setLibraryError] = useState(false);
@@ -57,13 +64,19 @@ export function AlbumJourneys({ initialItem = null, onBegin = (id) => window.loc
     return { gestures, notes: [], wave: null };
   }, queryInk, {settle:220});
   useEffect(() => {
+    if (curation) {
+      setLibrary({ albums: [{ source: { kind: "curated", id: curation.credit.id }, artistName: curation.artistName, albumName: curation.albumName }], more: false });
+      setLibraryError(false);
+      setLoading(false);
+      return;
+    }
     const controller = new AbortController(); setLoading(true); setLibraryError(false); setLibrary(null); setVisible(6);
     const params = new URLSearchParams(initialItem ? { item: initialItem } : { q: query });
     void privateFetch(`/api/album-journeys?${params}`, { signal: controller.signal }).then(async (response) => {
       if (!response.ok) throw new Error(); const data = await response.json(); if (!controller.signal.aborted) setLibrary(data);
     }).catch(() => { if (!controller.signal.aborted) setLibraryError(true); }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [initialItem, query, attempt]);
+  }, [initialItem, curation, query, attempt]);
   useEffect(() => () => operation.current?.abort(), []);
   useEffect(() => {
     if (!selected) return;
@@ -99,16 +112,18 @@ export function AlbumJourneys({ initialItem = null, onBegin = (id) => window.loc
   return <div className={styles.albums} ref={stage}>
     <header><p className={styles.eyebrow}>pra ouvir um disco</p>
       <Fala level={1} headline="Tem discos que pedem o caminho inteiro." mark={["caminho inteiro"]} markRef={mark} marked={pen.started.has("album-title")}
-        narrative="Escolhe um disco da tua estante. Eu confiro a versão e a gente segue na ordem, uma faixa de cada vez." />
-      <nav><Link href="/discovery">voltar à descoberta →</Link>{initialItem && <Link href="/discovery/albums">ver álbuns do meu histórico →</Link>}</nav>
+        narrative={curation ? "Cartola abre esta porta para o samba com as faixas do disco de 1976 em ordem." : "Escolhe um disco da tua estante. Eu confiro a versão e a gente segue na ordem, uma faixa de cada vez."} />
+      <nav><Link href="/discovery">voltar à descoberta →</Link>{(initialItem || curation) && <Link href="/discovery/albums">ver álbuns do meu histórico →</Link>}</nav>
       <ListeningNote label="puxa um disco"><p>Um álbum pode ter versão de estúdio, ao vivo ou com faixas extras. Antes do play, você confere qual delas quer percorrer.</p></ListeningNote>
     </header>
-    {!initialItem && <form className={styles.search} onSubmit={(event) => { event.preventDefault(); if (!busy) { setSelected(null); setEditions(null); setError(null); setQuery(draft.trim()); setAttempt((value) => value + 1); } }}>
+    {!initialItem && !curation && <ListeningNote label="curadoria de escuta"><p><Link href={CARTOLA_JOURNEY_HREF}>Uma porta para o samba · Cartola (1976) →</Link></p></ListeningNote>}
+    {curation && <EditorialCredit curation={curation.credit} />}
+    {!initialItem && !curation && <form className={styles.search} onSubmit={(event) => { event.preventDefault(); if (!busy) { setSelected(null); setEditions(null); setError(null); setQuery(draft.trim()); setAttempt((value) => value + 1); } }}>
       <label>Álbum ou artista no teu histórico<input maxLength={120} value={draft} disabled={busy} onChange={(event) => setDraft(event.target.value)} /></label><button disabled={busy || loading}>procurar</button>
     </form>}
     {loading && <p role="status">Abrindo os álbuns…</p>}
     {libraryError && <p role="alert">Não consegui abrir os álbuns desta conta. <button onClick={() => setAttempt((n) => n + 1)}>tentar novamente</button></p>}
-    {library && <><p className={styles.note}>{initialItem ? "O álbum identificado nesta indicação." : "Até 20 álbuns registrados nas tuas reproduções. Use a busca para encontrar outros."} A consulta ao catálogo só começa quando você pedir.</p>
+    {library && <><p className={styles.note}>{curation ? "Esta jornada segue a edição brasileira de referência." : initialItem ? "O álbum identificado nesta indicação." : "Até 20 álbuns registrados nas tuas reproduções. Use a busca para encontrar outros."} A consulta ao catálogo só começa quando você pedir.</p>
       {!library.albums.length && <p>Nenhum álbum encontrado neste recorte. Tente outro nome ou volte à descoberta.</p>}
       <ul className={styles.library}>{library.albums.slice(0,visible).map((album, index) => {
         const active = selected?.source.id === album.source.id && selected.source.kind === album.source.kind;
@@ -119,11 +134,12 @@ export function AlbumJourneys({ initialItem = null, onBegin = (id) => window.loc
             <button disabled={busy} aria-expanded={active} aria-controls={active ? "album-versions" : undefined} onClick={() => void findEditions(album)}>ouvir este álbum →</button>
           </div>
           {active && <section id="album-versions" className={styles.editions} aria-label="Versões deste álbum" aria-busy={busy}>
-            <div className={styles.versionHeading}><h2 ref={heading} data-marked={pen.started.has(queryInk)} tabIndex={-1}>Qual versão vai pro play?</h2><button disabled={busy} onClick={(event) => { const trigger = event.currentTarget.closest("li")?.querySelector<HTMLButtonElement>("[aria-expanded]"); setSelected(null); requestAnimationFrame(() => trigger?.focus()); }}>fechar versões ↑</button></div>
+            <div className={styles.versionHeading}><h2 ref={heading} data-marked={pen.started.has(queryInk)} tabIndex={-1}>{curation ? "Confere a edição da jornada." : "Qual versão vai pro play?"}</h2><button disabled={busy} onClick={(event) => { const trigger = event.currentTarget.closest("li")?.querySelector<HTMLButtonElement>("[aria-expanded]"); setSelected(null); requestAnimationFrame(() => trigger?.focus()); }}>fechar versões ↑</button></div>
             <p className={styles.note}>Estou procurando “{album.albumName}”, de {album.artistName}. Aqui você confirma a versão do disco disponível no catálogo da Apple. A prévia só toca quando você der o play.</p>
             {busy && <ListeningNote label="um instante"><p role="status">{editions ? "Confirmando a versão e a ordem completa das faixas…" : "Conferindo as versões deste disco no catálogo…"}</p></ListeningNote>}
             {error && <p role="alert">{error}{!editions && <> <button disabled={busy} onClick={() => void findEditions(album)}>tentar novamente</button></>}</p>}
-            {editions?.length === 0 && <ListeningNote label="ficou uma lacuna"><p>Não encontrei uma versão que confirme este nome no catálogo consultado. Você pode tentar outro disco.</p></ListeningNote>}
+            {editions?.length === 0 && <ListeningNote label="ficou uma lacuna"><p>{curation ? "A edição de referência está indisponível no catálogo." : "Não encontrei uma versão que confirme este nome no catálogo consultado. Você pode tentar outro disco."}</p>
+              {curation && <button disabled={busy} onClick={() => void findEditions(album)}>conferir novamente</button>}</ListeningNote>}
             <ul className={styles.editionList}>{editions?.map((version) => <li key={version.collectionId}>
               {version.artworkUrl && <Capa cover={{ url: version.artworkUrl, title: version.albumName, artist: version.artistName }} className={styles.editionCover} />}
               <div><h3>{version.albumName}</h3><p>{version.artistName}</p><EditionCredit album={version} />

@@ -481,7 +481,7 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
           {journey.anchor ? <>Este caminho parte de “{journey.anchor.trackName}”, de {journey.anchor.artistName}.</> : "Este passo continua uma busca anterior."}
           {journey.parentSessionId && <> <button className={styles.textButton} disabled={busy || saving} onClick={() => void load(proximity, fame, "RESUME", { sessionId: journey.parentSessionId })}>voltar ao passo anterior →</button></>}
         </div>}
-        {journey?.album && <AlbumProgress album={journey.album} tracks={queue} index={index} disabled={saving || busy || changing} onMove={(position) => void moveTo(position)} />}
+        {journey?.album && <AlbumProgress album={journey.album} curation={journey.curation} tracks={queue} index={index} disabled={saving || busy || changing} onMove={(position) => void moveTo(position)} />}
         <DiscoveryTrack title={current.trackName} artist={current.artistName} reason={current.reason} isRevisit={current.isRevisit}
           sectionRef={suggestionRef} headlineRef={headlineRef} markRef={markRef} marked={penInPlace && pen.started.has("grifo:" + current.id)}
           entryLabel={discoveryEntryLabel(proximity, intent)} index={index} total={queue.length} onChangeEntry={showEntries}

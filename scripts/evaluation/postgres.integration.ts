@@ -14,6 +14,9 @@ import { RecommendationService } from "../../src/modules/recommendations/applica
 import { SessionMemoryService } from "../../src/modules/recommendations/application/session-memory-service";
 import { CollectionService } from "../../src/modules/recommendations/application/collection-service";
 import { TerritoryService } from "../../src/modules/recommendations/application/territory-service";
+import { AlbumJourneyService } from "../../src/modules/recommendations/application/album-journey-service";
+import { DiscoveryMemoryService } from "../../src/modules/recommendations/application/discovery-memory-service";
+import { CARTOLA_1976 } from "../../src/modules/recommendations/domain/curated-albums";
 import { TERRITORY_VERSION } from "../../src/modules/recommendations/domain/territories";
 const timings: Array<{ scenario: string; elapsedMs: number; queries: number }> = [];
 let queryCount = 0;
@@ -64,6 +67,28 @@ describe("real isolated PostgreSQL operations", () => {
       scoreComponents: { repertoireMediaBound: true, catalogFacts: { durationMs: 180000 } } });
     const tooLong = await service().generateSession({ ...input, requestKey: randomUUID(), restrictions: { albumGenre: "dub", maxDurationMs: 179999 } });
     expect(tooLong.items).toEqual([]);
+  });
+  it("persists and replays a curated album, with recording credit limited to its owner's diary", async () => {
+    const { artistName, albumName, storefront, collectionId, trackIds, credit } = CARTOLA_1976;
+    const sourceUrl = `https://music.apple.com/br/album/${collectionId}`;
+    const album = { provider: "itunes" as const, artistName, albumName, storefront, collectionId, sourceUrl,
+      trackCount: trackIds.length, releaseDate: "1976-01-01T00:00:00Z", fetchedAt: new Date().toISOString(), artworkUrl: null };
+    const tracks = trackIds.map((trackId, index) => ({ trackId, artistName, disc: 1, number: index + 1,
+      trackName: index === 0 ? "O Mundo É um Moinho" : `Faixa sintética ${index + 1}`,
+      sourceUrl: `${sourceUrl}?i=${trackId}`, durationMs: 180_000, previewUrl: null }));
+    const lookupEdition = vi.fn().mockResolvedValue({ album, tracks });
+    const albums = new AlbumJourneyService({ lookupEdition, searchEditions: vi.fn() });
+    const source = { kind: "curated" as const, id: credit.id }; const key = randomUUID();
+    const result = await timed("curated-album-generation", () => albums.begin(user, source, collectionId, key));
+    expect(result?.items.map((row) => row.trackName)).toEqual(tracks.map((row) => row.trackName));
+    expect(await albums.begin(user, source, collectionId, key)).toMatchObject({ sessionId: result?.sessionId, journey: { curation: credit } });
+    expect(lookupEdition).toHaveBeenCalledExactlyOnceWith(collectionId);
+    const memory = new DiscoveryMemoryService(); const query = { q: artistName, responses: "0" as const };
+    const page = await memory.list(user, query);
+    expect(page.sessions[0]).toMatchObject({ id: result?.sessionId, curation: credit, total: trackIds.length });
+    expect(page.sessions[0].items[0].listeningCues?.cues[0]).toMatchObject({ kind: "RECORDING_CREDIT", source: { sourceId: trackIds[0], collectionId } });
+    expect(page.sessions[0].items[0]).toMatchObject({ exposedAt: null, feedback: [], starts: [] });
+    expect((await memory.list(stranger, query)).sessions).toEqual([]);
   });
   it("serializes retries, feedback revisions and collection replay without duplicate writes", async () => {
     const key = randomUUID(); const request = { userId: user, mode: "BALANCED" as const, operation: "NEW_ENTRY" as const, requestKey: key, intent: "REPERTOIRE" as const };

@@ -1,13 +1,15 @@
 import { z } from "zod";
 import { albumTrackEditionSchema, catalogTrackURL, catalogURL } from "./album-journey";
 import { compatiblePreviewIdentity } from "./preview-identity";
+import { recordingCreditCueSchema } from "./curated-albums";
 export const CUE_VERSION = "catalog-cues-1" as const;
 const source = z.object({ provider: z.literal("itunes"), sourceId: z.string().regex(/^\d{1,20}$/),
   url: z.string().refine((value) => catalogURL(value) === value), fetchedAt: z.string().datetime(),
   scope: z.literal("catalog-track"), identity: z.literal("compatible-text-v1") });
 export const listeningCuesSchema = z.object({ version: z.literal(CUE_VERSION), artistName: z.string(), trackName: z.string(),
   status: z.enum(["AVAILABLE", "INSUFFICIENT_EVIDENCE"]),
-  cues: z.array(z.object({ kind: z.enum(["EDITION_POSITION", "DURATION", "VERSION_LABEL"]), fact: z.string().max(700), invitation: z.string().max(700), source })).max(3),
+  cues: z.array(z.union([z.object({ kind: z.enum(["EDITION_POSITION", "DURATION", "VERSION_LABEL"]),
+    fact: z.string().max(700), invitation: z.string().max(700), source }), recordingCreditCueSchema])).max(4),
   limitation: z.string(),
 });
 export type ListeningCues = z.infer<typeof listeningCuesSchema>;
@@ -21,6 +23,13 @@ export function buildListeningCues(item: { artistName: string; trackName: string
   const facts = z.object({ durationMs: z.number().int().positive().max(86_400_000).nullable(), fetchedAt: z.string().datetime() }).safeParse(components?.catalogFacts);
   const url = identity ? catalogTrackURL(item.appleMusicUrl, identity.sourceId) : null;
   const cues: ListeningCues["cues"] = [];
+  const recordingCue = recordingCreditCueSchema.safeParse(components?.recordingCue);
+  if (recordingCue.success && edition.success && identity && edition.data.trackId === identity.sourceId
+    && recordingCue.data.source.sourceId === identity.sourceId && recordingCue.data.source.collectionId === edition.data.collectionId
+    && recordingCue.data.source.storefront === edition.data.storefront
+    && catalogTrackURL(item.appleMusicUrl, identity.sourceId, edition.data.collectionId)) {
+    cues.push(recordingCue.data);
+  }
   const sourceValue = identity && url && facts.success ? source.safeParse({ provider: "itunes", sourceId: identity.sourceId, url,
     fetchedAt: facts.data.fetchedAt, scope: "catalog-track", identity: "compatible-text-v1" }) : null;
   if (sourceValue?.success) {
@@ -36,5 +45,7 @@ export function buildListeningCues(item: { artistName: string; trackName: string
   }
   return { version: CUE_VERSION, artistName: item.artistName, trackName: item.trackName,
     status: cues.length ? "AVAILABLE" : "INSUFFICIENT_EVIDENCE", cues,
-    limitation: "Pistas a partir de metadados desta entrada Apple, com correspondência textual. Não são análise sonora nem certificação de MusicBrainz. Contexto de artista, álbum e música não prova o som desta versão." };
+    limitation: cues.some((cue) => cue.kind === "RECORDING_CREDIT")
+      ? "O crédito se refere à gravação do álbum documentada pela gravadora. Se o instrumento ficar fora do trecho da prévia, ouça a faixa completa pelo link do catálogo."
+      : "Pistas a partir de metadados desta entrada Apple, com correspondência textual. Não são análise sonora nem certificação de MusicBrainz. Contexto de artista, álbum e música não prova o som desta versão." };
 }

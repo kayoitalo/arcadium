@@ -1,7 +1,9 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { privateFetch } from "@/lib/http/private-fetch";
 import { TERRITORY_VERSION, type TerritoryRequest, type RepertoireRestriction } from "@/modules/recommendations/domain/territories";
+import { CARTOLA_JOURNEY_HREF } from "@/modules/recommendations/domain/curated-albums";
 import { DiscoveryDisclosure } from "./discovery-disclosure";
 import styles from "./exploration-doors.module.css";
 
@@ -23,6 +25,7 @@ export function ExplorationDoors({ busy, onTerritory, onRepertoire }: { busy: bo
   return <div className={styles.doors}>
     <DiscoveryDisclosure id="territory-doors" summary="explorar outro universo →" open={open} onOpenChange={setOpen}>
       <h2>Escolhe o destino. Eu fico por lá.</h2>
+      <p><Link href={CARTOLA_JOURNEY_HREF}>Samba pela ordem do disco · Cartola (1976) →</Link></p>
       <p>Aqui a porta vem de uma associação do catálogo, em vez da distância das tuas referências. Busco artistas sem reprodução no teu histórico importado. Tags de artista não certificam o gênero de cada gravação.</p>
       {!data && !error && <p role="status">Conferindo as portas disponíveis…</p>}
       {error && <p role="alert">Não consegui conferir o catálogo. <button onClick={() => setAttempt((n) => n + 1)}>tentar novamente</button></p>}

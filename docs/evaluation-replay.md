@@ -24,11 +24,17 @@ Exposição, início de prévia, apreciação e escuta completa continuam sendo 
 
 ## Lite/Flash sem orçamento adicional
 
-A fixture narrativa usa os nomes já configurados no projeto apenas como rótulos de comparação; não presume disponibilidade, gratuidade ou superioridade de modelo. `ARCADIUM_NARRATIVE_INPUT` aceita evidências públicas observadas ou sintéticas, cada uma com ID, fonte/data e escopo de artista, álbum, música ou entrada de faixa. Entrada de faixa exige ID de catálogo.
+A fixture narrativa usa os nomes dos modelos como rótulos de comparação. `ARCADIUM_NARRATIVE_INPUT` aceita evidências públicas observadas ou sintéticas, cada uma com ID, fonte, data e escopo de artista, álbum, música, entrada de faixa ou crédito de gravação. Um crédito de gravação requer a fonte editorial e o link Apple com o ID da faixa na coleção aprovada.
 
 O preparo gera um prompt idêntico, versão/hash e ordem A/B estável. O mapa dos modelos fica separado no arquivo de preparo. **Nenhuma geração é iniciada**. Respostas previamente obtidas dentro dos controles/orçamento existentes podem ser fornecidas em `ARCADIUM_NARRATIVE_OUTPUTS` (`A`/`B`). O runner verifica formato, IDs e preservação de escopo; revisão humana continua obrigatória, pois citar uma fonte não prova que o texto decorre dela.
 
 Rubrica: sustentação factual por bloco, escopo preservado, clareza/voz, utilidade após escuta e preferência cega. Consumo/latência reais precisam dos registros de tentativa/tokens, sem somar novamente o pacote lógico. Não há resultado qualitativo Lite/Flash nem vencedor nesta entrega. Sem evidência suficiente, usar as pistas determinísticas e o contexto atribuído já disponíveis.
+
+### Observação pública da edição de Cartola
+
+No PowerShell, execute `$env:ARCADIUM_CURATED_LIVE='1'; pnpm run evaluate:replay` e remova a variável com `Remove-Item Env:ARCADIUM_CURATED_LIVE` depois. A execução normal pula a consulta externa. A opção ao vivo faz um lookup da coleção brasileira via adaptador do app e grava `.local/evaluation/curation-cartola.json`. Na consulta de 05/11/2026 (horário de Brasília), o adaptador confirmou a ordem das 12 faixas, 12 links de prévia e quatro casos com crédito de gravação. O tempo registrado é de uma consulta de catálogo. O ensaio não toca áudio nem usa conta, banco ou IA. [Edição consultada](https://music.apple.com/br/album/cartola-1976/1444042772) · [Fonte dos créditos](https://www.universalmusic.com.br/2026/03/04/a-janela-de-cartola/)
+
+Cada entrada em `cases` contém um `input` reproduzível e o `prepared` com o prompt e o mapa cego. Para reproduzir um caso sem rede, salve seu `input` em um JSON local e passe o caminho em `ARCADIUM_NARRATIVE_INPUT`. Use `ARCADIUM_NARRATIVE_OUTPUTS` somente se já houver respostas A/B. A observação pública mede cobertura e latência do catálogo dessa edição. O parecer do proprietário sobre a porta é um registro editorial, separado de comparações pareadas, julgamentos por faixa, desempenho dos modelos e medições longitudinais.
 
 ## PostgreSQL isolado
 
@@ -36,4 +42,4 @@ Rubrica: sustentação factual por bloco, escopo preservado, clareza/voz, utilid
 
 O runner usa conexão direta da mesma identidade Neon para preservar `search_path`, cria somente um schema aleatório com prefixo/forma estritos, aplica migrations versionadas nele e executa serviços reais com Prisma/PostgreSQL. Não usa o schema público da cópia. Remoção recursiva no banco é limitada a esse schema criado pelo runner; o guard recusa `public` e nomes fora do formato. Falha de limpeza deve ser tratada como falha de execução, nunca como autorização de remover outro alvo.
 
-Relatórios locais: `postgres-report.json` contém tempos/contagem de consultas por cenário, sem SQL/credenciais pessoais; `postgres-explain.json` contém planos com IDs sintéticos. Cinco cenários reais foram executados nesta rodada, incluindo plano comparado com 5.000 sessões sintéticas, sem produção/provedores/IA. Isso não representa carga multiusuário, latência musical real ou validação longitudinal. Migrations na aplicação da preview continuam sob o fluxo existente de deploy após build.
+`postgres-report.json` contém tempos e contagem de consultas por cenário. `postgres-explain.json` contém planos com IDs sintéticos. Na rodada de Cartola passaram sete cenários em PostgreSQL real com dados sintéticos, incluindo plano com 5.000 sessões, replay idempotente da jornada e procedência no diário da conta correta. As migrations existentes aplicaram sem drift em um schema descartável. O ensaio mede esse ambiente e essa carga. O deploy da preview mantém a execução das migrations após o build.

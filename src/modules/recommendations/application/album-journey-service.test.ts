@@ -7,6 +7,7 @@ vi.mock("@/lib/db/prisma", () => {
 });
 vi.mock("./recommendation-service", () => ({ RecommendationService: class { getSession = db.result; } }));
 import { AlbumJourneyService } from "./album-journey-service";
+import { CARTOLA_1976 } from "../domain/curated-albums";
 const summary = { provider: "itunes" as const, collectionId: "42", storefront: "BR", artistName: "Banda", albumName: "Disco (Ao vivo)", trackCount: 2,
   sourceUrl: "https://music.apple.com/br/album/42", artworkUrl: null, releaseDate: null, fetchedAt: "2026-11-02T12:00:00.000Z" };
 const edition = () => ({ album: summary, tracks: [1, 2].map((n) => ({ trackId: String(n), trackName: `Faixa ${n} (Ao vivo)`, artistName: "Banda", disc: 1, number: n, durationMs: null, previewUrl: null, sourceUrl: null })) });
@@ -18,6 +19,45 @@ beforeEach(() => {
   db.result.mockResolvedValue({ sessionId: "new", items: [] }); db.updateMany.mockResolvedValue({ count: 1 }); db.library.mockResolvedValue([]);
 });
 const provider = () => ({ searchEditions: vi.fn().mockResolvedValue([summary]), lookupEdition: vi.fn().mockResolvedValue(edition()) });
+const curatedSource = { kind: "curated" as const, id: CARTOLA_1976.credit.id };
+const curatedEdition = () => ({
+  album: { ...summary, collectionId: CARTOLA_1976.collectionId, artistName: CARTOLA_1976.artistName, albumName: CARTOLA_1976.albumName,
+    sourceUrl: `https://music.apple.com/br/album/${CARTOLA_1976.collectionId}`, releaseDate: "1976-01-01T00:00:00Z", trackCount: CARTOLA_1976.trackIds.length },
+  tracks: CARTOLA_1976.trackIds.map((trackId, index) => ({ trackId, trackName: index === 0 ? "O Mundo É um Moinho" : `Faixa ${index + 1}`,
+    artistName: CARTOLA_1976.artistName, disc: 1, number: index + 1, durationMs: null, previewUrl: null, sourceUrl: null })),
+});
+
+describe("published album journeys", () => {
+  it("pins the edition and saves the complete ordered journey and applicable recording credit", async () => {
+    const api = provider(); const published = curatedEdition(); api.lookupEdition.mockResolvedValue(published);
+    const service = new AlbumJourneyService(api);
+    await expect(service.editions("owner", curatedSource)).resolves.toMatchObject({ editions: [published.album] });
+    await service.begin("owner", curatedSource, CARTOLA_1976.collectionId, key);
+    expect(api.lookupEdition.mock.calls).toEqual([[CARTOLA_1976.collectionId], [CARTOLA_1976.collectionId]]);
+    expect(api.searchEditions).not.toHaveBeenCalled(); expect(db.album).not.toHaveBeenCalled(); expect(db.item).not.toHaveBeenCalled();
+    const data = db.update.mock.calls[0][0].data;
+    expect(data.discoveryContext.journey.curation).toEqual(CARTOLA_1976.credit);
+    expect(data.items.create.map((item: { scoreComponents: { albumEdition: { trackId: string } } }) => item.scoreComponents.albumEdition.trackId)).toEqual(CARTOLA_1976.trackIds);
+    expect(data.items.create[0].scoreComponents.recordingCue).toMatchObject({ kind: "RECORDING_CREDIT", source: { sourceId: CARTOLA_1976.trackIds[0] } });
+    expect(data.items.create[2].scoreComponents.recordingCue).toBeNull();
+  });
+
+  it("rejects drafts and substitute editions before calling the catalog or reserving a session", async () => {
+    const api = provider(); const service = new AlbumJourneyService(api);
+    await expect(service.editions("owner", { kind: "curated", id: "jazz-doors-v1" })).rejects.toMatchObject({ status: 404 });
+    await expect(service.begin("owner", curatedSource, "42", key)).rejects.toMatchObject({ status: 400 });
+    expect(api.lookupEdition).not.toHaveBeenCalled(); expect(db.create).not.toHaveBeenCalled();
+  });
+
+  it("reports a catalog gap when the pinned track order changes", async () => {
+    const api = provider(); const published = curatedEdition(); published.tracks.reverse(); api.lookupEdition.mockResolvedValue(published);
+    const service = new AlbumJourneyService(api);
+    await expect(service.editions("owner", curatedSource)).resolves.toMatchObject({ editions: [] });
+    await expect(service.begin("owner", curatedSource, CARTOLA_1976.collectionId, key)).rejects.toMatchObject({ code: "GENERATION_FAILED" });
+    expect(db.update).not.toHaveBeenCalled(); expect(api.searchEditions).not.toHaveBeenCalled();
+  });
+});
+
 describe("owned album journeys", () => {
   it("checks source ownership before any provider or reservation", async () => {
     db.album.mockResolvedValue(null); const api = provider();
