@@ -24,6 +24,9 @@ export class SessionMediaService {
     // Album playback is tied to the selected collection. A name search could
     // silently replace a live, clean, remastered or deluxe recording.
     if (components.albumEdition) return { ...saved, status: saved.previewUrl ? "ready" : "unavailable" };
+    // A restricted result carries the recording used by the filter, if one
+    // was verified. A lookup by name could play a different edition.
+    if (components.repertoireMediaBound) return { ...saved, status: saved.previewUrl ? "ready" : "unavailable" };
     if (components.media?.retryAt > Date.now()) return { ...saved, status: components.media.status };
     if (saved.previewUrl && saved.coverUrl) return { ...saved, status: "ready" };
     let preview = null;

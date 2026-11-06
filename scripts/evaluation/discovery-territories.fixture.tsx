@@ -6,7 +6,7 @@ import { DiscoveryNavigation } from "../../src/components/descobertas/discovery-
 import { buildListeningCues } from "../../src/modules/recommendations/domain/listening-cues";
 import { CURATION_PROPOSALS } from "../../src/modules/recommendations/domain/territories";
 const qa = { plays: 0, requests: [] as Array<{ url: string; body: any }>, failDoors: true, failCues: true, empty: false };
-let currentIntent = "DISCOVER"; let destination: { genre: string } | undefined; let session = 0;
+let currentIntent = "DISCOVER"; let destination: { genre: string } | undefined; let restrictions: { albumGenre?: string; maxDurationMs?: number } | undefined; let session = 0;
 const tracks = [1, 2].map((n) => ({ id: `item-${n}`, rank: n, artistName: `Artista sintético ${n}`, trackName: `Porta ${n} (Live)`, albumName: null, genre: "dub", position: null,
   reason: "O catálogo associa este artista a dub; a tag não certifica esta gravação." }));
 const reply = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status });
@@ -29,9 +29,9 @@ window.fetch = async (input, init) => {
   if (url.endsWith("/media")) return reply({ status: "ready", coverUrl: null, previewUrl: "synthetic-audio", appleMusicUrl: null });
   if (url === "/api/recommendations") {
     if (!init?.method) return reply({ items: [] });
-    if (body.operation === "NEW_ENTRY" || body.operation === "DEEPEN") { currentIntent = body.intent; destination = body.territory; session++; }
+    if (body.operation === "NEW_ENTRY" || body.operation === "DEEPEN") { currentIntent = body.intent; destination = body.territory; restrictions = body.restrictions; session++; }
     const rows = qa.empty ? [] : tracks;
-    return reply({ sessionId: `synthetic-${session}`, currentRank: 1, items: rows, settings: { intent: currentIntent, destination, dials: { proximity: 55, fame: 50 } },
+    return reply({ sessionId: `synthetic-${session}`, currentRank: 1, items: rows, settings: { intent: currentIntent, destination, restrictions, dials: { proximity: 55, fame: 50 } },
       coverage: { version: 1, requested: 8, selected: rows.length, candidates: rows.length, eligible: rows.length, status: "INSUFFICIENT", scope: currentIntent === "TERRITORY" ? "territory-artists" : "repertoire-metadata", elapsedMs: 10 } });
   }
   if (body.operation === "EXPOSE") return reply({ ok: true });
@@ -53,6 +53,7 @@ async function runChecks() {
   button("tentar novamente").click(); await wait(() => document.querySelector('strong')?.textContent || document.body.textContent?.includes("Artista sintético 2"), "door retry");
   await wait(() => [...document.querySelectorAll("button strong")].some((row) => row.textContent === "dub ↗"), "door loaded");
   summary("propostas de curadoria").click(); assert(document.body.textContent?.includes("não são seleções aprovadas"), "draft curation must stay labeled");
+  assert(document.querySelector('a[href*="universalmusic.com.br"]')?.textContent?.includes("ver fonte da proposta"), "source must be labeled as a reference");
   passed.push("lazy catalog, retry and visibly unapproved sourced curation");
   [...document.querySelectorAll<HTMLElement>("button strong")].find((row) => row.textContent === "dub ↗")!.click();
   await wait(ready, "territory session");
@@ -81,8 +82,11 @@ async function runChecks() {
   await wait(() => document.body.textContent?.includes("Cobertura insuficiente: 0 de 8"), "empty restricted repertoire");
   const last = qa.requests.filter((row) => row.body.operation === "NEW_ENTRY").at(-1)!;
   assert(last.body.intent === "REPERTOIRE" && last.body.restrictions.albumGenre === "jazz" && last.body.restrictions.maxDurationMs === 240000, "restriction contract");
+  assert(document.body.textContent?.includes("álbuns catalogados como jazz") && document.body.textContent?.includes("até 4 min"), "active restriction summary");
   assert(!document.querySelector("#mapa-descoberta") && qa.plays === 0, "empty repertoire must not broaden or autoplay");
   assert(document.documentElement.scrollWidth <= innerWidth, "viewport overflow");
+  button("escolher outro caminho").click(); await wait(() => document.body.textContent?.includes("resultado vazio"), "empty result kept for resume");
+  button("continuar →").click(); await wait(() => document.body.textContent?.includes("Cobertura insuficiente: 0 de 8"), "resume empty result");
   passed.push("album genre/duration request, empty result without widening, keyboard and viewport");
   return { passed, reduced: matchMedia("(prefers-reduced-motion: reduce)").matches, viewport: innerWidth, requests: qa.requests.length };
 }

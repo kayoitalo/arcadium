@@ -336,6 +336,9 @@ export class EnrichmentService {
     const catalogWhere: Prisma.AlbumWhereInput = { listeningEvents: { some: { userId } }, OR: [
       { itunesFetchedAt: null },
       { itunesCollectionId: null, itunesFetchedAt: { lt: retryBefore } },
+      { itunesCollectionId: { not: null }, itunesFetchedAt: { lt: retryBefore }, listeningEvents: {
+        some: { userId, track: { is: { enrichedAt: null } } },
+      } },
     ] };
     const include = { artist: { select: { name: true } } } as const;
 
@@ -408,24 +411,26 @@ export class EnrichmentService {
 
     const heard = await prisma.track.findMany({
       where: { artistId, listeningEvents: { some: { albumId, userId } } },
-      select: { id: true, name: true, durationMs: true, artist: { select: { name: true } } },
+      select: { id: true, name: true, artist: { select: { name: true } } },
     });
 
     let updated = 0;
     for (const track of heard) {
-      const match = tracks.find((candidate) => compatibleRecording(
+      const matches = tracks.filter((candidate) => compatibleRecording(
         { artistName: track.artist.name, trackName: track.name },
         { artistName: candidate.artistName, trackName: candidate.name },
       ));
-      if (!match) continue;
+      const [match] = matches;
+      if (!match || matches.some((candidate) => candidate.trackId !== match.trackId)) continue;
 
       await prisma.track.update({
         where: { id: track.id },
         data: {
-          durationMs: track.durationMs ?? match.durationMs,
+          durationMs: match.durationMs,
           previewUrl: match.previewUrl,
           itunesTrackId: match.trackId,
           appleMusicUrl: match.appleMusicUrl,
+          enrichedAt: new Date(),
         },
       });
       updated++;

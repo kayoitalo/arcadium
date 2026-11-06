@@ -44,7 +44,7 @@ export function DiscoveryEntry({ busy, hasSession, currentRank, total, onChoose,
     </div>
     {hasSession && <div className={styles.resumeStrip}>
       <span className={styles.resumeMark} aria-hidden="true">↳</span>
-      <p><strong>A tua última busca continua aqui.</strong><span>{currentRank <= total ? `Você parou na indicação ${currentRank} de ${total}.` : "As indicações e respostas ficaram guardadas."}</span></p>
+      <p><strong>A tua última busca continua aqui.</strong><span>{total === 0 ? "A busca ficou guardada com o pedido e o resultado vazio." : currentRank <= total ? `Você parou na indicação ${currentRank} de ${total}.` : "As indicações e respostas ficaram guardadas."}</span></p>
       <button onClick={onResume} disabled={busy}>continuar <span aria-hidden="true">→</span></button>
     </div>}
     <PenLayer pen={pen} signal={signal} reduced={reduced} />

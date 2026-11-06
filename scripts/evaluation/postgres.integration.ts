@@ -5,7 +5,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { assertTestSchema, isolatedDatabase } from "../../src/lib/runtime/isolated-database.mjs";
 import { databaseFingerprint } from "../../src/lib/runtime/deployment-policy.mjs";
-import { runRetention, retentionPlan } from "../../src/lib/runtime/retention-policy.mjs";
+import { runRetention } from "../../src/lib/runtime/retention-policy.mjs";
 const state = vi.hoisted(() => ({ client: null as unknown as PrismaClient }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: new Proxy({}, { get: (_, key) => {
   const value = Reflect.get(state.client, key, state.client); return typeof value === "function" ? value.bind(state.client) : value;
@@ -32,8 +32,14 @@ beforeAll(async () => {
   await state.client.user.createMany({ data: [{ id: user, email: `eval-${user}@example.invalid` }, { id: stranger, email: `eval-${stranger}@example.invalid` }] });
   for (let i = 0; i < 8; i++) {
     const artist = await state.client.artist.create({ data: { name: `Synthetic Dub ${i}`, normalizedName: `synthetic dub ${i}`, tags: "dub,reggae", metadataStatus: "RESOLVED", enrichedAt: new Date(),
-      tracks: { create: [{ name: `Door ${i} (Live)`, normalizedName: `door ${i} (live)`, durationMs: 180000, enrichedAt: new Date(), itunesTrackId: String(i + 1) }] } }, include: { tracks: true } });
-    if (i === 0) await state.client.listeningEvent.create({ data: { userId: user, playedAt: new Date(), provider: "synthetic", providerEventKey: randomUUID(), rawArtistName: artist.name, rawTrackName: artist.tracks[0].name, artistId: artist.id, trackId: artist.tracks[0].id } });
+      tracks: { create: [{ name: `Door ${i} (Live)`, normalizedName: `door ${i} (live)`, durationMs: 180000, enrichedAt: new Date(), itunesTrackId: String(i + 1),
+        appleMusicUrl: `https://music.apple.com/br/album/synthetic/42?i=${i + 1}` }] } }, include: { tracks: true } });
+    if (i === 0) {
+      const album = await state.client.album.create({ data: { artistId: artist.id, name: "Synthetic Album", normalizedName: "synthetic album",
+        itunesCollectionId: "42", itunesGenre: "dub", itunesFetchedAt: new Date() } });
+      await state.client.listeningEvent.create({ data: { userId: user, playedAt: new Date(), provider: "synthetic", providerEventKey: randomUUID(),
+        rawArtistName: artist.name, rawTrackName: artist.tracks[0].name, rawAlbumName: album.name, artistId: artist.id, trackId: artist.tracks[0].id, albumId: album.id } });
+    }
   }
 });
 afterAll(async () => {
@@ -49,6 +55,15 @@ describe("real isolated PostgreSQL operations", () => {
     expect(await service().getSession(result.sessionId, stranger)).toBeNull();
     const indexes = await state.client.$queryRawUnsafe<Array<{ indexname: string }>>("SELECT indexname FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'RecommendationSession'");
     expect(indexes.some((row) => row.indexname === "RecommendationSession_status_updatedAt_idx")).toBe(true);
+  });
+  it("selects known repertoire by catalog duration and album genre from real rows", async () => {
+    const input = { userId: user, mode: "BALANCED" as const, operation: "NEW_ENTRY" as const, intent: "REPERTOIRE" as const };
+    const match = await service().generateSession({ ...input, requestKey: randomUUID(), restrictions: { albumGenre: "dub", maxDurationMs: 180000 } });
+    expect(match.items).toHaveLength(1);
+    expect(match.items[0]).toMatchObject({ albumName: "Synthetic Album", appleMusicUrl: "https://music.apple.com/br/album/synthetic/42?i=1",
+      scoreComponents: { repertoireMediaBound: true, catalogFacts: { durationMs: 180000 } } });
+    const tooLong = await service().generateSession({ ...input, requestKey: randomUUID(), restrictions: { albumGenre: "dub", maxDurationMs: 179999 } });
+    expect(tooLong.items).toEqual([]);
   });
   it("serializes retries, feedback revisions and collection replay without duplicate writes", async () => {
     const key = randomUUID(); const request = { userId: user, mode: "BALANCED" as const, operation: "NEW_ENTRY" as const, requestKey: key, intent: "REPERTOIRE" as const };
@@ -70,6 +85,7 @@ describe("real isolated PostgreSQL operations", () => {
     const input = { userId: user, mode: "BALANCED" as const, operation: "NEW_ENTRY" as const, requestKey: session.requestKey!, intent: "REPERTOIRE" as const };
     // Fingerprint conflict stays a conflict, never silently reuses another request.
     await expect(service().generateSession(input)).rejects.toMatchObject({ status: 409 });
+    await expect((service() as any).populateSession({ userId: user, mode: "BALANCED", intent: "REPERTOIRE", discoveryContext: { version: 1, intent: "REPERTOIRE", journey: { action: "ENTRY" } } }, session.id, [])).rejects.toMatchObject({ code: "GENERATION_FAILED" });
     await state.client.recommendationSession.update({ where: { id: session.id }, data: { status: "FAILED" } });
     await expect((service() as any).populateSession({ userId: user, mode: "BALANCED", intent: "REPERTOIRE", discoveryContext: { version: 1, intent: "REPERTOIRE", journey: { action: "ENTRY" } } }, session.id, [])).rejects.toMatchObject({ code: "GENERATION_FAILED" });
     expect(await state.client.recommendationItem.count({ where: { sessionId: session.id } })).toBe(0);
@@ -86,8 +102,10 @@ describe("real isolated PostgreSQL operations", () => {
     await state.client.appSession.create({ data: { tokenHash: "valid", userId: user, credentialVersion: "synthetic", expiresAt: new Date(Date.now() + 86400000) } });
     const policy = { version: 1, personalMemory: "PRESERVE", batchSize: 2, scopes: { expiredSessions: 1 } };
     const before = await state.client.recommendationSession.count({ where: { userId: user } });
-    const dry = await runRetention(state.client, policy, { asOf }); expect(dry.results[0]).toMatchObject({ eligible: 3, changed: 0 });
-    const opts = { asOf, apply: true, expectedPlanHash: retentionPlan(policy, asOf).hash };
+    const fingerprint = databaseFingerprint(process.env.DATABASE_URL!);
+    const dry = await runRetention(state.client, policy, { asOf, databaseFingerprint: fingerprint });
+    expect(dry.results[0]).toMatchObject({ eligible: 3, changed: 0 });
+    const opts = { asOf, apply: true, expectedPlanHash: dry.planHash, databaseFingerprint: fingerprint };
     await timed("concurrent-operational-retention", () => Promise.all([runRetention(state.client, policy, opts), runRetention(state.client, policy, opts)]));
     expect((await runRetention(state.client, policy, opts)).results[0].changed).toBe(0);
     expect(await state.client.appSession.count({ where: { userId: user } })).toBe(1);

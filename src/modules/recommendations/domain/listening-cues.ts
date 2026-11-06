@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { albumTrackEditionSchema, catalogURL } from "./album-journey";
+import { albumTrackEditionSchema, catalogTrackURL, catalogURL } from "./album-journey";
 import { compatiblePreviewIdentity } from "./preview-identity";
 export const CUE_VERSION = "catalog-cues-1" as const;
 const source = z.object({ provider: z.literal("itunes"), sourceId: z.string().regex(/^\d{1,20}$/),
@@ -19,12 +19,7 @@ export function buildListeningCues(item: { artistName: string; trackName: string
   const identity = compatiblePreviewIdentity(components?.previewIdentity, item);
   const edition = albumTrackEditionSchema.safeParse(components?.albumEdition);
   const facts = z.object({ durationMs: z.number().int().positive().max(86_400_000).nullable(), fetchedAt: z.string().datetime() }).safeParse(components?.catalogFacts);
-  let url = catalogURL(item.appleMusicUrl);
-  if (url && identity) {
-    const parsed = new URL(url);
-    const songId = parsed.pathname.match(/\/song\/(?:[^/]+\/)?(\d+)\/?$/)?.[1];
-    if ((parsed.searchParams.get("i") ?? songId) !== identity.sourceId) url = null;
-  }
+  const url = identity ? catalogTrackURL(item.appleMusicUrl, identity.sourceId) : null;
   const cues: ListeningCues["cues"] = [];
   const sourceValue = identity && url && facts.success ? source.safeParse({ provider: "itunes", sourceId: identity.sourceId, url,
     fetchedAt: facts.data.fetchedAt, scope: "catalog-track", identity: "compatible-text-v1" }) : null;

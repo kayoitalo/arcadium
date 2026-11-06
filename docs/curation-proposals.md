@@ -1,6 +1,8 @@
 # Propostas de curadoria v1 — para revisão
 
-04/11/2026. Estado de todas: **PROPOSED**, sem aprovação/ativação no ranking. Registro executável em `domain/territories.ts`; a interface apresenta fonte, âncora e pontos de revisão, sem executar as propostas.
+04/11/2026. As três propostas estão na etapa editorial **PROPOSED**. A interface apresenta o disco, a fonte e os pontos de revisão a partir de `domain/territories.ts`.
+
+05/11/2026. Após ouvir as músicas, o proprietário deu parecer favorável a *Cartola* (1976) como porta de entrada para o samba e destacou a familiaridade das faixas. A escolha da edição no catálogo e a publicação da jornada ficam para a próxima etapa.
 
 | Proposta | Âncora e evidência consultada | Sequência proposta para revisão | Lacunas que impedem publicação |
 | --- | --- | --- | --- |

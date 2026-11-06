@@ -24,4 +24,13 @@ describe("paired evaluation and missing judgments", () => {
     expect(real.engines.treatment.metrics.human.adequate).toEqual({ rate: 1, judged: 1, unjudged: 1 });
     expect(() => evaluateDiscovery({ ...fixture, provenance: "OBSERVED_SNAPSHOT", judgments: [judgment, judgment] })).toThrow();
   });
+  it("uses the capture date and retained play evidence when replaying a revisit", () => {
+    const revisit = { artistName: "Band", trackName: "Old", source: "history_revisit", isRevisit: true,
+      evidence: [{ kind: "history_revisit", source: "history", playCount: 3, lastPlayedAt: "2025-10-01T00:00:00Z" }] };
+    const report = evaluateDiscovery({ ...fixture, request: { intent: "DISCOVER" },
+      profile: { ...fixture.profile, knownTracks: [{ artistName: "Band", trackName: "Old" }] },
+      pools: { baseline: [revisit], treatment: [revisit] }, capturedAt: "2026-02-01T00:00:00Z" });
+    expect(report.engines.baseline.selected).toEqual([JSON.stringify(["band", "old"])]);
+    expect(report.engines.treatment.selected).toEqual(report.engines.baseline.selected);
+  });
 });

@@ -14,6 +14,7 @@ describe("recording-scoped factual listening invitations", () => {
     for (const changed of [
       { ...item(), trackName: "Song (Remix)" }, { ...item(), appleMusicUrl: "https://evil.test/43" },
       { ...item(), appleMusicUrl: "https://music.apple.com/br/album/example/42?i=999" },
+      { ...item(), appleMusicUrl: "https://www.apple.com/support?i=43" },
       { ...item(), scoreComponents: { culturalContext: { kind: "album", text: "Invented instrument" } } },
       { ...item(), scoreComponents: { ...item().scoreComponents, catalogFacts: { durationMs: -2, fetchedAt: "bad" } } },
     ]) expect(buildListeningCues(changed).status).toBe("INSUFFICIENT_EVIDENCE");

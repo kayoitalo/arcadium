@@ -21,6 +21,13 @@ describe("session media", () => {
     expect(findPreview).not.toHaveBeenCalled();
     expect(db.findFirst).toHaveBeenCalledWith({ where: { id: "i", sessionId: "s", session: { userId: "owner" } } });
   });
+  it("keeps repertoire without verified edition media from borrowing a same-title preview", async () => {
+    db.findFirst.mockResolvedValue({ ...item(), scoreComponents: { repertoireMediaBound: true }, previewUrl: null });
+    const findPreview = vi.fn();
+    const result = await new SessionMediaService({ findPreview } as any).resolve("owner", "s", "i");
+    expect(result).toMatchObject({ status: "unavailable", previewUrl: null });
+    expect(findPreview).not.toHaveBeenCalled();
+  });
   it("keeps temporary failure distinct from absence and preserves evidence on save", async () => {
     db.findFirst.mockResolvedValue(item());
     const service = new SessionMediaService({ findPreview: vi.fn().mockRejectedValue(new Error("503")) } as any,

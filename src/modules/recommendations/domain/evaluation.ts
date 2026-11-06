@@ -7,14 +7,17 @@ import { scoreAndRank as baselineRank } from "../evaluation/baseline-scoring";
 import { composeSession as baselineCompose } from "../evaluation/baseline-composition";
 import { eligibleCandidates as baselineEligible } from "../evaluation/baseline-eligibility";
 import { trackFeedbackKey } from "./feedback";
+import { isCollaborationOfKnownArtist } from "./candidate-filters";
 import type { RawCandidate } from "./recommendation.types";
 import type { UserProfile } from "./taste-profile";
 
 const candidate = z.object({ artistName: z.string().min(1), trackName: z.string().min(1),
   source: z.enum(["similar_artist", "similar_track", "genre_adjacency", "artist_graph", "top_artist_deep_cut", "history_revisit", "history_repertoire", "territory_catalog"]),
   genre: z.string().optional(), listeners: z.number().nonnegative().optional(), providerRank: z.number().int().positive().optional(),
+  trackId: z.string().optional(), match: z.number().optional(), isRevisit: z.boolean().optional(),
   evidence: z.array(z.object({ kind: z.enum(["artist_similarity", "track_similarity", "artist_catalog", "genre_overlap", "history_revisit", "history_repertoire", "territory_tag", "repertoire_metadata"]),
-    source: z.enum(["lastfm", "catalog", "history"]), seedArtist: z.string().optional(), seedTrack: z.string().optional(), genre: z.string().optional(), rank: z.number().int().positive().optional() })).default([]),
+    source: z.enum(["lastfm", "catalog", "history"]), seedArtist: z.string().optional(), seedTrack: z.string().optional(), genre: z.string().optional(), rank: z.number().int().positive().optional(),
+    region: z.enum(["long_term", "recent", "feedback"]).optional(), playCount: z.number().int().nonnegative().optional(), lastPlayedAt: z.string().datetime().optional() })).default([]),
 });
 const measured = z.object({ endToEndMs: z.number().nonnegative().nullable(), providerAttempts: z.number().int().nonnegative().nullable(),
   inputTokens: z.number().int().nonnegative().nullable(), outputTokens: z.number().int().nonnegative().nullable() });
@@ -35,7 +38,7 @@ const mean = (values: boolean[]) => values.length ? values.filter(Boolean).lengt
 const ratio = (n: number, d: number) => d ? n / d : null;
 export function evaluateDiscovery(input: unknown) {
   const value = evaluationCaseSchema.parse(input);
-  const profile: UserProfile = { topArtistNames: [], topGenres: value.profile.topGenres, knownArtistNames: new Set(value.profile.knownArtists.map((name) => name.toLowerCase())),
+  const profile: UserProfile = { topArtistNames: [], topGenres: value.profile.topGenres, knownArtistNames: new Set(value.profile.knownArtists.map((name) => name.toLowerCase())), referenceTime: value.capturedAt,
     knownTrackKeys: new Set(value.profile.knownTracks.map((row) => row.artistName.toLowerCase() + "|" + row.trackName.toLowerCase())), feedbackMap: new Map(), totalPlays: 0, uniqueArtists: value.profile.knownArtists.length };
   const engines = {} as Record<"baseline" | "treatment", ReturnType<typeof run>>;
   function run(engine: "baseline" | "treatment") {
@@ -44,7 +47,7 @@ export function evaluateDiscovery(input: unknown) {
     // Paired pools capture generation; this is not an online full-engine run.
     const raw: RawCandidate[] = value.pools[engine];
     const allowKnown = engine === "treatment" && value.request.intent === "REPERTOIRE";
-    const scoped = engine === "treatment" && value.request.intent === "TERRITORY" ? raw.filter((item) => !profile.knownArtistNames.has(item.artistName.toLowerCase())
+    const scoped = engine === "treatment" && value.request.intent === "TERRITORY" ? raw.filter((item) => !isCollaborationOfKnownArtist(item.artistName, profile.knownArtistNames)
       && item.evidence?.some((row) => row.kind === "territory_tag" && row.genre === value.request.genre)) : raw;
     const eligible = engine === "baseline" ? baselineEligible(scoped, profile, new Set()) : eligibleCandidates(scoped, profile, new Set(), allowKnown);
     const selected = engine === "baseline" ? baselineCompose(baselineRank(eligible, profile, "BALANCED"), value.size)

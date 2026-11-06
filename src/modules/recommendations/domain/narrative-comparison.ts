@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { catalogURL } from "./album-journey";
+import { catalogTrackURL, catalogURL } from "./album-journey";
 import { lastFmSourceURL } from "./cultural-context";
 export const NARRATIVE_COMPARISON_VERSION = "scoped-narrative-1";
 const scope = z.enum(["artist", "album", "song", "catalog-track"]);
@@ -13,7 +13,11 @@ export const narrativeComparisonInput = z.object({ id: z.string().min(1), proven
 }).strict().superRefine((value, ctx) => {
   if (new Set(value.evidence.map((row) => row.id)).size !== value.evidence.length) ctx.addIssue({ code: "custom", message: "Evidence IDs must be unique." });
   if (value.models.lite === value.models.flash) ctx.addIssue({ code: "custom", message: "Comparison requires two distinct configured models." });
-  for (const row of value.evidence) if (row.scope === "catalog-track" && !row.sourceId) ctx.addIssue({ code: "custom", message: "Recording-scoped facts require catalog identity." });
+  for (const row of value.evidence) {
+    if (row.scope === "catalog-track" && !catalogTrackURL(row.sourceUrl, row.sourceId ?? "")) {
+      ctx.addIssue({ code: "custom", message: "Recording-scoped facts require a matching Apple track link and ID." });
+    }
+  }
 });
 const outputSchema = z.object({ blocks: z.array(z.object({ text: z.string().min(1).max(700), scope, evidenceIds: z.array(z.string()).min(1).max(12) })).max(4) }).strict();
 export function prepareNarrativeComparison(input: unknown) {

@@ -19,7 +19,7 @@ beforeEach(() => {
   mocks.first.mockImplementation(async ({ where, orderBy }) => {
     const rows = sessions.filter((s) => s.userId === where.userId
     && (!where.id || s.id === where.id) && (!where.algorithmVersion || s.algorithmVersion === where.algorithmVersion)
-    && (!where.status || s.status === where.status));
+    && (!where.status || s.status === where.status) && (!where.updatedAt?.gte || s.updatedAt >= where.updatedAt.gte));
     if (Array.isArray(orderBy) && orderBy[0]?.lastOpenedAt) rows.sort((a, b) =>
       (b.lastOpenedAt?.getTime() ?? 0) - (a.lastOpenedAt?.getTime() ?? 0) || b.createdAt.getTime() - a.createdAt.getTime());
     return rows[0] ?? null;
@@ -53,6 +53,24 @@ function service() {
   return service;
 }
 describe("explicit session operations", () => {
+  it("does not reuse a filtered repertoire as an unfiltered automatic search", async () => {
+    sessions.push({ ...source(), mode: "BALANCED", context: "GENERAL", profilePeriod: "30d:55:50", discoveryContext: {
+      version: 1, intent: "REPERTOIRE", restrictions: { albumGenre: "jazz" }, journey: { action: "ENTRY" },
+    } });
+    const result = await service().generateSession({ userId: "owner", mode: "BALANCED", intent: "REPERTOIRE", restrictions: {} });
+    expect(result.sessionId).not.toBe("source");
+    expect(result.settings.restrictions).toBeUndefined();
+  });
+  it("cannot finish after the generation reservation has expired", async () => {
+    const svc = service();
+    (svc as any).generateCandidates.mockImplementationOnce(async () => {
+      sessions[0].updatedAt = new Date(Date.now() - 6 * 60_000);
+      return candidates;
+    });
+    await expect(svc.generateSession({ userId: "owner", mode: "BALANCED", operation: "NEW_ENTRY", requestKey: "late" }))
+      .rejects.toMatchObject({ code: "GENERATION_FAILED" });
+    expect(sessions[0]).toMatchObject({ status: "FAILED", items: [] });
+  });
   it("freezes the selected territory across MORE and replays before resolving the catalog", async () => {
     const svc = service();
     const destination = { version: TERRITORY_VERSION, genre: "dub", scope: "artist-tag" as const, capturedAt: new Date().toISOString(), artists: [] };

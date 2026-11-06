@@ -99,6 +99,7 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
   const intentRef = useRef<DiscoveryIntent>("DISCOVER");
   const [coverage, setCoverage] = useState<DiscoveryCoverage | null>(null);
   const [destination, setDestination] = useState<string | null>(null);
+  const [restrictions, setRestrictions] = useState<RepertoireRestriction | undefined>();
   const [journey, setJourney] = useState<Journey | null>(null);
   const [busy, setBusy] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -129,12 +130,13 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
   const { stop, toggle } = sound;
   const signal = usePulse(stageRef, sound.playing, sound.read);
 
-  const applySession = useCallback((payload: { items?: Candidate[]; sessionId?: string; currentRank?: number; coverage?: DiscoveryCoverage | null; journey?: Journey | null; settings?: { destination?: { genre: string }; intent?: DiscoveryIntent | null; dials?: { proximity: number; fame: number } } }) => {
+  const applySession = useCallback((payload: { items?: Candidate[]; sessionId?: string; currentRank?: number; coverage?: DiscoveryCoverage | null; journey?: Journey | null; settings?: { destination?: { genre: string }; restrictions?: RepertoireRestriction; intent?: DiscoveryIntent | null; dials?: { proximity: number; fame: number } } }) => {
     const items = payload.items ?? [];
     setQueue(items); setSessionId(payload.sessionId ?? null);
     sessionRef.current = payload.sessionId ?? null;
     setIntent(payload.settings?.intent ?? null); intentRef.current = payload.settings?.intent ?? "DISCOVER";
     setJourney(payload.journey ?? null); setCoverage(payload.coverage ?? null); setDestination(payload.settings?.destination?.genre ?? null);
+    setRestrictions(payload.settings?.restrictions);
     setIndex(Math.min(items.length, Math.max(0, (payload.currentRank ?? 1) - 1)));
     setDecided(Object.fromEntries(items.filter((item) => Object.values(item.feedback ?? {}).some((entry) => entry?.type !== "RETRACTED")).map((item) => [item.id, "known" as Action])));
     if (payload.settings?.dials) { setProximity(payload.settings.dials.proximity); setFame(payload.settings.dials.fame); setDraftProximity(payload.settings.dials.proximity); setDraftFame(payload.settings.dials.fame); }
@@ -422,7 +424,7 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
   let top: React.ReactNode;
   if (choosing) {
     top = <>
-      <DiscoveryEntry busy={busy || saving} hasSession={Boolean(sessionId && queue?.length)} currentRank={index + 1} total={queue?.length ?? 0}
+      <DiscoveryEntry busy={busy || saving} hasSession={Boolean(sessionId)} currentRank={index + 1} total={queue?.length ?? 0}
         onChoose={(nextProximity, nextFame, nextIntent) => void load(nextProximity, nextFame, "NEW_ENTRY", { intent: nextIntent })}
         onResume={() => void load(proximity, fame, "RESUME")} onAdjust={() => { intentRef.current = "DISCOVER"; setIntent("DISCOVER"); openMap(); }} />
       <ExplorationDoors busy={busy || saving} onTerritory={(territory) => void load(55, 50, "NEW_ENTRY", { intent: "TERRITORY", territory })}
@@ -551,6 +553,12 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
       <div>
       <div className={styles.pageTools}><span>uma faixa de cada vez.</span><Link className={styles.textButton} href="/discovery/collection">para depois <span className={styles.pillCount}>{kept.length}</span></Link></div>
       {!choosing && destination && <p className={styles.journeyContext}>Destino escolhido: artistas associados a {destination}. A seleção permanece neste recorte; uma tag de artista não certifica cada gravação.</p>}
+      {!choosing && intent === "REPERTOIRE" && restrictions && (restrictions.albumGenre || restrictions.maxDurationMs) && <p className={styles.journeyContext}>
+        Teu recorte {[
+          restrictions.albumGenre && `com álbuns catalogados como ${restrictions.albumGenre}`,
+          restrictions.maxDurationMs && `com faixas de até ${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(restrictions.maxDurationMs / 60000)} min`,
+        ].filter(Boolean).join(" e ")}.
+      </p>}
       {!choosing && coverage?.status === "INSUFFICIENT" && <p className={styles.journeyContext} role="status">Cobertura insuficiente: {coverage.selected} de {coverage.requested} indicações. Mantive o pedido, sem acrescentar faixas de outro recorte. Você pode escolher outra entrada explicitamente.</p>}
       {!choosing && Boolean(coverage?.provider?.failures || coverage?.provider?.deadlineStops) && <p className={styles.journeyContext}>Parte da consulta externa falhou ou atingiu o tempo disponível. Isso não prova ausência de repertório na fonte.</p>}
       {selection.error && <p role="alert">{selection.error} <Link href="/discovery/collection">abrir tua coleção</Link></p>}

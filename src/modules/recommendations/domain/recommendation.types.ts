@@ -1,4 +1,4 @@
-
+import type { TrackPreview } from "./preview-provider.interface";
 
 export type RecommendationMode = "SAFE" | "BALANCED" | "EXPERIMENTAL";
 export type RecommendationContext = "GENERAL" | "WORKING" | "STUDYING" | "EXERCISING" | "RELAXING";
@@ -88,6 +88,12 @@ export interface RawCandidate {
   evidence?: RecommendationEvidence[];
   isRevisit?: boolean;
   providerRank?: number;
+  repertoireRecording?: {
+    identity: NonNullable<TrackPreview["identity"]>;
+    previewUrl: string | null;
+    appleMusicUrl: string;
+    catalogFacts: NonNullable<TrackPreview["catalogFacts"]>;
+  };
 }
 
 export interface RecommendationEvidence {

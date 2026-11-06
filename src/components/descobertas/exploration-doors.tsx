@@ -36,7 +36,8 @@ export function ExplorationDoors({ busy, onTerritory, onRepertoire }: { busy: bo
         <details><summary>propostas de curadoria, ainda em revisão</summary>
           <p>Estas propostas não são seleções aprovadas nem alteram as portas acima.</p>
           {data.proposals.map((proposal) => <article key={proposal.id}><h3>{proposal.title} · v{proposal.version}</h3>
-            {proposal.anchor && <p><a href={proposal.anchor.sourceUrl} target="_blank" rel="noreferrer">{proposal.anchor.artistName} — {proposal.anchor.albumName} ↗</a><br />{proposal.anchor.rationale}</p>}
+            {proposal.anchor && <p><strong>{proposal.anchor.artistName} — {proposal.anchor.albumName}</strong><br />{proposal.anchor.rationale}<br />
+              <a href={proposal.anchor.sourceUrl} target="_blank" rel="noreferrer">ver fonte da proposta ↗</a></p>}
             <p>{proposal.selection}</p><p>Para revisão: {proposal.review}</p></article>)}
         </details>
       </>}
