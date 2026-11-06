@@ -16,6 +16,7 @@ export const discoveryContextSchema = z.object({
     action: z.enum(["ENTRY", "MORE", "DEEPEN", "ALBUM"]),
     album: editionSummarySchema.optional(),
     curation: curationCreditSchema.optional(),
+    weekly: z.object({ journeyId: z.uuid(), entryId: z.uuid(), kind: z.enum(["ALBUM", "ARTIST"]) }).optional(),
     rootSessionId: id.optional(), parentSessionId: id.optional(),
     anchor: z.object({ sourceSessionId: id, sourceItemId: id,
       artistName: z.string().min(1).max(500), trackName: z.string().min(1).max(1000) }).optional(),
@@ -26,6 +27,9 @@ export const discoveryContextSchema = z.object({
     ctx.addIssue({ code: "custom", message: "A jornada de álbum precisa da edição escolhida." });
   }
   if (value.journey.curation && !album) ctx.addIssue({ code: "custom", message: "A curadoria precisa de uma jornada de álbum." });
+  if (value.journey.weekly && (value.journey.weekly.kind === "ALBUM" ? !album : value.intent !== "DISCOVER" || value.journey.action !== "ENTRY")) {
+    ctx.addIssue({ code: "custom", message: "A porta semanal precisa do tipo de escuta escolhido." });
+  }
   if ((value.intent === "TERRITORY") !== Boolean(value.destination)) ctx.addIssue({ code: "custom", message: "O território precisa do destino registrado." });
   if (value.restrictions && value.intent !== "REPERTOIRE") ctx.addIssue({ code: "custom", message: "Restrições de repertório precisam dessa intenção." });
 });

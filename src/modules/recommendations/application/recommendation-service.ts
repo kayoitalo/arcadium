@@ -200,6 +200,7 @@ export class RecommendationService {
         intent: settings.intent ?? "DISCOVER" };
     }
     const previousContext = readDiscoveryContext(source?.discoveryContext);
+    if (operation === "MORE" && previousContext?.journey.weekly) throw new DiscoveryConflict("Esta porta mantém as faixas escolhidas para a semana.", 400);
     let anchor = operation === "MORE" ? previousContext?.journey.anchor : undefined;
     if (operation === "DEEPEN") {
       if (!source || !input.sourceItemId || !input.requestKey) throw new DiscoveryConflict("Escolha uma indicação e uma chave de busca para aprofundar.", 400);
@@ -502,7 +503,7 @@ export class RecommendationService {
     });
   }
 
-  private async buildUserProfile(userId: string, period: string): Promise<UserProfile> {
+  async buildUserProfile(userId: string, period: string): Promise<UserProfile> {
     if (this.strategy === "legacy") return this.buildLegacyProfile(userId, period);
     const reference = new Date();
     const days = period === "7d" ? 7 : period === "1y" ? 365 : 30;

@@ -1,6 +1,14 @@
 # Jornada semanal do Arcadium
 
-Proposta de implementação e estudo de viabilidade em 05/11/2026. A base é a master após o PR 19. A jornada de Cartola é a referência de escuta com fonte. A proposta abaixo transforma essa experiência em uma seleção automática por conta, com artistas e discos novos a cada semana conforme a cobertura.
+Plano e estudo de viabilidade iniciados em 05/11/2026. A base é a master após o PR 19. A jornada de Cartola é a referência de escuta com fonte. A jornada semanal automatiza a seleção por conta, com artistas e discos novos conforme a cobertura.
+
+## Revisão da implementação
+
+- **Descobrir → Tua jornada da semana.** A primeira visita prepara a seleção automaticamente na preview. Abra uma porta de álbum e uma de artista. Confira a edição, a ordem e o play manual. Abra a mesma semana em outra aba e retome em **Caminhos → jornadas da semana**. A memória permite abrir edições anteriores, exportar e excluir as escolhas.
+- **Operação.** A migration `20261106000000_weekly_discovery_journey` acrescenta duas tabelas. Passou em schema descartável da preview, com oito cenários e verificação sem drift. A geração básica vem habilitada na preview e no desenvolvimento, com ativação explícita em produção por `ARCADIUM_WEEKLY_ENABLED=1`. As sessões antigas continuam no fluxo existente.
+- **Pistas.** Até um lançamento MusicBrainz por preparo, quando há referência a um lançamento. O pareamento exige a sequência completa, artista, versão e duração compatíveis. O crédito individual tem limite de três segundos de diferença e fica ligado à faixa Apple correspondente. A jornada também reaproveita as pistas editoriais na edição exata de Cartola.
+- **Narrativa experimental.** Com `ARCADIUM_WEEKLY_NARRATIVE=1` e a chave Gemini existente, a pessoa pode testar outra abertura e outros convites para as mesmas portas. Para o primeiro piloto, o modelo escolhe entre frases aprovadas. Os fatos, as faixas e a ordem ficam a cargo do app. O teste automatizado é sintético e o julgamento de utilidade fica para a escuta na preview.
+- **Verificações de catálogo.** No PowerShell, `$env:ARCADIUM_WEEKLY_LIVE='1'` seguido de `pnpm run evaluate:replay` roda a sondagem Apple BR e MusicBrainz. O teste Last.fm usa a chave já configurada, quando presente. O ambiente local usado para esta entrega não tinha essa chave. Os ensaios não acionam Gemini.
 
 ## O que a pessoa encontra
 
@@ -70,7 +78,7 @@ Incluir os registros semanais na exportação e na exclusão de descoberta, com 
 
 Para admitir um crédito por gravação, usar um identificador compartilhado, quando disponível, ou uma correspondência única sustentada por edição, ordem, artista, título, qualificador de versão e duração compatível. Divergências de estúdio e ao vivo e candidatos concorrentes barram a pista. Uma pequena diferença de duração pede contexto dos catálogos e não encerra o pareamento por si só. Guardar fonte, data, escopo, IDs e o fato mínimo que sustenta a pista. Cada faixa pode ter zero ou mais pistas e a sequência do álbum independe da cobertura.
 
-Depois do piloto sem IA, a hipótese a testar é se **um pacote opcional por semana** melhora a abertura, a transição entre as entradas e os convites de escuta. O prompt recebe os IDs escolhidos e evidências verificadas em formato reduzido, com os motivos já calculados pelo app. Histórico bruto, notas pessoais e conteúdo Spotify ficam fora. O modelo devolve blocos referenciando os IDs de evidência. Validar estrutura, existência da referência e escopo. Julgar fidelidade e utilidade em amostras, pois o esquema sozinho não garante que uma frase seja sustentada. Com falha, cota esgotada ou texto descartado, a pessoa continua com o conteúdo determinístico.
+A hipótese a testar é se **um pacote opcional por semana** melhora a apresentação. Nesta versão, o prompt recebe os IDs, tipos e papéis das portas e um conjunto de aberturas e convites aprovados. O modelo devolve IDs das frases. O app valida a correspondência com a semana e mantém as razões e pistas de fonte separadas. Histórico bruto, notas pessoais e conteúdo Spotify ficam fora. Se a narrativa editorial demonstrar valor, uma etapa posterior pode avaliar texto livre ligado aos IDs de evidência. Com falha, cota esgotada ou resposta descartada, a pessoa continua com o conteúdo determinístico.
 
 Reusar a reserva por tentativa física do Gemini e os limites vigentes. Uma geração lógica pode usar mais de uma tentativa e todas contam. O pacote só é solicitado uma vez por edição semanal, sob controle de idempotência, e fica disponível para as reaberturas. Começar com o modelo configurado e o orçamento atual. A primeira comparação é entre a mesma jornada com texto simples e com a narrativa opcional. Lite/Flash só entra se a escolha do modelo virar uma decisão real. [Formato estruturado no Gemini](https://ai.google.dev/gemini-api/docs/structured-output)
 

@@ -19,6 +19,7 @@ import { useSelection } from "./selection-provider";
 import { MAX_SELECTED_TRACKS, selectionKey } from "./selection";
 import styles from "./descobertas.module.css";
 import { ExplorationDoors } from "./exploration-doors";
+import { WeeklyDiscovery } from "./weekly-discovery";
 import type { TerritoryRequest, RepertoireRestriction, DiscoveryCoverage } from "@/modules/recommendations/domain/territories";
 import { DiscoveryEntry } from "./discovery-entry";
 import { DiscoveryTrack } from "./discovery-track";
@@ -81,7 +82,9 @@ const CORNERS = [
  * capa e vibra com o som. Embaixo, o mapa que decide onde ele procura, e
  * o que você separou para levar.
  */
-export function Descobertas({ initialSessionId = null }: { initialSessionId?: string | null } = {}) {
+export function Descobertas({ initialSessionId = null, initialWeekId = null, showWeekly = false, allowWeeklyNarrative = false }: {
+  initialSessionId?: string | null; initialWeekId?: string | null; showWeekly?: boolean; allowWeeklyNarrative?: boolean;
+} = {}) {
   const reduced = Boolean(useReducedMotion());
   const [proximity, setProximity] = useState(55);
   const [fame, setFame] = useState(50);
@@ -101,6 +104,7 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
   const [destination, setDestination] = useState<string | null>(null);
   const [restrictions, setRestrictions] = useState<RepertoireRestriction | undefined>();
   const [journey, setJourney] = useState<Journey | null>(null);
+  const weeklyHref = journey?.weekly ? `/discovery?semana=${encodeURIComponent(journey.weekly.journeyId)}` : null;
   const [busy, setBusy] = useState(true);
   const [failed, setFailed] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -427,6 +431,7 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
       <DiscoveryEntry busy={busy || saving} hasSession={Boolean(sessionId)} currentRank={index + 1} total={queue?.length ?? 0}
         onChoose={(nextProximity, nextFame, nextIntent) => void load(nextProximity, nextFame, "NEW_ENTRY", { intent: nextIntent })}
         onResume={() => void load(proximity, fame, "RESUME")} onAdjust={() => { intentRef.current = "DISCOVER"; setIntent("DISCOVER"); openMap(); }} />
+      {showWeekly && <WeeklyDiscovery journeyId={initialWeekId} allowNarrative={allowWeeklyNarrative} />}
       <ExplorationDoors busy={busy || saving} onTerritory={(territory) => void load(55, 50, "NEW_ENTRY", { intent: "TERRITORY", territory })}
         onRepertoire={(restrictions) => void load(85, 75, "NEW_ENTRY", { intent: "REPERTOIRE", restrictions })} />
       {busy && <p className={styles.quiet} role="status">Recuperando tua última busca…</p>}
@@ -469,7 +474,8 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
         }
       >
         {kept.length > 0 && <Resposta href="/discovery/collection">ver tuas {kept.length} faixas separadas →</Resposta>}
-        {intent !== "ALBUM" && <Resposta onClick={() => void load(proximity, fame, "MORE")}>busca mais nesse canto</Resposta>}
+        {intent !== "ALBUM" && !weeklyHref && <Resposta onClick={() => void load(proximity, fame, "MORE")}>busca mais nesse canto</Resposta>}
+        {weeklyHref && <Resposta href={weeklyHref}>voltar à jornada da semana →</Resposta>}
         <Resposta onClick={showEntries}>escolher outro caminho</Resposta>
         {index > 0 && <Resposta onClick={() => void moveTo(index - 1)}>rever a anterior</Resposta>}
       </Aviso>
@@ -477,6 +483,7 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
   } else {
     top = (
       <div>
+        {weeklyHref && <p className={styles.journeyContext}><Link href={weeklyHref}>voltar à jornada da semana →</Link></p>}
         {journey?.parentSessionId && <div className={styles.journeyContext}>
           {journey.anchor ? <>Este caminho parte de “{journey.anchor.trackName}”, de {journey.anchor.artistName}.</> : "Este passo continua uma busca anterior."}
           {journey.parentSessionId && <> <button className={styles.textButton} disabled={busy || saving} onClick={() => void load(proximity, fame, "RESUME", { sessionId: journey.parentSessionId })}>voltar ao passo anterior →</button></>}
@@ -539,8 +546,8 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
           <div>
             <button className={styles.textButton} disabled={busy || saving} onClick={() => void load(proximity, fame, "DEEPEN", { itemId: current.id, intent: intent === "CONNECTIONS" ? "CONNECTIONS" : "DISCOVER" })}>buscar novidades a partir desta faixa ↗</button>
             {index > 0 && <button className={styles.textButton} disabled={saving} onClick={() => void moveTo(index - 1)}>← anterior</button>}
-            {intent !== "ALBUM" && <button className={styles.textButton} disabled={saving} onClick={() => void load(proximity, fame, "MORE")}>buscar mais nesse caminho ↗</button>}
-            {intent !== "REPERTOIRE" && intent !== "ALBUM" && intent !== "TERRITORY" && <button className={styles.textButton} disabled={saving} onClick={openMap}>ajustar caminho</button>}
+            {intent !== "ALBUM" && !weeklyHref && <button className={styles.textButton} disabled={saving} onClick={() => void load(proximity, fame, "MORE")}>buscar mais nesse caminho ↗</button>}
+            {intent !== "REPERTOIRE" && intent !== "ALBUM" && intent !== "TERRITORY" && !weeklyHref && <button className={styles.textButton} disabled={saving} onClick={openMap}>ajustar caminho</button>}
           </div>
         </div>
       </div>
@@ -568,7 +575,7 @@ export function Descobertas({ initialSessionId = null }: { initialSessionId?: st
           : <div key="other">{top}</div>}
       </AnimatePresence>
 
-      {intent !== "REPERTOIRE" && intent !== "ALBUM" && intent !== "TERRITORY" && <DiscoveryDisclosure id="mapa-descoberta" className={styles.adjustments} bodyClassName={styles.map} open={mapOpen} onOpenChange={setMapOpen}
+      {intent !== "REPERTOIRE" && intent !== "ALBUM" && intent !== "TERRITORY" && (!weeklyHref || choosing) && <DiscoveryDisclosure id="mapa-descoberta" className={styles.adjustments} bodyClassName={styles.map} open={mapOpen} onOpenChange={setMapOpen}
         summary={<><span><span className={styles.eyebrow}>teu caminho, com mais detalhe</span><strong>Ajustar a descoberta</strong></span><span aria-hidden="true">↘</span></>}>
           <div><h2 className={styles.mapTitle}>Qual é a distância da próxima pista?</h2>
             <p className={styles.mapNote}>Mais perto das tuas referências ou um passo para fora. No outro eixo, o tamanho do público. Os ajustes só valem quando você iniciar a busca.</p>

@@ -5,6 +5,7 @@ import type { AlbumSource, AlbumEditionProvider } from "../domain/album-journey"
 import { DiscoveryConflict } from "../domain/feedback";
 import { RecommendationService } from "./recommendation-service";
 import { curatedRecordingCue, findCuratedAlbum, matchesCuratedEdition } from "../domain/curated-albums";
+import { albumSessionItems } from "./album-session-items";
 
 const algorithmVersion = "album-v1";
 export class AlbumJourneyService {
@@ -98,14 +99,7 @@ export class AlbumJourneyService {
         if (!current) throw new DiscoveryConflict("Esta tentativa foi encerrada. Inicie outra jornada.");
         await tx.recommendationSession.update({ where: { id: reservation.id }, data: { status: "ACTIVE",
           discoveryContext: { version: 1, intent: "ALBUM", journey: { action: "ALBUM", album: edition.album, ...(curation ? { curation: curation.credit } : {}) } },
-          items: { create: edition.tracks.map((track, index) => ({ artistName: track.artistName, trackName: track.trackName,
-            albumName: edition.album.albumName, score: 0, rank: index + 1,
-            reason: `Disco ${track.disc}, faixa ${track.number} de “${edition.album.albumName}”, na edição que você escolheu.`,
-            coverUrl: edition.album.artworkUrl, previewUrl: track.previewUrl, appleMusicUrl: track.sourceUrl ?? edition.album.sourceUrl,
-            scoreComponents: { albumEdition: { ...edition.album, trackId: track.trackId, disc: track.disc, number: track.number },
-              ...(curation ? { recordingCue: curatedRecordingCue(curation, track) } : {}),
-              catalogFacts: { durationMs: track.durationMs, fetchedAt: edition.album.fetchedAt },
-              previewIdentity: { source: "itunes", sourceId: track.trackId, artistName: track.artistName, trackName: track.trackName, match: "compatible-text-v1" } } })) },
+          items: { create: albumSessionItems(edition, curation ? (track) => curatedRecordingCue(curation, track) : undefined) },
         } });
       });
       const session = await new RecommendationService().getSession(reservation.id, userId);

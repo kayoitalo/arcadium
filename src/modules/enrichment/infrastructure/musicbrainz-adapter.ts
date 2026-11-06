@@ -38,16 +38,17 @@ export class MusicBrainzAdapter implements MetadataProvider {
    * merecem nova tentativa; o que não pode acontecer é virarem "não
    * encontrado", porque aí a entidade é aposentada como FAILED.
    */
-  private async requestJson(url: string, entityName: string): Promise<any | null> {
+  private async requestJson(url: string, entityName: string, timing?: { attempts: number; timeoutMs: number }): Promise<any | null> {
     let lastCause: unknown;
+    const attempts = timing?.attempts ?? MusicBrainzAdapter.MAX_ATTEMPTS;
 
-    for (let attempt = 0; attempt < MusicBrainzAdapter.MAX_ATTEMPTS; attempt += 1) {
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
       await this.throttle();
 
       try {
         const response = await fetch(url, {
           headers: { "User-Agent": this.userAgent, Accept: "application/json" },
-          signal: AbortSignal.timeout(12_000),
+          signal: AbortSignal.timeout(timing?.timeoutMs ?? 12_000),
         });
 
         if (response.ok) return await response.json();
@@ -58,9 +59,9 @@ export class MusicBrainzAdapter implements MetadataProvider {
         if (response.status === 503 || response.status === 429 || response.status >= 500) {
           lastCause = new Error(`HTTP ${response.status}`);
           console.warn(
-            `[MusicBrainz] HTTP ${response.status} em "${entityName}" (tentativa ${attempt + 1}/${MusicBrainzAdapter.MAX_ATTEMPTS})`
+            `[MusicBrainz] HTTP ${response.status} em "${entityName}" (tentativa ${attempt + 1}/${attempts})`
           );
-          await this.backoff(attempt);
+          if (!timing || attempt + 1 < attempts) await this.backoff(attempt);
           continue;
         }
 
@@ -69,13 +70,19 @@ export class MusicBrainzAdapter implements MetadataProvider {
       } catch (error) {
         lastCause = error;
         console.warn(
-          `[MusicBrainz] falha de rede em "${entityName}" (tentativa ${attempt + 1}/${MusicBrainzAdapter.MAX_ATTEMPTS})`
+          `[MusicBrainz] falha de rede em "${entityName}" (tentativa ${attempt + 1}/${attempts})`
         );
-        await this.backoff(attempt);
+        if (!timing || attempt + 1 < attempts) await this.backoff(attempt);
       }
     }
 
     throw new ProviderUnavailableError(entityName, lastCause);
+  }
+
+  async releaseWithRecordingCredits(releaseId: string, timeoutMs: number): Promise<unknown> {
+    if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(releaseId)) return null;
+    const url = `https://musicbrainz.org/ws/2/release/${releaseId}?inc=recordings+artist-credits+recording-level-rels+artist-rels&fmt=json`;
+    return this.requestJson(url, "créditos da jornada semanal", { attempts: 1, timeoutMs });
   }
 
   private async backoff(attempt: number): Promise<void> {

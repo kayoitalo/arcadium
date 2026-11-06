@@ -173,6 +173,14 @@ export class GeminiAdapter implements PackProvider {
     this.modelName = modelName || process.env.AI_MODEL || "gemini-3.5-flash";
   }
 
+  async chooseWeeklyNarrative(prompt: string, audit: AttemptAudit): Promise<unknown> {
+    if (!this.configured) throw new Error("GEMINI_API_KEY is not configured.");
+    const model = this.ai.getGenerativeModel({ model: this.modelName,
+      generationConfig: { responseMimeType: "application/json", maxOutputTokens: 512, temperature: 0.4 } });
+    const { result } = await this.generateWithRetry(model, prompt, 1, 12_000, audit);
+    return JSON.parse(result.response.text());
+  }
+
   /**
    * O pacote de um período, numa chamada só: várias leituras, comentários
    * por disco do rack e frases pras outras telas. O app guarda e sorteia —

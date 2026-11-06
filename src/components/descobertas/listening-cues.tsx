@@ -10,7 +10,7 @@ export function ListeningCueExcerpt({ value }: { value: Cues }) {
     {value.cues.map((cue) => <article className={styles.context} key={cue.kind}><p><strong>{cue.fact}</strong></p><p>{cue.invitation}</p>
       {cue.kind === "RECORDING_CREDIT"
         ? <p><a href={cue.source.url} target="_blank" rel="noreferrer">Crédito da gravação na Universal Music Brasil ↗</a> · consultado em <time dateTime={cue.source.checkedOn}>{cue.source.checkedOn.split("-").reverse().join("/")}</time></p>
-        : <p><a href={cue.source.url} target="_blank" rel="noreferrer">Entrada da faixa no Apple Music ↗</a> · metadados de <time dateTime={cue.source.fetchedAt}>{new Date(cue.source.fetchedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</time></p>}
+        : <p><a href={cue.source.url} target="_blank" rel="noreferrer">{cue.kind === "WEEKLY_RECORDING_CREDIT" ? "Crédito da gravação no MusicBrainz ↗" : "Entrada da faixa no Apple Music ↗"}</a> · consultado em <time dateTime={cue.source.fetchedAt}>{new Date(cue.source.fetchedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</time></p>}
     </article>)}
     <p>{value.limitation}</p>
   </>;
