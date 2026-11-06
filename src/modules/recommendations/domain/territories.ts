@@ -34,10 +34,6 @@ export const CURATION_PROPOSALS = [
     anchor: { artistName: "Alice Coltrane", albumName: "Journey in Satchidananda", sourceUrl: "https://www.alicecoltrane.com/journey-in-satchidananda", scope: "album", checkedOn: "2026-11-04", rationale: "O site da artista documenta cinco faixas e créditos com escopo por número de faixa. Candidato a jornada em ordem; não transportar créditos para outra edição sem conferir." },
     selection: "Recorte pela tag jazz exata; manter diversidade de artistas e não preencher com vizinhos do perfil.",
     review: "Escolher gravações e uma ordem editorial com fontes; não presumir uma progressão fixa de gêneros." },
-  { id: "samba-doors", version: 1, status: "PROPOSED", title: "Samba: além dos nomes conhecidos", genre: "samba",
-    anchor: { artistName: "Cartola", albumName: "Cartola (1976)", sourceUrl: "https://www.universalmusic.com.br/2026/03/04/a-janela-de-cartola/", scope: "album", checkedOn: "2026-11-04", rationale: "A gravadora distingue o disco de 1976 do homônimo de 1974 e documenta a sequência. Essa distinção precisa sobreviver à escolha de edição." },
-    selection: "Artistas catalogados com samba, fora do histórico da conta; lacuna permanece lacuna.",
-    review: "Revisar cobertura brasileira, homônimos e edições; associação de artista não prova ritmo de cada faixa." },
 ] as const;
 
 export const coverageSchema = z.object({ version: z.literal(1), requested: z.number().int(), selected: z.number().int(),

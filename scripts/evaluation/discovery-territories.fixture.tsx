@@ -5,6 +5,7 @@ import { SelectionProvider } from "../../src/components/descobertas/selection-pr
 import { DiscoveryNavigation } from "../../src/components/descobertas/discovery-navigation";
 import { buildListeningCues } from "../../src/modules/recommendations/domain/listening-cues";
 import { CURATION_PROPOSALS } from "../../src/modules/recommendations/domain/territories";
+import { CARTOLA_JOURNEY_HREF } from "../../src/modules/recommendations/domain/curated-albums";
 const qa = { plays: 0, requests: [] as Array<{ url: string; body: any }>, failDoors: true, failCues: true, empty: false };
 let currentIntent = "DISCOVER"; let destination: { genre: string } | undefined; let restrictions: { albumGenre?: string; maxDurationMs?: number } | undefined; let session = 0;
 const tracks = [1, 2].map((n) => ({ id: `item-${n}`, rank: n, artistName: `Artista sintético ${n}`, trackName: `Porta ${n} (Live)`, albumName: null, genre: "dub", position: null,
@@ -53,8 +54,9 @@ async function runChecks() {
   button("tentar novamente").click(); await wait(() => document.querySelector('strong')?.textContent || document.body.textContent?.includes("Artista sintético 2"), "door retry");
   await wait(() => [...document.querySelectorAll("button strong")].some((row) => row.textContent === "dub ↗"), "door loaded");
   summary("propostas de curadoria").click(); assert(document.body.textContent?.includes("não são seleções aprovadas"), "draft curation must stay labeled");
-  assert(document.querySelector('a[href*="universalmusic.com.br"]')?.textContent?.includes("ver fonte da proposta"), "source must be labeled as a reference");
-  passed.push("lazy catalog, retry and visibly unapproved sourced curation");
+  assert(document.querySelector('a[href*="alicecoltrane.com"]')?.textContent?.includes("ver fonte da proposta"), "source must be labeled as a reference");
+  assert(document.querySelector(`a[href="${CARTOLA_JOURNEY_HREF}"]`)?.textContent?.includes("Cartola"), "published curation must be reachable from exploration");
+  passed.push("lazy catalog, retry, separate published journey and visibly unapproved proposals");
   [...document.querySelectorAll<HTMLElement>("button strong")].find((row) => row.textContent === "dub ↗")!.click();
   await wait(ready, "territory session");
   assert(document.body.textContent?.includes("Cobertura insuficiente: 2 de 8"), "short result must explain coverage");

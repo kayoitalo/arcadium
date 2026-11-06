@@ -4,6 +4,7 @@ import { sameRecordingText } from "@/lib/music/recording-match";
 import type { AlbumSource, AlbumEditionProvider } from "../domain/album-journey";
 import { DiscoveryConflict } from "../domain/feedback";
 import { RecommendationService } from "./recommendation-service";
+import { curatedRecordingCue, findCuratedAlbum, matchesCuratedEdition } from "../domain/curated-albums";
 
 const algorithmVersion = "album-v1";
 export class AlbumJourneyService {
@@ -17,6 +18,11 @@ export class AlbumJourneyService {
   }
 
   async source(userId: string, source: AlbumSource) {
+    if (source.kind === "curated") {
+      const curation = findCuratedAlbum(source.id);
+      if (!curation) throw new DiscoveryConflict("Curadoria indisponível.", 404);
+      return { artistName: curation.artistName, albumName: curation.albumName };
+    }
     if (source.kind === "library") {
       const album = await prisma.album.findFirst({ where: { id: source.id, listeningEvents: { some: { userId } } }, select: { name: true, artist: { select: { name: true } } } });
       if (album) return { artistName: album.artist.name, albumName: album.name };
@@ -29,6 +35,11 @@ export class AlbumJourneyService {
 
   async editions(userId: string, source: AlbumSource) {
     const reference = await this.source(userId, source);
+    const curation = source.kind === "curated" ? findCuratedAlbum(source.id) : null;
+    if (curation) {
+      const edition = await this.catalog.lookupEdition(curation.collectionId);
+      return { reference, editions: matchesCuratedEdition(curation, edition) ? [edition.album] : [] };
+    }
     return { reference, editions: await this.catalog.searchEditions(reference.artistName, reference.albumName) };
   }
 
@@ -53,6 +64,8 @@ export class AlbumJourneyService {
     };
     if (await prisma.recommendationSession.findUnique({ where: { userId_requestKey: { userId, requestKey } } })) return replay();
     const reference = await this.source(userId, source);
+    const curation = source.kind === "curated" ? findCuratedAlbum(source.id) : null;
+    if (curation && collectionId !== curation.collectionId) throw new DiscoveryConflict("Escolha a edição publicada nesta curadoria.", 400);
     let reservation;
     try {
       reservation = await prisma.$transaction(async (tx) => {
@@ -68,13 +81,13 @@ export class AlbumJourneyService {
       throw error;
     }
     try {
-      const options = await this.catalog.searchEditions(reference.artistName, reference.albumName);
-      const chosen = options.find((row) => row.collectionId === collectionId);
-      if (!chosen) throw new DiscoveryConflict("Essa edição não está entre os resultados deste álbum. Consulte as edições novamente.", 400);
+      const chosen = curation ? null : (await this.catalog.searchEditions(reference.artistName, reference.albumName)).find((row) => row.collectionId === collectionId);
+      if (!curation && !chosen) throw new DiscoveryConflict("Essa edição não está entre os resultados deste álbum. Consulte as edições novamente.", 400);
       const edition = await this.catalog.lookupEdition(collectionId);
-      if (!edition || edition.album.collectionId !== collectionId || edition.tracks.length !== edition.album.trackCount || edition.album.storefront !== chosen.storefront || !sameRecordingText(edition.album.artistName, reference.artistName)
+      if (curation && !matchesCuratedEdition(curation, edition)) throw new DiscoveryConflict("A edição publicada desta curadoria está indisponível no catálogo. Tente novamente mais tarde.", 422);
+      if (!edition || (chosen && (edition.album.collectionId !== collectionId || edition.tracks.length !== edition.album.trackCount || edition.album.storefront !== chosen.storefront || !sameRecordingText(edition.album.artistName, reference.artistName)
         || !sameRecordingText(edition.album.albumName, reference.albumName) || edition.album.trackCount !== chosen.trackCount
-        || (edition.album.explicitness ?? null) !== (chosen.explicitness ?? null)) {
+        || (edition.album.explicitness ?? null) !== (chosen.explicitness ?? null)))) {
         throw new DiscoveryConflict("Não consegui confirmar a edição e a ordem completa das faixas. Escolha outro álbum.", 422);
       }
       await prisma.$transaction(async (tx) => {
@@ -84,12 +97,13 @@ export class AlbumJourneyService {
           updatedAt: { gte: new Date(Date.now() - 5 * 60_000) } } });
         if (!current) throw new DiscoveryConflict("Esta tentativa foi encerrada. Inicie outra jornada.");
         await tx.recommendationSession.update({ where: { id: reservation.id }, data: { status: "ACTIVE",
-          discoveryContext: { version: 1, intent: "ALBUM", journey: { action: "ALBUM", album: edition.album } },
+          discoveryContext: { version: 1, intent: "ALBUM", journey: { action: "ALBUM", album: edition.album, ...(curation ? { curation: curation.credit } : {}) } },
           items: { create: edition.tracks.map((track, index) => ({ artistName: track.artistName, trackName: track.trackName,
             albumName: edition.album.albumName, score: 0, rank: index + 1,
             reason: `Disco ${track.disc}, faixa ${track.number} de “${edition.album.albumName}”, na edição que você escolheu.`,
             coverUrl: edition.album.artworkUrl, previewUrl: track.previewUrl, appleMusicUrl: track.sourceUrl ?? edition.album.sourceUrl,
             scoreComponents: { albumEdition: { ...edition.album, trackId: track.trackId, disc: track.disc, number: track.number },
+              ...(curation ? { recordingCue: curatedRecordingCue(curation, track) } : {}),
               catalogFacts: { durationMs: track.durationMs, fetchedAt: edition.album.fetchedAt },
               previewIdentity: { source: "itunes", sourceId: track.trackId, artistName: track.artistName, trackName: track.trackName, match: "compatible-text-v1" } } })) },
         } });

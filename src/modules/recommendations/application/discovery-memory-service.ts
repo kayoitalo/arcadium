@@ -45,6 +45,7 @@ export class DiscoveryMemoryService {
         exports: row.exports.map((event) => ({ ...event, createdAt: event.createdAt.toISOString() })),
         anchor: context?.journey.anchor ? { artistName: context.journey.anchor.artistName, trackName: context.journey.anchor.trackName } : null,
         album: context?.journey.album ?? null,
+        ...(context?.journey.curation ? { curation: context.journey.curation } : {}),
         items: row.items.map(({ scoreComponents, ...item }) => ({ ...item, ...sourceSnapshots(scoreComponents, item), events: undefined, starts: item.events.map((event) => ({ createdAt: event.createdAt.toISOString() })), exposedAt: item.exposedAt?.toISOString() ?? null, moreFeedback: item.feedback.length > 10,
           feedback: item.feedback.slice(0, 10).map((entry) => ({ ...entry, createdAt: entry.createdAt.toISOString() })) })) };
     }), nextCursor: rows.length > 5 && last ? Buffer.from(JSON.stringify({ at: last.createdAt.toISOString(), id: last.id })).toString("base64url") : null,

@@ -1,10 +1,16 @@
 # Continuidade do Arcadium
 
-Atualizado em 02/11/2026. Este registro recupera na base atual a continuidade do PR 14 que existia apenas na revisão permanente `da2055a9805ff6d39bdcac1d1211c80bde19c229`.
+## Rodada de 05/11/2026 — após merge do PR 18
 
-## Rodada de 04/11/2026 — após merge do PR 17
+- [PR 18](https://github.com/kayoitalo/arcadium/pull/18) confirmado como mergeado em `b3e8583`. A rodada de revisão do PR registrou 571 testes, seis cenários PostgreSQL isolados com dados sintéticos e Vercel com sucesso. A branch `codex/curated-cartola` parte dessa master.
+- Depois do parecer favorável do proprietário sobre a escuta, a jornada [Uma porta para o samba](curation-proposals.md) liga Cartola (1976) à edição Apple BR verificada. A interface pede confirmação e play, preserva a sequência e explicita indisponibilidade da edição. Quatro pistas ligam o crédito da gravação à fonte da gravadora e podem acompanhar a sessão e o diário. A jornada usa o schema existente.
+- A [verificação pública](evaluation-replay.md#observação-pública-da-edição-de-cartola) confirmou 12 faixas, 12 links de prévia e quatro casos preparados para Lite/Flash. Isso é observação do catálogo. O replay pareado continua reproduzível com a amostra sintética. Avaliação musical pareada, desempenho dos modelos e resultados longitudinais exigem amostras e julgamentos próprios.
+- Validação local com 575 testes, tipos, build e QA de álbuns, territórios e diário em desktop, mobile e movimento reduzido. Sete cenários em PostgreSQL isolado com dados sintéticos passaram, incluindo ordem, replay idempotente, procedência no diário e isolamento entre contas para a nova jornada. As 15 migrations existentes aplicaram sem drift no schema descartável, removido ao final.
+- Alice Coltrane e Augustus Pablo seguem como propostas em revisão. Restrições de momento, humor, voz e instrumentação dependem de cobertura por gravação. A retenção operacional segue desativada até definir prazos a partir de simulações. ListenBrainz segue experimental e fora do ranking.
 
-Entrega agrupada no [PR 18](https://github.com/kayoitalo/arcadium/pull/18), aberto para revisão, sem merge. Roteiro, validações e pendências ficam descritos no PR e nos documentos abaixo.
+## Rodada de 04/11/2026 — após merge do PR 17 (histórico)
+
+Entrega agrupada no [PR 18](https://github.com/kayoitalo/arcadium/pull/18). O registro abaixo descreve a abertura do PR. A rodada de 05/11/2026 registra seu estado final.
 
 - PR 17 confirmado pela API GitHub como mergeado em `6a9799c`, head `6ac105b`; Vercel do head com sucesso. Master atualizada e branch `codex/territories-evidence-operations` criada com workspace inicialmente limpo. Sem presumir nova aprovação manual.
 - Implementados [territórios, repertório restrito, pistas de catálogo e operação](territories-evidence-operations.md). Destino e restrições persistem na sessão; cobertura curta/falha é explícita. Proximidade não promete outro universo. [Curadorias v1](curation-proposals.md) permanecem propostas, com fontes e âncoras, sem aprovação ou ativação no ranking.
@@ -50,8 +56,8 @@ Os registros abaixo são históricos. Onde dizem que o PR 17 está em revisão o
 
 ## Próximos trabalhos
 
-1. Conferir checks/deploy do novo PR e a migration no schema da aplicação da preview; não fazer merge sem revisão do proprietário.
-2. Revisar territórios/repertório/pistas no roteiro da entrega, com dados reais e escuta explícita. Curadoria de gravações e filtros de momento/voz/instrumentação permanecem sem aprovação/cobertura.
+1. Conferir a jornada de Cartola na preview autenticada, da porta e confirmação da edição até o diário. O novo PR usa os snapshots de sessão/faixa existentes e não acrescenta migration.
+2. Revisar as propostas restantes com escuta explícita e verificação da edição. Filtros de momento, voz e instrumentação exigem cobertura representativa por gravação.
 3. Completar amostra observada pareada e julgamentos de adequação, interesse e surpresa útil. Executar avaliação qualitativa Lite/Flash apenas dentro do orçamento e controles existentes, por decisão posterior; o preparo não fez chamadas.
 4. ListenBrainz continua experimental e fora do ranking. Canonização/identidade de versões, cobertura representativa e contribuição exclusiva permanecem pendentes.
 5. Escolher prazos de retenção operacional somente após revisar a simulação. Não ativar exclusão automática de memória pessoal. Repetir os ensaios isolados quando alterações de consulta/concorrência justificarem; a amostra atual não mede carga de produção.

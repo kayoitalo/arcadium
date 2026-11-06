@@ -8,7 +8,10 @@ export function ListeningCueExcerpt({ value }: { value: Cues }) {
   return <>
     {value.status === "INSUFFICIENT_EVIDENCE" && <p>Não há evidência suficiente para uma pista desta versão. Você pode ouvir e registrar o que percebeu; não vou inventar atributos sonoros.</p>}
     {value.cues.map((cue) => <article className={styles.context} key={cue.kind}><p><strong>{cue.fact}</strong></p><p>{cue.invitation}</p>
-      <p><a href={cue.source.url} target="_blank" rel="noreferrer">Entrada da faixa no Apple Music ↗</a> · metadados de <time dateTime={cue.source.fetchedAt}>{new Date(cue.source.fetchedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</time></p></article>)}
+      {cue.kind === "RECORDING_CREDIT"
+        ? <p><a href={cue.source.url} target="_blank" rel="noreferrer">Crédito da gravação na Universal Music Brasil ↗</a> · consultado em <time dateTime={cue.source.checkedOn}>{cue.source.checkedOn.split("-").reverse().join("/")}</time></p>
+        : <p><a href={cue.source.url} target="_blank" rel="noreferrer">Entrada da faixa no Apple Music ↗</a> · metadados de <time dateTime={cue.source.fetchedAt}>{new Date(cue.source.fetchedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</time></p>}
+    </article>)}
     <p>{value.limitation}</p>
   </>;
 }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { EditionSummary } from "./album-journey";
+import type { CurationCredit } from "./curated-albums";
 import type { CulturalContext, ContextKind } from "./cultural-context";
 import type { ListeningCues } from "./listening-cues";
 export const memoryQuery = z.object({ q: z.string().trim().max(120).default(""), responses: z.enum(["0", "1"]).default("0"), cursor: z.string().max(1000).optional() });
@@ -8,6 +9,7 @@ export interface MemorySession {
   id: string; createdAt: string; currentRank: number | null; intent: string | null; total: number;
   anchor: { artistName: string; trackName: string } | null;
   album?: EditionSummary | null;
+  curation?: CurationCredit;
   exports?: { createdAt: string; mode: string; totalItems: number; resolvedCount: number }[];
   items: { id: string; artistName: string; trackName: string; reason: string | null; rank: number; exposedAt: string | null;
     feedback: MemoryFeedback[]; moreFeedback: boolean; starts?: { createdAt: string }[];

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { sameRecordingText } from "@/lib/music/recording-match";
-export const albumSourceSchema = z.object({ kind: z.enum(["library", "recommendation"]), id: z.string().min(1).max(100) }).strict();
+export const albumSourceSchema = z.object({ kind: z.enum(["library", "recommendation", "curated"]), id: z.string().min(1).max(100) }).strict();
 export type AlbumSource = z.infer<typeof albumSourceSchema>;
 export const editionSummarySchema = z.object({
   provider: z.literal("itunes"), collectionId: z.string().regex(/^\d{1,20}$/), storefront: z.string().regex(/^[A-Z]{2}$/),

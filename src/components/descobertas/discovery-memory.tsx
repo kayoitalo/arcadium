@@ -13,7 +13,7 @@ import type { DiscoveryIntent } from "@/modules/recommendations/domain/discovery
 import { DiscoveryDisclosure } from "./discovery-disclosure";
 import styles from "./discovery-memory.module.css";
 import { MemoryTools } from "./memory-tools";
-import { EditionCredit } from "./album-journeys";
+import { EditionCredit, EditorialCredit } from "./album-journeys";
 import { ContextExcerpt } from "./track-context";
 import { ListeningCueExcerpt } from "./listening-cues";
 import { ListeningNote } from "@/components/amigo/listening-note";
@@ -81,6 +81,7 @@ export function DiscoveryMemory() {
         <div className={styles.sessionHeading}><div><p className={styles.eyebrow}>{when(session.createdAt)}</p><h2 ref={(node)=>{if(node)chapters.current.set(session.id,node);else chapters.current.delete(session.id);}}>{intentionLabel(session.intent as DiscoveryIntent | null)}</h2>
           <p>{session.album ? `${session.album.albumName} · ${session.album.artistName}` : session.anchor ? `A partir de “${session.anchor.trackName}”, de ${session.anchor.artistName}.` : "Um passo do teu caminho."}</p>
           {session.album && <EditionCredit album={session.album} />}
+          {session.curation && <EditorialCredit curation={session.curation} />}
           <p className={styles.note}>{session.total} {session.total === 1 ? "indicação" : "indicações"}{session.items.length < session.total ? ` · ${session.items.length} neste recorte` : ""}{session.currentRank != null ? ` · ${session.currentRank <= session.total ? `posição ${session.currentRank}` : "chegou ao fim"}` : ""}</p></div>
           <Link href={`/discovery?session=${encodeURIComponent(session.id)}`}>retomar e revisar →</Link></div>
         {session.exports?.map((event, index) => <p className={styles.note} key={index}>Exportação registrada em {when(event.createdAt)} · {event.resolvedCount} de {event.totalItems} faixas resolvidas.</p>)}
