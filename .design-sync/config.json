@@ -1,0 +1,41 @@
+{
+  "projectId": "ab72b204-ba99-4502-878d-2184e76f5077",
+  "shape": "package",
+  "pkg": "arcadium",
+  "globalName": "Arcadium",
+  "entry": ".design-sync/entry.ts",
+  "buildCmd": "node .design-sync/build-styles.mjs",
+  "tsconfig": "tsconfig.json",
+  "cssEntry": ".design-sync/.cache/arcadium.css",
+  "componentSrcMap": {
+    "Fala": "src/components/amigo/fala.tsx",
+    "Respostas": "src/components/amigo/fala.tsx",
+    "Resposta": "src/components/amigo/fala.tsx",
+    "Capa": "src/components/amigo/fala.tsx",
+    "PenLayer": "src/components/amigo/fala.tsx",
+    "Aviso": "src/components/amigo/aviso.tsx",
+    "Janela": "src/components/amigo/janela.tsx",
+    "ProvaTransicao": "src/components/conversa/provas.tsx",
+    "ProvaLista": "src/components/conversa/provas.tsx",
+    "ProvaDecadas": "src/components/conversa/provas.tsx"
+  },
+  "guidelinesGlob": [
+    "docs/interface-voz-do-amigo.md",
+    "docs/magic-pen-artist-poster.md"
+  ],
+  "extraFonts": [
+    ".design-sync/fonts/archivo.css"
+  ],
+  "overrides": {
+    "ProvaTransicao": {
+      "cardMode": "column"
+    },
+    "ProvaLista": {
+      "cardMode": "column"
+    },
+    "ProvaDecadas": {
+      "cardMode": "column"
+    }
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}
