@@ -16,7 +16,7 @@ export function MemoryTools() {
         const response = await privateFetch(`/api/discovery-data?${params}`); if (!response.ok) throw new Error();
         const page = await response.json(); until = page.until;
         records.push(...page.records.map((value: unknown) => ({ section: page.section, value })));
-        cursor = page.nextCursor ?? ""; complete = !cursor; setMessage(`Reunindo a memória: ${records.length} registros nesta parte…`);
+        cursor = page.nextCursor ?? ""; complete = !cursor; setMessage(`Juntando a memória: ${records.length} registros até agora…`);
       } while (!complete && records.length < 5000);
     } catch { failure = true; }
     const next = cursor && until ? { cursor, until } : null; setCheckpoint(complete ? null : next);
@@ -24,7 +24,7 @@ export function MemoryTools() {
       const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), scope: "discovery-memory-part", startsAt: checkpoint, reachedEnd: complete, checkpoint: complete ? null : next, records }, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `arcadium-memoria-${Date.now()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
-    setMessage(complete ? "Memória exportada. Guarde todas as partes baixadas. Reproduções e textos internos da IA ficam fora desta cópia." : failure ? "A exportação foi interrompida. Se houve registros reunidos, eles foram baixados; tente continuar para obter o restante." : "Esta parte foi baixada. Continue para exportar o restante em outro arquivo.");
+    setMessage(complete ? "Pronto, baixei tudo. Se vieram várias partes, guarda todas." : failure ? "A cópia parou no meio. O que deu pra reunir já foi baixado; continua pra pegar o resto." : "Baixei uma parte. Continua pra pegar o resto em outro arquivo.");
     running.current = false; setBusy(false);
   };
   const erase = async () => {
@@ -37,10 +37,10 @@ export function MemoryTools() {
     finally { running.current = false; setBusy(false); }
   };
   return <section className={styles.tools}><h2>Levar ou apagar a memória</h2>
-    <p>A cópia reúne as jornadas semanais, buscas, indicações, respostas, coleção, exportações e escolhas editoriais da conta. Acima de 5.000 registros, continua em partes. Os valores são lidos ao longo da exportação.</p>
-    <button disabled={busy} onClick={() => void exportMemory()}>{checkpoint ? "continuar exportação" : "exportar toda a memória"}</button>
+    <p>Uma cópia, em JSON, de tudo que eu guardei das tuas descobertas: buscas, respostas, coleção e semanas.</p>
+    <button disabled={busy} onClick={() => void exportMemory()}>{checkpoint ? "continuar a cópia" : "baixar toda a memória"}</button>
     {message && <p role="status">{message}</p>}
-    <details><summary>Apagar dados da memória</summary><p>A exclusão é definitiva. Não apaga reproduções importadas nem leituras salvas da IA. Excluir respostas não esvazia a coleção; a opção de memória inteira remove ambos e as sessões. Outras abas podem criar novos registros depois.</p>
+    <details><summary>apagar parte da memória</summary><p>Não tem volta. O que veio do Last.fm e as leituras que eu escrevi continuam.</p>
       <label>O que apagar <select disabled={busy} value={scope} onChange={(event) => { setScope(event.target.value); setConfirmation(""); }}>
         <option value="COLLECTION">somente coleção</option><option value="RESPONSES">somente respostas das descobertas</option><option value="EDITORIAL">escolhas editoriais (vistos e silenciados)</option><option value="DISCOVERY">toda a memória de descobertas e escolhas editoriais</option>
       </select></label><label>Digite APAGAR para confirmar <input disabled={busy} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></label>

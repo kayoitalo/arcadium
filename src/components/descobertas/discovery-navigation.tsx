@@ -12,10 +12,10 @@ export const DISCOVERY_PAGES = [
 ] as const;
 export function DiscoveryNavigation({ pathname }: { pathname: string }) {
   const reduced = Boolean(useReducedMotion());
-  return <LayoutGroup><nav id="discovery-navigation" className={styles.nav} aria-label="Áreas da descoberta">{DISCOVERY_PAGES.map((page, index) => {
+  return <LayoutGroup><nav id="discovery-navigation" className={styles.nav} aria-label="Áreas da descoberta">{DISCOVERY_PAGES.map((page) => {
     const active = pathname === page.href;
     return <Link key={page.href} href={page.href} className={styles.tab} aria-current={active ? "page" : undefined}>
-      <span className={styles.number} aria-hidden="true">0{index + 1}</span><span><strong>{page.title}</strong><small>{page.hint}</small></span>
+      <strong>{page.title}</strong><small>{page.hint}</small>
       {active && <motion.span className={styles.line} layoutId="discovery-tab-line" transition={{ duration: reduced ? 0 : .24, ease: "easeOut" }} />}
     </Link>;
   })}</nav></LayoutGroup>;

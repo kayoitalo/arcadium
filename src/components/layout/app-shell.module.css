@@ -84,6 +84,13 @@
     order: 1;
     width: 100%;
     margin-left: 0;
+    gap: 16px;
+    /* o que não cabe continua ali: a borda se apaga em vez de cortar a palavra */
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+
+  .link {
+    font-size: 13px;
   }
 }
 

@@ -303,9 +303,11 @@ export class EnrichmentService {
           }
         }
         if (!cover) cover = await this.findFallbackCover(album.artist.name, album.name);
+        // sem capa melhor, a reserva que a Conversa gravou fica; só um link quebrado do arquivo é limpo
+        const keepCurrent = !cover && Boolean(album.coverUrl) && !repairingUnavailableArchiveUrl;
         await prisma.album.update({
           where: { id: album.id },
-          data: {
+          data: keepCurrent ? { coverFetchedAt: new Date() } : {
             coverUrl: cover?.url ?? null,
             coverSource: cover?.source ?? null,
             coverEntityType: cover?.entityType ?? null,

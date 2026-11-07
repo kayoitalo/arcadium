@@ -11,11 +11,18 @@ const algorithmVersion = "album-v1";
 export class AlbumJourneyService {
   constructor(private catalog: AlbumEditionProvider = new ItunesCatalogAdapter()) {}
 
+  /** A estante: os discos que esta conta mais ouviu primeiro, com a capa já enriquecida quando houver. */
   async library(userId: string, query = "") {
-    const albums = await prisma.album.findMany({ where: { listeningEvents: { some: { userId } },
-      ...(query ? { OR: [{ name: { contains: query, mode: "insensitive" as const } }, { artist: { name: { contains: query, mode: "insensitive" as const } } }] } : {}) },
-      orderBy: [{ name: "asc" }, { id: "asc" }], take: 21, select: { id: true, name: true, artist: { select: { name: true } } } });
-    return { albums: albums.slice(0, 20).map((row) => ({ source: { kind: "library" as const, id: row.id }, artistName: row.artist.name, albumName: row.name })), more: albums.length > 20 };
+    const filter = query ? { OR: [{ name: { contains: query, mode: "insensitive" as const } }, { artist: { name: { contains: query, mode: "insensitive" as const } } }] } : {};
+    const ranked = await prisma.listeningEvent.groupBy({ by: ["albumId"], where: { userId, albumId: { not: null }, ...(query ? { album: { is: filter } } : {}) },
+      _count: { albumId: true }, orderBy: [{ _count: { albumId: "desc" } }, { albumId: "asc" }], take: 21 });
+    const ids = ranked.flatMap((row) => row.albumId ? [row.albumId] : []);
+    const rows = ids.length ? await prisma.album.findMany({ where: { id: { in: ids }, listeningEvents: { some: { userId } } },
+      select: { id: true, name: true, coverUrl: true, artist: { select: { name: true } } } }) : [];
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const albums = ids.flatMap((id) => byId.get(id) ?? []);
+    return { albums: albums.slice(0, 20).map((row) => ({ source: { kind: "library" as const, id: row.id }, artistName: row.artist.name, albumName: row.name, coverUrl: row.coverUrl })),
+      more: ranked.length > 20 };
   }
 
   async source(userId: string, source: AlbumSource) {

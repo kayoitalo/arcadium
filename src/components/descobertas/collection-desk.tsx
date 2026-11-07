@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { privateFetch } from "@/lib/http/private-fetch";
 import { Fala, Resposta, Respostas } from "@/components/amigo/fala";
-import { ListeningNote } from "@/components/amigo/listening-note";
 import { useSelection } from "./selection-provider";
 import styles from "./descobertas.module.css";
 import paper from "./collection-desk.module.css";
@@ -92,11 +91,10 @@ export function CollectionDesk() {
 
   const result = exported && exported !== "running" ? exported : null;
   return <section className={paper.desk}><div inert={modalOpen}>
-    <header className={paper.header}><div><p className={paper.eyebrow}>a tua pilha, sem pressa</p><Fala level={1} headline="Isso aqui ficou pra depois." narrative="O que você curtiu ou quis guardar. Uma pilha para voltar quando der vontade." /></div><ListeningNote label="deixei separado"><p>Retirar uma faixa desta pilha não apaga o que você me contou sobre ela.</p></ListeningNote></header>
-    <div className={paper.counter}><strong>{kept.length.toString().padStart(2,"0")}</strong><span>faixas separadas<br/>na tua conta</span></div>
+    <header className={paper.header}><div><Fala level={1} headline="Isso aqui ficou pra depois." narrative="O que você curtiu ou quis guardar. Tirar daqui não apaga o que você me contou." /></div></header>
+    <div className={paper.counter}><strong>{kept.length.toString().padStart(2,"0")}</strong><span>{kept.length === 1 ? "faixa separada" : "faixas separadas"}</span></div>
     {selection.error && <p role="alert">{selection.error} <button className={styles.textButton} onClick={() => void selection.refresh()}>atualizar coleção</button></p>}
-          <p className={styles.mapNote}>O que você curtiu ou separou para ouvir depois. Essa pilha fica na tua conta, nos teus dispositivos. Remover daqui não retira uma avaliação.</p>
-          <a className={styles.textButton} href="/api/collection?download=1">baixar minha coleção (JSON)</a>
+          <a className={styles.textButton} href="/api/collection?download=1">baixar a lista (JSON)</a>
           {!selection.ready && !selection.error && <p role="status">Abrindo tua coleção…</p>}
           {selection.localItems.length > 0 && <p className={styles.mapNote}>Há {selection.localItems.length} faixas na lista antiga deste navegador. <button className={styles.textButton} disabled={selection.syncing || !selection.ready} onClick={() => void selection.importLocal()}>trazer para a conta</button></p>}
           {exported && exportHidden && <p className={styles.quiet} role="status">

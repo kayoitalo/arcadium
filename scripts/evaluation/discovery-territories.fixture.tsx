@@ -44,63 +44,64 @@ const pause = () => new Promise(requestAnimationFrame);
 async function wait(check: () => unknown, label: string) { const until = performance.now() + 7000; while (!check()) { if (performance.now() > until) throw new Error(label); await pause(); } }
 function assert(value: unknown, label: string) { if (!value) throw new Error(label); }
 const summary = (label: string) => [...document.querySelectorAll<HTMLElement>("summary")].find((row) => row.textContent?.includes(label))!;
-const button = (label: string) => [...document.querySelectorAll<HTMLButtonElement>("button")].find((row) => row.textContent?.trim() === label)!;
+const choice = (label: string) => [...document.querySelectorAll<HTMLButtonElement>("button")].find((row) => row.querySelector("strong")?.textContent === label)!;
+const button = (label: string) => { const node = [...document.querySelectorAll<HTMLButtonElement>("button")].find((row) => row.textContent?.trim() === label); if (!node) throw new Error(`Button missing: ${label}`); return node; };
 const ready = () => document.querySelector('[data-discovery-scene="ready"] h1');
 async function runChecks() {
   const passed: string[] = [];
-  await wait(() => summary("explorar outro universo"), "entry");
+  await wait(() => choice("Outro universo") && !choice("Outro universo").disabled, "entry");
   assert(!qa.requests.some((row) => row.url === "/api/discovery-territories"), "closed doors must not query catalog");
-  summary("explorar outro universo").click(); await wait(() => document.querySelector('[role="alert"]'), "door failure");
-  button("tentar novamente").click(); await wait(() => document.querySelector('strong')?.textContent || document.body.textContent?.includes("Artista sintético 2"), "door retry");
-  await wait(() => [...document.querySelectorAll("button strong")].some((row) => row.textContent === "dub ↗"), "door loaded");
-  summary("propostas de curadoria").click(); assert(document.body.textContent?.includes("não são seleções aprovadas"), "draft curation must stay labeled");
-  assert(document.querySelector('a[href*="alicecoltrane.com"]')?.textContent?.includes("ver fonte da proposta"), "source must be labeled as a reference");
+  choice("Outro universo").click(); await wait(() => document.querySelector('[role="alert"]'), "door failure");
+  button("tenta de novo").click(); await wait(() => document.querySelector('strong')?.textContent || document.body.textContent?.includes("Artista sintético 2"), "door retry");
+  await wait(() => [...document.querySelectorAll("button strong")].some((row) => row.textContent === "dub"), "door loaded");
+  assert(!document.body.textContent?.includes("propostas de curadoria"), "unapproved proposals stay out of the interface");
   assert(document.querySelector(`a[href="${CARTOLA_JOURNEY_HREF}"]`)?.textContent?.includes("Cartola"), "published curation must be reachable from exploration");
-  passed.push("lazy catalog, retry, separate published journey and visibly unapproved proposals");
-  [...document.querySelectorAll<HTMLElement>("button strong")].find((row) => row.textContent === "dub ↗")!.click();
+  passed.push("lazy catalog, retry, separate published journey and no unapproved proposals");
+  [...document.querySelectorAll<HTMLElement>("button strong")].find((row) => row.textContent === "dub")!.click();
   await wait(ready, "territory session");
-  assert(document.body.textContent?.includes("Cobertura insuficiente: 2 de 8"), "short result must explain coverage");
-  assert(document.body.textContent?.includes("Destino escolhido: artistas associados a dub"), "destination label");
+  assert(document.body.textContent?.includes("Achei só 2 de 8"), "short result must explain coverage");
+  assert(document.body.textContent?.includes("Destino: dub"), "destination label");
   assert(!document.querySelector("#mapa-descoberta"), "territory must not inherit proximity controls");
   assert(qa.plays === 0, "territory must not autoplay");
   passed.push("explicit destination, no proximity map, undercoverage and no autoplay");
   await wait(() => document.querySelector('button[aria-label="Ouvir prévia"]:not(:disabled)'), "media settled before cue retry scenario");
-  summary("pistas para esta versão").click(); await wait(() => document.querySelector('[role="alert"]')?.textContent?.includes("pistas"), "cue failure");
-  button("tentar novamente").click(); await wait(() => document.body.textContent?.includes("3:05"), "cue retry");
-  assert(document.querySelector('a[href*="i=43"]') && document.body.textContent?.includes("Não são análise sonora"), "recording source/scope");
+  summary("o que reparar nessa faixa").click(); await wait(() => document.querySelector('[role="alert"]')?.textContent?.includes("conferir"), "cue failure");
+  button("tenta de novo").click(); await wait(() => document.body.textContent?.includes("3:05"), "cue retry");
+  assert(document.querySelector('a[href*="i=43"]'), "recording source");
   button("buscar mais nesse caminho ↗").click(); await pause(); await pause(); await wait(ready, "more");
   const more = qa.requests.find((row) => row.body.operation === "MORE")!;
   assert(more.body.intent === "TERRITORY" && !more.body.territory, "MORE must reuse server destination");
   assert(qa.plays === 0, "more must not autoplay");
   passed.push("sourced catalog cue, retry and destination-preserving continuation");
-  button("trocar caminho ↗").click(); await wait(() => summary("selecionar meu repertório"), "new entry");
-  summary("selecionar meu repertório").click();
-  await wait(() => document.querySelectorAll("input").length === 2, "repertoire form mounted");
-  const inputs = [...document.querySelectorAll<HTMLInputElement>("input")];
+  button("trocar caminho ↗").click(); await wait(() => choice("Outro universo") && !choice("Outro universo").disabled && summary("ajustar o caminho"), "new entry");
+  summary("ajustar o caminho").click();
+  await wait(() => document.querySelectorAll('form[aria-label="Recortar o repertório"] input').length === 2, "repertoire form mounted");
+  const inputs = [...document.querySelectorAll<HTMLInputElement>('form[aria-label="Recortar o repertório"] input')];
   const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
   set.call(inputs[0], "jazz"); inputs[0].dispatchEvent(new Event("input", { bubbles: true }));
   set.call(inputs[1], "4"); inputs[1].dispatchEvent(new Event("input", { bubbles: true }));
-  await pause(); qa.empty = true; button("selecionar com este pedido →").click();
-  await wait(() => document.body.textContent?.includes("Cobertura insuficiente: 0 de 8"), "empty restricted repertoire");
+  await pause(); qa.empty = true; button("voltar ao repertório com esse recorte →").click();
+  await wait(() => document.body.textContent?.includes("Não achei nada que coubesse no pedido") && [...document.querySelectorAll("button")].some((row) => row.textContent?.trim() === "escolher outro caminho"), "empty restricted repertoire");
   const last = qa.requests.filter((row) => row.body.operation === "NEW_ENTRY").at(-1)!;
   assert(last.body.intent === "REPERTOIRE" && last.body.restrictions.albumGenre === "jazz" && last.body.restrictions.maxDurationMs === 240000, "restriction contract");
-  assert(document.body.textContent?.includes("álbuns catalogados como jazz") && document.body.textContent?.includes("até 4 min"), "active restriction summary");
+  assert(document.body.textContent?.includes("discos de jazz") && document.body.textContent?.includes("até 4 min"), "active restriction summary");
   assert(!document.querySelector("#mapa-descoberta") && qa.plays === 0, "empty repertoire must not broaden or autoplay");
   assert(document.documentElement.scrollWidth <= innerWidth, "viewport overflow");
-  button("escolher outro caminho").click(); await wait(() => document.body.textContent?.includes("resultado vazio"), "empty result kept for resume");
-  button("continuar →").click(); await wait(() => document.body.textContent?.includes("Cobertura insuficiente: 0 de 8"), "resume empty result");
+  button("escolher outro caminho").click(); await wait(() => document.body.textContent?.includes("sem indicação"), "empty result kept for resume");
+  button("continuar de onde parei →").click(); await wait(() => document.body.textContent?.includes("Não achei nada que coubesse no pedido"), "resume empty result");
   passed.push("album genre/duration request, empty result without widening, keyboard and viewport");
   return { passed, reduced: matchMedia("(prefers-reduced-motion: reduce)").matches, viewport: innerWidth, requests: qa.requests.length };
 }
 async function prepareTerritoryCapture(kind: string) {
   if (kind === "entry") {
-    button("escolher outro caminho").click(); await wait(() => summary("explorar outro universo"), "entry capture");
-    summary("explorar outro universo").click(); await wait(() => document.querySelector("button strong"), "doors capture");
+    button("escolher outro caminho").click(); await wait(() => choice("Outro universo") && !choice("Outro universo").disabled, "entry capture");
+    if (choice("Outro universo").getAttribute("aria-expanded") !== "true") choice("Outro universo").click();
+    await wait(() => [...document.querySelectorAll("#territory-doors button strong")].some((row) => row.textContent === "dub"), "doors capture");
   } else {
-    qa.empty = false; [...document.querySelectorAll<HTMLElement>("button strong")].find((row) => row.textContent === "dub ↗")!.click();
+    qa.empty = false; [...document.querySelectorAll<HTMLElement>("button strong")].find((row) => row.textContent === "dub")!.click();
     await pause(); await wait(ready, "cue capture session");
     await wait(() => document.querySelector('button[aria-label="Ouvir prévia"]:not(:disabled)'), "capture media");
-    summary("pistas para esta versão").click(); await wait(() => document.body.textContent?.includes("3:05"), "cue capture");
+    summary("o que reparar nessa faixa").click(); await wait(() => document.body.textContent?.includes("3:05"), "cue capture");
   }
   window.scrollTo({ top: 0, behavior: "instant" }); await new Promise((resolve) => setTimeout(resolve, 250));
 }

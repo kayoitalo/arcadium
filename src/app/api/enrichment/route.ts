@@ -22,8 +22,9 @@ export async function GET(request: Request) {
   }
 }
 
+/** Aceita o agendador: o job de hora em hora avança artistas, capas e catálogo em lotes pequenos. */
 export async function POST(request: Request) {
-  const access = await authorizeApi(request);
+  const access = await authorizeApi(request, true);
   if (access.response) return access.response;
   try {
     let batchSize = 5;
