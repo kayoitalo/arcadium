@@ -1,6 +1,6 @@
 .memory { position: relative; isolation: isolate; padding: 44px 0 80px; }
 .memory header { max-width: 900px; margin-bottom: 40px; }
-.eyebrow { color: var(--tinta-3); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.eyebrow { color: var(--tinta-3); font-size: 12px; }
 .memory nav { display: flex; gap: 20px; flex-wrap: wrap; }
 .memory a, .memory button { position: relative; z-index: 5; min-height: 44px; display: inline-flex; align-items: center; color: var(--tinta-2); text-underline-offset: 5px; font: inherit; font-size: 13px; }
 .memory button { background: none; border: 0; cursor: pointer; padding: 8px 0; }
@@ -41,13 +41,10 @@
 @media (max-width: 640px) { .memory { padding-top: 26px; } .sessionHeading { display: block; } .pagination { align-items: start; flex-direction: column; gap: 8px; } .tracks { padding-left: 18px; } }
 
 /* A thread of sessions, with annotations kept inside their own chapter. */
-.memory header { max-width: none; display: grid; grid-template-columns: 1.35fr 1fr; gap: 18px 64px; padding-bottom: 16px; }
-.memory header > .eyebrow, .memory header > nav { grid-column: 1; }
-.memory header > .eyebrow { margin: 0; }
-.memory header > aside { grid-column: 2; grid-row: 1 / 4; align-self: end; }
+.memory header { max-width: none; padding-bottom: 8px; }
 .session { display: grid; grid-template-columns: 96px minmax(0,1fr); gap: 28px; border-bottom: 0; padding: 28px 0 0; }
 .chapter { display: flex; flex-direction: column; align-items: center; color: var(--tinta-3); }
-.chapter > span { font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
+.chapter > span { font-size: 11px; }
 .chapter > strong { color: var(--tinta); font-size: 58px; font-variation-settings: "wdth" 70, "wght" 500; line-height: 1.2; }
 .chapter > i { min-height: 60px; flex: 1; width: 1px; background: var(--fio-2); margin: 14px 0 0; }
 .sessionSheet { min-width: 0; padding: 0 0 28px; border-bottom: 1px solid var(--fio-2); }
@@ -67,4 +64,4 @@
 .recallCount { font-size: 52px; font-variation-settings: "wdth" 76, "wght" 500; line-height: 1; text-align: right; }
 .recallCount small { display: block; color: var(--tinta-3); font-size: 10px; margin-top: 10px; font-weight: 400; }
 .recall nav { gap: 8px 24px; }
-@media(max-width:700px) { .memory header { grid-template-columns: 1fr; gap: 22px; } .memory header > aside { grid-column: 1; grid-row: auto; } .session { grid-template-columns: 38px minmax(0,1fr); gap: 14px; } .chapter > strong { font-size: 34px; } .chapter > span { font-size: 8px; } .tracks > li { padding-left: 28px; } .recall { grid-template-columns: minmax(0,1fr); gap: 14px; } .recall > svg { width: 46px; } .recallCount { display: none; } }
+@media(max-width:700px) { .session { grid-template-columns: 38px minmax(0,1fr); gap: 14px; } .chapter > strong { font-size: 34px; } .chapter > span { font-size: 8px; } .tracks > li { padding-left: 28px; } .recall { grid-template-columns: minmax(0,1fr); gap: 14px; } .recall > svg { width: 46px; } .recallCount { display: none; } }

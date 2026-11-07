@@ -85,15 +85,15 @@ const ready = (n: number) => document.querySelector('[data-discovery-scene="read
 const bodyText = () => document.body.textContent ?? "";
 async function runChecks() {
   const passed: string[] = [];
-  await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "ouvir este álbum →"), "library");
+  await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "ouvir este disco →"), "library");
   assert(!qa.requests.some((r) => r.body.action), "Local library must not query the music provider");
   assert(document.documentElement.scrollWidth <= innerWidth, "Album library must fit mobile");
   const libraryCalls=qa.requests.length;
-  [...document.querySelectorAll<HTMLButtonElement>("button")].find((node)=>node.textContent?.includes("mais discos desta estante"))!.click();
+  [...document.querySelectorAll<HTMLButtonElement>("button")].find((node)=>node.textContent?.includes("mais discos"))!.click();
   await wait(()=>document.querySelectorAll("button[aria-expanded]").length===12,"more local albums");
   assert(qa.requests.length===libraryCalls,"Showing more albums must not query any provider");
-  button("ouvir este álbum →").click(); await wait(() => document.querySelector('[role="alert"]'), "catalog error");
-  button("tentar novamente").click(); await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "começar com esta versão →"), "editions retry");
+  button("ouvir este disco →").click(); await wait(() => document.querySelector('[role="alert"]'), "catalog error");
+  button("tenta de novo").click(); await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "começar com esta versão →"), "editions retry");
   assert(bodyText().includes("Ao vivo") && bodyText().includes("loja BR"), "Edition version/storefront must be visible");
   assert(document.querySelector("#album-versions")!.closest("li")?.querySelector("button[aria-expanded]"),"Versions must open inside the chosen album, not after all 20 results");
   await wait(()=>{const box=document.querySelector("#album-versions h2")!.getBoundingClientRect();return box.top>=0&&box.top<innerHeight;},"inline version heading in viewport");
@@ -118,11 +118,11 @@ async function runChecks() {
   passed.push("disc/track navigation, cursor resume and feedback kept separate");
   assert(!qa.requests.some((r) => r.url === "/api/discovery-context"), "Context must not fetch before explicitly opened");
   summary("um pouco de contexto").click(); await wait(() => bodyText().includes("Fonte indisponível"), "context failure");
-  button("tentar novamente").click(); await wait(() => document.querySelector("blockquote"), "sourced excerpt");
+  button("tenta de novo").click(); await wait(() => document.querySelector("blockquote"), "sourced excerpt");
   assert(document.querySelector('a[href="https://www.last.fm/music/Synthetic/Album"]'), "Context needs a direct source");
-  assert(bodyText().includes("consultado em") && bodyText().includes("gravações são identificadas separadamente"), "Context date and scope must be explicit");
+  assert(bodyText().includes("consultado em") && document.querySelector('[aria-pressed="true"]')?.textContent === "sobre o álbum", "Context date and scope must be explicit");
   assert(!document.querySelector("blockquote img"), "Source content must remain escaped text");
-  button("sobre a música").click(); await wait(() => bodyText().includes("nome devolvido pela fonte"), "identity gap");
+  button("sobre a música").click(); await wait(() => bodyText().includes("me devolveu outro nome"), "identity gap");
   assert(!document.querySelector("blockquote"), "A mismatched track must not borrow the album's context");
   button("sobre o álbum").click(); await wait(() => document.querySelector("blockquote"), "restore album excerpt");
   assert(qa.plays === 0, "Reading source text must not start audio");
@@ -137,20 +137,20 @@ async function runChecks() {
   const beforeCurated = qa.requests.length;
   root.render(<Fixture key="curated" initialCuration={CARTOLA_1976.credit.id} />);
   const visibleButton = (text: string) => [...document.querySelectorAll("button")].some((row) => row.textContent === text);
-  await wait(() => visibleButton("ouvir este álbum →"), "curated entry");
+  await wait(() => visibleButton("ouvir este disco →"), "curated entry");
   assert(qa.requests.length === beforeCurated && bodyText().includes("fonte editorial"), "Curated entry opens with provenance and no lookup");
-  button("ouvir este álbum →").click(); await wait(() => visibleButton("conferir novamente"), "pinned edition unavailable");
+  button("ouvir este disco →").click(); await wait(() => visibleButton("conferir de novo"), "pinned edition unavailable");
   assert(!visibleButton("começar com esta versão →"), "A catalog gap must not offer a substitute");
-  button("conferir novamente").click(); await wait(() => visibleButton("começar com esta versão →"), "pinned edition recovered");
+  button("conferir de novo").click(); await wait(() => visibleButton("começar com esta versão →"), "pinned edition recovered");
   button("começar com esta versão →").click();
   await wait(() => document.querySelector('[data-discovery-scene="ready"] h1')?.textContent?.includes("O Mundo É um Moinho"), "curated ordered session");
   assert(bodyText().includes("curadoria v1"), "The session must show the saved curation");
   const curatedStart = qa.requests.slice(beforeCurated).find((r) => r.body.action === "BEGIN");
   assert(curatedStart?.body.collectionId === CARTOLA_1976.collectionId && curatedStart.body.source.id === CARTOLA_1976.credit.id, "Start must use the published reference");
   assert(!qa.requests.some((r) => r.url === "/api/listening-cues"), "Recording cues must wait for explicit opening");
-  const cuePanel = summary("pistas para esta versão").closest("details")!;
-  summary("pistas para esta versão").click();
-  await wait(() => cuePanel.querySelector("article, [role=alert]") || cuePanel.textContent?.includes("Não há evidência suficiente"), "recording credit response");
+  const cuePanel = summary("o que reparar nessa faixa").closest("details")!;
+  summary("o que reparar nessa faixa").click();
+  await wait(() => cuePanel.querySelector("article, [role=alert]") || cuePanel.textContent?.includes("Não tenho uma pista confiável"), "recording credit response");
   assert(cuePanel.textContent?.includes("Altamiro Carrilho"), `Expected the recording credit, received: ${cuePanel.textContent}`);
   assert([...document.querySelectorAll("a")].some((row) => row.href === CARTOLA_1976.credit.sourceUrl && row.textContent?.includes("Crédito da gravação")), "The recording credit must link its publisher separately");
   await wait(() => document.querySelector('button[aria-label="Ouvir prévia"]:not(:disabled)'), "curated preview is available to play");
@@ -161,8 +161,8 @@ async function runChecks() {
 async function prepareAlbumEntryCapture() {
   qa.curated = false;
   root.render(<><DiscoveryNavigation pathname="/discovery/albums"/><AlbumJourneys onBegin={() => undefined} /></>);
-  await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "ouvir este álbum →"), "capture library");
-  button("ouvir este álbum →").click();
+  await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "ouvir este disco →"), "capture library");
+  button("ouvir este disco →").click();
   await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "começar com esta versão →"), "capture editions");
   await new Promise((resolve) => setTimeout(resolve, 600));
 }

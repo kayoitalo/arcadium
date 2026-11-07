@@ -18,7 +18,7 @@ import { Mapa, type MapDot } from "./mapa";
 import { useSelection } from "./selection-provider";
 import { MAX_SELECTED_TRACKS, selectionKey } from "./selection";
 import styles from "./descobertas.module.css";
-import { ExplorationDoors } from "./exploration-doors";
+import { RepertoireFilter, TerritoryDoors } from "./exploration-doors";
 import { WeeklyDiscovery } from "./weekly-discovery";
 import type { TerritoryRequest, RepertoireRestriction, DiscoveryCoverage } from "@/modules/recommendations/domain/territories";
 import { DiscoveryEntry } from "./discovery-entry";
@@ -94,6 +94,7 @@ export function Descobertas({ initialSessionId = null, initialWeekId = null, sho
   const [mediaState, setMediaState] = useState("idle");
   const [mediaAttempt, setMediaAttempt] = useState(0);
   const [mapOpen, setMapOpen] = useState(false);
+  const [territoryOpen, setTerritoryOpen] = useState(false);
   const headlineRef = useRef<HTMLHeadingElement>(null);
   const [queue, setQueue] = useState<Candidate[] | null>(null);
   const [index, setIndex] = useState(0);
@@ -430,11 +431,11 @@ export function Descobertas({ initialSessionId = null, initialWeekId = null, sho
     top = <>
       <DiscoveryEntry busy={busy || saving} hasSession={Boolean(sessionId)} currentRank={index + 1} total={queue?.length ?? 0}
         onChoose={(nextProximity, nextFame, nextIntent) => void load(nextProximity, nextFame, "NEW_ENTRY", { intent: nextIntent })}
-        onResume={() => void load(proximity, fame, "RESUME")} onAdjust={() => { intentRef.current = "DISCOVER"; setIntent("DISCOVER"); openMap(); }} />
+        onResume={() => void load(proximity, fame, "RESUME")}
+        territoryOpen={territoryOpen} onTerritory={() => setTerritoryOpen((open) => !open)}
+        territory={<TerritoryDoors busy={busy || saving} onTerritory={(territory) => void load(55, 50, "NEW_ENTRY", { intent: "TERRITORY", territory })} />} />
       {showWeekly && <WeeklyDiscovery journeyId={initialWeekId} allowNarrative={allowWeeklyNarrative} />}
-      <ExplorationDoors busy={busy || saving} onTerritory={(territory) => void load(55, 50, "NEW_ENTRY", { intent: "TERRITORY", territory })}
-        onRepertoire={(restrictions) => void load(85, 75, "NEW_ENTRY", { intent: "REPERTOIRE", restrictions })} />
-      {busy && <p className={styles.quiet} role="status">Recuperando tua última busca…</p>}
+      {busy && <p className={styles.quiet} role="status">Procurando tua última busca…</p>}
       {loadError && <p className={styles.entryError} role="alert">{loadError} <button className={styles.textButton} onClick={() => void load(55, 50, "BOOTSTRAP")}>tentar novamente</button></p>}
     </>;
   } else if (!queue && failed) {
@@ -445,7 +446,7 @@ export function Descobertas({ initialSessionId = null, initialWeekId = null, sho
       </Aviso>
     );
   } else if (!queue || busy) {
-    top = <Aviso window="seguindo as tuas pistas" headline="Peraí. Tua próxima descoberta está a caminho." narrative="Estou cruzando referências e separando as indicações. Não precisa escolher mais nada agora." />;
+    top = <Aviso window="seguindo as tuas pistas" headline="Peraí. Tua próxima descoberta está a caminho." narrative="Tô cruzando tuas referências. Já volto com a primeira." />;
   } else if (failed) {
     top = (
       <Aviso headline="Me perdi procurando." narrative={loadError ?? "Não consegui buscar nesse canto."}>
@@ -456,16 +457,16 @@ export function Descobertas({ initialSessionId = null, initialWeekId = null, sho
   } else if (queue.length === 0) {
     top = (
       <Aviso
-        window="pra ouvir depois"
-        headline={intent === "REPERTOIRE" ? "Não encontrei uma seleção por aqui." : "Nada novo nesse canto."}
-        narrative={intent === "REPERTOIRE" ? "Não encontrei faixas elegíveis no teu histórico para esta seleção. Você pode voltar aos caminhos anteriores ou buscar novidades." : "As referências desta busca não renderam outra indicação. A gente pode tentar outro caminho."}
+        window="nesse caminho"
+        headline={intent === "REPERTOIRE" ? "Não achei nada nesse recorte." : "Nada novo nesse canto."}
+        narrative={intent === "REPERTOIRE" ? "Nada do que já tocou cabe nesse filtro. Dá pra afrouxar o recorte ou ir por outro caminho." : "Dessa vez as tuas referências não renderam indicação. A gente tenta por outro lado."}
       >{journey?.parentSessionId && <Resposta onClick={() => void load(proximity, fame, "RESUME", { sessionId: journey.parentSessionId })}>voltar ao passo anterior</Resposta>}
         <Resposta onClick={showEntries}>escolher outro caminho</Resposta>{intent !== "REPERTOIRE" && intent !== "TERRITORY" && <Resposta onClick={openMap}>ajustar a busca</Resposta>}</Aviso>
     );
   } else if (finished || !current) {
     top = (
       <Aviso
-        window="pra ouvir depois"
+        window="fim do caminho"
         headline={intent === "ALBUM" ? "Chegamos à última faixa desta edição." : kept.length > 0 ? `Você separou ${kept.length}.` : "Chegamos ao fim desta busca."}
         narrative={
           kept.length > 0
@@ -502,7 +503,9 @@ export function Descobertas({ initialSessionId = null, initialWeekId = null, sho
         <div className={styles.decisionBar}>
         <Respostas>
           <p className={styles.feedback} role={feedbackError || sound.error ? "alert" : "status"}>
-            {feedbackError || sound.error || (saving ? "Guardando tua resposta…" : "O que você separar fica na tua coleção, mesmo ao trocar de caminho.")}
+            {feedbackError || sound.error || (saving ? "Guardando tua resposta…" : kept.length > 0
+              ? <Link href="/discovery/collection">{kept.length === 1 ? "1 faixa separada" : `${kept.length} faixas separadas`} pra depois →</Link>
+              : "O que você guardar fica pra depois, mesmo trocando de caminho.")}
           </p>
           <Resposta onClick={() => void decide("liked")} hint="↑" disabled={saving || !selection.ready} primary>
             curti
@@ -515,8 +518,7 @@ export function Descobertas({ initialSessionId = null, initialWeekId = null, sho
           </Resposta>
         </Respostas>
         </div>
-        <DiscoveryDisclosure className={styles.review} key={current.id} summary="outras respostas ou revisar">
-          <p>Pular, ainda não ouvir e não ser o pedido não significam que você não gosta da música.</p>
+        <DiscoveryDisclosure className={styles.review} key={current.id} summary="outras respostas">
           <fieldset disabled={saving}>
             <legend>Quer contar o que chamou atenção? É opcional.</legend>
             {ASPECTS.map((aspect) => <label key={aspect}>
@@ -535,8 +537,7 @@ export function Descobertas({ initialSessionId = null, initialWeekId = null, sho
             Você registrou: {FEEDBACK_LABEL[entry.type] ?? "uma resposta anterior"}{entry.note ? ` — ${entry.note}` : ""}.{" "}
             <button className={styles.remove} disabled={saving} type="button" onClick={() => void decide("retract", entry.id)}>retirar esta avaliação</button>
           </p>)}
-          {index > 0 && <Resposta onClick={() => void moveTo(index - 1)} disabled={saving}>rever a anterior</Resposta>}
-          {index < queue.length - 1 && <Resposta onClick={() => void moveTo(index + 1)} disabled={saving}>próxima sem avaliar</Resposta>}
+          {index < queue.length - 1 && <Resposta onClick={() => void moveTo(index + 1)} disabled={saving}>próxima sem responder</Resposta>}
         </DiscoveryDisclosure>
         <ListeningCues key={`cues:${current.id}`} itemId={current.id} mediaReady={mediaState === "ready"} />
         <TrackContext key={`context:${current.id}`} itemId={current.id} albumName={current.albumName} />
@@ -558,16 +559,16 @@ export function Descobertas({ initialSessionId = null, initialWeekId = null, sho
   return (
     <div ref={stageRef} className={styles.stage}>
       <div>
-      <div className={styles.pageTools}><span>uma faixa de cada vez.</span><Link className={styles.textButton} href="/discovery/collection">para depois <span className={styles.pillCount}>{kept.length}</span></Link></div>
-      {!choosing && destination && <p className={styles.journeyContext}>Destino escolhido: artistas associados a {destination}. A seleção permanece neste recorte; uma tag de artista não certifica cada gravação.</p>}
+      {!choosing && destination && <p className={styles.journeyContext}>Destino: {destination}.</p>}
       {!choosing && intent === "REPERTOIRE" && restrictions && (restrictions.albumGenre || restrictions.maxDurationMs) && <p className={styles.journeyContext}>
-        Teu recorte {[
-          restrictions.albumGenre && `com álbuns catalogados como ${restrictions.albumGenre}`,
-          restrictions.maxDurationMs && `com faixas de até ${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(restrictions.maxDurationMs / 60000)} min`,
-        ].filter(Boolean).join(" e ")}.
+        Teu recorte: {[
+          restrictions.albumGenre && `discos de ${restrictions.albumGenre}`,
+          restrictions.maxDurationMs && `faixas de até ${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(restrictions.maxDurationMs / 60000)} min`,
+        ].filter(Boolean).join(", ")}.
       </p>}
-      {!choosing && coverage?.status === "INSUFFICIENT" && <p className={styles.journeyContext} role="status">Cobertura insuficiente: {coverage.selected} de {coverage.requested} indicações. Mantive o pedido, sem acrescentar faixas de outro recorte. Você pode escolher outra entrada explicitamente.</p>}
-      {!choosing && Boolean(coverage?.provider?.failures || coverage?.provider?.deadlineStops) && <p className={styles.journeyContext}>Parte da consulta externa falhou ou atingiu o tempo disponível. Isso não prova ausência de repertório na fonte.</p>}
+      {!choosing && coverage?.status === "INSUFFICIENT" && <p className={styles.journeyContext} role="status">
+        {coverage.selected === 0 ? "Não achei nada que coubesse no pedido." : `Achei só ${coverage.selected} de ${coverage.requested} que cabem no pedido.`} Preferi não completar com outra coisa.</p>}
+      {!choosing && Boolean(coverage?.provider?.failures || coverage?.provider?.deadlineStops) && <p className={styles.journeyContext}>Parte da busca não respondeu a tempo. Pode ter mais coisa por lá.</p>}
       {selection.error && <p role="alert">{selection.error} <Link href="/discovery/collection">abrir tua coleção</Link></p>}
       <AnimatePresence mode="wait" initial={false}>
         {scene.identity !== null
@@ -575,21 +576,19 @@ export function Descobertas({ initialSessionId = null, initialWeekId = null, sho
           : <div key="other">{top}</div>}
       </AnimatePresence>
 
-      {intent !== "REPERTOIRE" && intent !== "ALBUM" && intent !== "TERRITORY" && (!weeklyHref || choosing) && <DiscoveryDisclosure id="mapa-descoberta" className={styles.adjustments} bodyClassName={styles.map} open={mapOpen} onOpenChange={setMapOpen}
-        summary={<><span><span className={styles.eyebrow}>teu caminho, com mais detalhe</span><strong>Ajustar a descoberta</strong></span><span aria-hidden="true">↘</span></>}>
+      {(choosing || (intent !== "REPERTOIRE" && intent !== "ALBUM" && intent !== "TERRITORY" && !weeklyHref)) && <DiscoveryDisclosure id="mapa-descoberta" className={styles.adjustments} bodyClassName={styles.map} open={mapOpen} onOpenChange={setMapOpen}
+        summary={<><strong>ajustar o caminho</strong><span aria-hidden="true">↘</span></>}>
           <div><h2 className={styles.mapTitle}>Qual é a distância da próxima pista?</h2>
-            <p className={styles.mapNote}>Mais perto das tuas referências ou um passo para fora. No outro eixo, o tamanho do público. Os ajustes só valem quando você iniciar a busca.</p>
+            <p className={styles.mapNote}>Mais perto das tuas referências ou um passo pra fora. No outro eixo, quanta gente já conhece.</p>
             <Mapa proximity={draftProximity} fame={draftFame} dots={dots} busy={busy || saving} onChange={move} onCommit={commit} />
-            {queue?.some((item) => !item.position) && <p className={styles.quiet}>Sugestões sem dados de público continuam na escuta, mas ficam fora dos pontos.</p>}
           </div><div className={styles.mapAside}>
-            <p className={styles.eyebrow}>algumas direções possíveis</p>
             <ul className={styles.corners} aria-label="Direções da descoberta">
               {CORNERS.map((corner) => <li key={corner.label}><button type="button" disabled={busy || saving}
                 aria-pressed={corner.proximity === draftProximity && corner.fame === draftFame}
                 onClick={() => commit(corner.proximity, corner.fame)}>{corner.label}<span aria-hidden="true">↗</span></button></li>)}
             </ul>
-            <p className={styles.mapNote}>As referências continuam vindo do teu repertório. É uma direção para procurar, sem garantia de gênero ou de popularidade.</p>
-            <Resposta primary disabled={busy || saving} onClick={() => void load(draftProximity, draftFame, "NEW_ENTRY")}>buscar por aqui →</Resposta>
+            <Resposta primary disabled={busy || saving} onClick={() => void load(draftProximity, draftFame, "NEW_ENTRY", { intent: choosing || !intent ? "DISCOVER" : intent })}>buscar por aqui →</Resposta>
+            {choosing && <RepertoireFilter busy={busy || saving} onRepertoire={(next) => void load(85, 75, "NEW_ENTRY", { intent: "REPERTOIRE", restrictions: next })} />}
           </div>
       </DiscoveryDisclosure>}
 

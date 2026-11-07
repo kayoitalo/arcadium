@@ -25,7 +25,7 @@ export function DiscoveryRecall() {
       : summary.latest && <p>Teu último caminho continua guardado.</p>}
     {selection.ready && !selection.error && selection.items.length > 0 && <p>Você tem {selection.items.length} {selection.items.length === 1 ? "faixa separada" : "faixas separadas"} para depois.</p>}
     <nav>{summary.latest && <Link href={`/discovery?session=${encodeURIComponent(summary.latest.id)}`}>retomar esse caminho →</Link>}
-      <Link href="/discovery/collection">minha coleção →</Link><Link href="/discovery/memory">caminhos e respostas →</Link></nav>
+      {selection.ready && !selection.error && selection.items.length > 0 && <Link href="/discovery/collection">ver o que ficou pra depois →</Link>}</nav>
     </div>{selection.ready && !selection.error && selection.items.length > 0 && <div className={styles.recallCount} aria-hidden="true">{String(selection.items.length).padStart(2,"0")}<small>para depois</small></div>}
   </aside>;
 }

@@ -126,12 +126,12 @@ try {
       const prepared = await cdp("Runtime.evaluate", { expression: `window.prepareTerritoryCapture('${kind}')`, awaitPromise: true });
       if (prepared.exceptionDetails) throw new Error(JSON.stringify(prepared.exceptionDetails));
       if (kind === "entry") {
-        await cdp("Runtime.evaluate", { expression: "document.querySelector('#territory-doors > summary').focus()" });
+        await cdp("Runtime.evaluate", { expression: "document.querySelector('section[aria-label=\"Escolher caminho de descoberta\"] button[aria-expanded]').focus()" });
         for (const [key, code, virtual, expected] of [[" ", "Space", 32, "false"], ["Enter", "Enter", 13, "true"]]) {
           await cdp("Input.dispatchKeyEvent", { type: "keyDown", key, code, windowsVirtualKeyCode: virtual, text: key === "Enter" ? "\r" : " " });
           await cdp("Input.dispatchKeyEvent", { type: "keyUp", key, code, windowsVirtualKeyCode: virtual });
-          const state = await cdp("Runtime.evaluate", { expression: "new Promise(r=>setTimeout(()=>r(document.querySelector('#territory-doors > summary').getAttribute('aria-expanded')),260))", awaitPromise: true, returnByValue: true });
-          if (state.result.value !== expected) throw new Error(`${name}: territory native keyboard failed`);
+          const state = await cdp("Runtime.evaluate", { expression: "new Promise(r=>setTimeout(()=>r(document.querySelector('section[aria-label=\"Escolher caminho de descoberta\"] button[aria-expanded]').getAttribute('aria-expanded')),260))", awaitPromise: true, returnByValue: true });
+          if (state.result.value !== expected) { const info = await cdp("Runtime.evaluate", { expression: "JSON.stringify({active: document.activeElement?.outerHTML?.slice(0,200), target: document.querySelector('section[aria-label=\"Escolher caminho de descoberta\"] button[aria-expanded]')?.outerHTML?.slice(0,200)})", returnByValue: true }); throw new Error(`${name}: territory native keyboard failed (${key} → ${state.result.value}, expected ${expected}) ${info.result.value}`); }
         }
       }
       const metrics = await cdp("Page.getLayoutMetrics");

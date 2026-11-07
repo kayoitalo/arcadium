@@ -1,5 +1,0 @@
-.note { min-width: 0; max-width: 42ch; padding-left: 20px; border-left: 1px solid var(--fio-2); }
-.label { display: block; margin: 8px 0 9px; font-size: 10px; text-transform: uppercase; letter-spacing: .13em; color: var(--tinta-3); }
-.copy { font-size: 14px; line-height: 1.65; color: var(--tinta-2); overflow-wrap: anywhere; }
-.copy p { margin: 0; }
-.copy a { color: var(--tinta); text-underline-offset: 5px; }

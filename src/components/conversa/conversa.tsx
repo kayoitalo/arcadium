@@ -1,7 +1,7 @@
 "use client";
 
 import { useReducedMotion } from "framer-motion";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Fala, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
 import { band, dimension, strike, type Point } from "@/components/amigo/gestures";
 import { boxOf, textLines } from "@/components/amigo/measure";
@@ -13,7 +13,6 @@ import type { ConversationMoment, Evidence } from "@/modules/conversation/domain
 import { decadeLabel, ProvaDecadas, ProvaLista, ProvaTransicao } from "./provas";
 import styles from "./conversa.module.css";
 import { privateFetch } from "@/lib/http/private-fetch";
-import { ListeningNote } from "@/components/amigo/listening-note";
 
 /*
  * A conversa: a tela inicial. Um fio que se rola e se revisita — o
@@ -74,7 +73,8 @@ function ruler(bar: HTMLElement, origin: DOMRect): { base: Point[]; box: ReturnT
   };
 }
 
-export function Conversa({ moments: all }: { moments: ConversationMoment[] }) {
+/** `epilogue` fecha o fio: o convite para continuar só aparece depois que ele terminou de falar. */
+export function Conversa({ moments: all, epilogue }: { moments: ConversationMoment[]; epilogue?: ReactNode }) {
   const reduced = Boolean(useReducedMotion());
   const moments = all;
   const [editorialError, setEditorialError] = useState<string | null>(null);
@@ -352,7 +352,6 @@ export function Conversa({ moments: all }: { moments: ConversationMoment[] }) {
   return (
     <div ref={stageRef} className={styles.stage}>
       <div className={styles.threadHead}>
-        <ListeningNote label="andei reparando"><p>Tem umas coisas no teu histórico que renderam assunto. Vem por aqui.</p></ListeningNote>
         <nav aria-label="Assuntos da conversa">{moments.map((moment,index) => <button key={moment.key} aria-label={`Ir ao assunto ${index+1}`} aria-pressed={index===active} onClick={() => go(index)}>{String(index+1).padStart(2,"0")}</button>)}</nav>
       </div>
       {[...moments, null].map((moment, index) => {
@@ -414,6 +413,7 @@ export function Conversa({ moments: all }: { moments: ConversationMoment[] }) {
                 register={refs}
               />
             )}
+            {!moment && epilogue}
           </section>
         );
       })}
@@ -433,7 +433,7 @@ export function Conversa({ moments: all }: { moments: ConversationMoment[] }) {
               de novo
             </Resposta>
             <Resposta href="/taste-evolution">o que mudou</Resposta>
-            <Resposta href="/discovery">pra ouvir depois</Resposta>
+            <Resposta href="/discovery">seguir descobrindo</Resposta>
           </>
         ) : (
           <>

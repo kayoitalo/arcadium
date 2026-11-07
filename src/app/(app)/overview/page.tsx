@@ -98,7 +98,7 @@ function ConversationBody() {
     );
   }
 
-  return <Conversa moments={view.moments} />;
+  return <Conversa moments={view.moments} epilogue={<DiscoveryRecall />} />;
 }
 
-export default function ConversaPage() { return <><DiscoveryRecall /><ConversationBody /></>; }
+export default function ConversaPage() { return <ConversationBody />; }

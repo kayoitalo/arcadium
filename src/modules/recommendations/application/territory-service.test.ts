@@ -1,10 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const db = vi.hoisted(() => ({ many: vi.fn(), groups: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: { artist: { findMany: db.many, groupBy: db.groups } } }));
-import { TerritoryService, assertSupportedRestrictions } from "./territory-service";
+import { TerritoryService, assertSupportedRestrictions, territoryDoors } from "./territory-service";
 import { TERRITORY_VERSION, CURATION_PROPOSALS } from "../domain/territories";
 const artist = (name: string, tags = "dub") => ({ id: name, name, tags, mbid: null, enrichedAt: new Date(), tracks: [{ id: name + "-t", name: "Track (Live)" }] });
 beforeEach(() => vi.resetAllMocks());
+describe("territory door list", () => {
+  it("merges spelling variants under the most common spelling and ranks by catalog support", () => {
+    const doors = territoryDoors([
+      { name: "Burna Boy", tags: "afro fusion" }, { name: "Omah Lay", tags: "afro-fusion" }, { name: "Rema", tags: "afro-fusion" },
+      { name: "The Doors", tags: "acid rock" },
+    ]);
+    expect(doors.map((door) => door.genre)).toEqual(["afro-fusion", "acid rock"]);
+    // a porta usa a grafia que `resolve` encontra; os exemplos são só dessa grafia
+    expect(doors[0]).toEqual({ genre: "afro-fusion", artists: 2, examples: ["Omah Lay", "Rema"] });
+  });
+});
 describe("destination-scoped territory doors", () => {
   it("uses exact tags, excludes observed artists and ambiguous catalog identities", async () => {
     db.many.mockResolvedValue([artist("Known"), artist("Known & Guest"), artist("A"), artist("B", "dubstep"), artist("Collision")]);

@@ -10,9 +10,8 @@ export function ContextExcerpt({ value }: { value: CulturalContext }) {
     {value.status === "AVAILABLE" ? <>
       <blockquote>{value.text}</blockquote>
       <p><a href={value.sourceUrl} target="_blank" rel="noreferrer">Trecho da wiki do Last.fm ↗</a> · consultado em <time dateTime={value.fetchedAt}>{new Date(value.fetchedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</time></p>
-    </> : <p>{value.reason === "NOT_CONFIGURED" ? "A fonte de contexto não está configurada neste ambiente." : value.reason === "IDENTITY_MISMATCH"
-      ? "O nome devolvido pela fonte não confirmou esta referência. Preferi deixar o espaço em aberto." : "Não encontrei um texto com fonte para esta referência."}</p>}
-    <p>{value.kind === "album" ? "Este contexto trata do álbum. A edição e suas gravações são identificadas separadamente no catálogo." : "Este contexto trata da música pelo nome. A fonte não confirma a gravação específica desta prévia."}</p>
+    </> : <p>{value.reason === "NOT_CONFIGURED" ? "Ainda não tenho de onde puxar contexto por aqui." : value.reason === "IDENTITY_MISMATCH"
+      ? "A fonte me devolveu outro nome. Prefiro ficar quieto do que contar a história errada." : "Não achei um texto com fonte pra essa."}</p>}
   </div>;
 }
 export function TrackContext({ itemId, albumName }: { itemId: string; albumName: string | null }) {
@@ -30,10 +29,10 @@ export function TrackContext({ itemId, albumName }: { itemId: string; albumName:
     }).catch((err) => { if (!controller.signal.aborted) setError(err instanceof Error ? err.message : "Não consegui consultar a fonte."); });
     return () => controller.abort();
   }, [itemId, kind, open, attempt]);
-  return <DiscoveryDisclosure className={styles.contextDisclosure} summary="um pouco de contexto, com fonte" open={open} onOpenChange={setOpen}>
+  return <DiscoveryDisclosure className={styles.contextDisclosure} summary="um pouco de contexto" open={open} onOpenChange={setOpen}>
     {albumName && <nav aria-label="Assunto do contexto">{(["album", "track"] as const).map((option) => <button key={option} aria-pressed={kind === option} onClick={() => setKind(option)}>{option === "album" ? "sobre o álbum" : "sobre a música"}</button>)}</nav>}
-    {!value && !error && <p role="status">Consultando a referência…</p>}
-    {error && <p role="alert">{error} <button onClick={() => setAttempt((n) => n + 1)}>tentar novamente</button></p>}
+    {!value && !error && <p role="status">Procurando a história…</p>}
+    {error && <p role="alert">{error} <button onClick={() => setAttempt((n) => n + 1)}>tenta de novo</button></p>}
     {value?.kind === kind && <ContextExcerpt value={value} />}
   </DiscoveryDisclosure>;
 }

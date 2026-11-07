@@ -31,7 +31,7 @@ function assert(value: unknown, message: string) { if (!value) throw new Error(m
 function button(label: string) { const node = [...document.querySelectorAll("button")].find((node) => node.textContent?.replace(/\s/g, "") === label.replace(/\s/g, "")); if (!node) throw new Error(`Missing button ${label}`); return node; }
 async function runChecks() {
   const passed: string[] = [];
-  await wait(() => document.body.textContent?.includes("20 reproduções em 3 dias distintos"), "observed portrait");
+  await wait(() => document.querySelector("[data-portrait-poster]")?.textContent?.includes("20reproduções3dias distintos"), "observed portrait");
   await wait(()=>qa.releasePhoto,"deliberately pending photo metadata");
   await document.fonts.ready;
   const positions=()=>["h2","strong"].map(selector=>{const box=document.querySelector("[data-portrait-poster] "+selector)!.getBoundingClientRect();return {x:box.x,y:box.y,width:box.width,height:box.height};});
@@ -50,7 +50,7 @@ async function runChecks() {
   assert(document.querySelector('a[href="https://open.spotify.com/artist/1a2b3c4d5e6f7g8h9i0jKl"] img[alt="Spotify"]'),"Image attribution must stay visible");
   const callsBeforeSelection=qa.requests.filter(row=>row.url==="/api/portrait").length;
   [...document.querySelectorAll<HTMLButtonElement>("button")].find((node)=>node.textContent?.includes("Outro nome fictício"))!.click();
-  await wait(()=>document.body.textContent?.includes("13 reproduções em 8 dias distintos"),"selected artist");
+  await wait(()=>document.querySelector("[data-portrait-poster]")?.textContent?.includes("13reproduções8dias distintos"),"selected artist");
   assert(qa.requests.filter(row=>row.url==="/api/portrait").length===callsBeforeSelection,"Selecting an artist must reuse the fetched portrait");
   await wait(()=>document.body.textContent?.includes("A foto não veio agora"),"temporary photo failure");
   button("tentar a foto novamente").click();
@@ -62,14 +62,15 @@ async function runChecks() {
   [...document.querySelectorAll<HTMLButtonElement>("button")].find(node=>node.textContent?.includes("Uma colaboração"))!.click();
   await wait(()=>document.querySelector('[data-portrait-poster] img[alt$="Spotify"]')&&document.querySelector('[data-loaded="true"]'),"Spotify photo after another selection");
   assert(document.querySelector('[data-portrait-poster] img[alt="Spotify"]'),"Selected photo needs Spotify attribution");
-  button("02 a fase recente dois recortes de 30 dias").click();
-  await wait(()=>document.body.textContent?.includes("5 agora · 15 no período anterior"),"recent perspective");
-  assert(document.body.textContent?.includes("5 agora · 15 no período anterior"), "Recent and previous windows must remain separate");
+  button("a fase recente os últimos 30 dias, com os 30 anteriores").click();
+  const periods = () => document.querySelector('[aria-label="Reproduções por período"]')?.textContent ?? "";
+  await wait(()=>periods().includes("últimos 30 dias5"),"recent perspective");
+  assert(periods().includes("30 dias anteriores15") && periods().includes("últimos 30 dias5"), "Recent and previous windows must remain separate");
   assert(document.querySelector('a[href="/history?search=Artista%20de%20teste"]'), "Portrait must link to the filtered history");
-  button("01 ao longo do caminho os retornos no histórico").click();
-  [...document.querySelectorAll("summary")].find((node)=>node.textContent?.includes("Assuntos que você silenciou"))!.click();
+  button("ao longo do caminho desde o começo").click();
+  [...document.querySelectorAll("summary")].find((node)=>node.textContent?.includes("assuntos que você silenciou"))!.click();
   await wait(()=>[...document.querySelectorAll("button")].some((node)=>node.textContent==="voltar a esse assunto"),"topic drawer");
-  button("voltar a esse assunto").click(); await wait(() => document.body.textContent?.includes("Nenhum assunto silenciado"), "restore editorial topic");
+  button("voltar a esse assunto").click(); await wait(() => ![...document.querySelectorAll("summary")].some((node) => node.textContent?.includes("assuntos que você silenciou")), "restore editorial topic");
   passed.push("portrait from observed days/counts, recent windows and restore account topic");
   button("trocar fixture").click(); window.scrollTo({ top: 0, behavior: "instant" });
   await wait(() => qa.requests.some((row) => row.body.action === "SEEN"), "visible conversation receipt");
@@ -81,7 +82,7 @@ async function runChecks() {
   button("volta atrás N").click(); await wait(() => !document.querySelector('[data-dismissed="true"]'), "undo silence");
   assert(qa.requests.every((row) => ["/api/portrait", "/api/editorial", "/api/artist-portrait"].includes(row.url)), "Portrait/editorial must not generate AI or musical-provider requests");
   passed.push("visibility/version, persisted dismiss, failure and undo without preference feedback");
-  button("trocar fixture").click(); await wait(() => document.body.textContent?.includes("20 reproduções em 3 dias distintos"), "portrait return");
+  button("trocar fixture").click(); await wait(() => document.querySelector("[data-portrait-poster]")?.textContent?.includes("20reproduções3dias distintos"), "portrait return");
   await wait(()=>document.querySelector('[data-portrait-poster][data-pen-ready="true"]'),"settled poster after return");
   assert(document.documentElement.scrollWidth <= innerWidth, "Portrait must fit the viewport");
   passed.push("identity-bound photo, credit, missing/temporary states and real pen reacting without a literal avatar");

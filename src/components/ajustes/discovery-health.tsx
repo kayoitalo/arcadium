@@ -15,7 +15,7 @@ export function DiscoveryHealth() {
     try { const response = await privateFetch("/api/discovery-health"); if (!response.ok) throw new Error(); setData(await response.json()); }
     catch { setError(true); } finally { setBusy(false); }
   };
-  return <section className={styles.section}><h2 className={styles.title}>Como as descobertas estão funcionando</h2><p className={styles.hint}>Um recorte dos últimos sete dias. Contagens de respostas incluem revisões; não são uma taxa de aprovação nem uma prova de qualidade musical.</p>
+  return <section className={styles.section}><h2 className={styles.title}>Como as descobertas estão funcionando</h2><p className={styles.hint}>Os últimos sete dias. As respostas incluem revisões, então isso não é uma nota das descobertas.</p>
     <Respostas inline><Resposta disabled={busy} onClick={() => void load()}>{busy ? "reunindo registros…" : "consultar funcionamento"}</Resposta></Respostas>
     {error && <p role="alert">Não consegui atualizar os registros. Tente novamente.</p>}
     {data && <><p>Cota local da conta: {data.budget.usedThisHour}/{data.budget.hourlyLimit} na última hora e {data.budget.usedToday}/{data.budget.dailyLimit} nas últimas 24 horas. Não é uma leitura da cota global do provedor.</p>

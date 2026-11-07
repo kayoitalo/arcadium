@@ -19,7 +19,7 @@ const journey = () => h(DiscoveryJourneyList, { busy: false, currentSessionId: "
     { sessionId: "branch", createdAt: "2026-11-01T12:10:00Z", intent: "DISCOVER", total: 4, currentRank: 2, firstTrack: null,
       journey: { action: "DEEPEN", rootSessionId: "root", parentSessionId: "root", anchor: { sourceSessionId: "root", sourceItemId: "one", artistName: "Maré Alta", trackName: "Do outro lado (Ao vivo — edição alternativa)" } } },
   ] });
-const entry = () => h(DiscoveryEntry, { busy: false, hasSession: true, currentRank: 3, total: 8, onChoose: noop, onResume: noop, onAdjust: noop });
+const entry = () => h(DiscoveryEntry, { busy: false, hasSession: true, currentRank: 3, total: 8, territoryOpen: false, onChoose: noop, onResume: noop, onTerritory: noop });
 const track = (canPlay = true, title = "Do outro lado") => h(DiscoveryTrack, {
   title, artist: "Maré Alta", reason: "Esta indicação parte de uma faixa que você curtiu. É uma referência fictícia para conferir o layout, sem consultar o teu histórico.",
   sectionRef: createRef<HTMLElement>(), markRef: createRef<HTMLSpanElement>(), marked: false,
@@ -32,8 +32,10 @@ describe("discovery visual contracts", () => {
   it("offers supported discovery entries and a real continuation, with no forced map", () => {
     const html = renderToStaticMarkup(entry());
     expect(html).toContain("Perto do que eu gosto"); expect(html).toContain("Outras conexões");
-    expect(html).toContain("Do meu repertório");
+    expect(html).toContain("Do meu repertório"); expect(html).toContain("Outro universo");
     expect(html).toContain("indicação 3 de 8"); expect(html).toContain("continuar");
+    // a continuação vem antes dos caminhos novos
+    expect(html.indexOf("continuar")).toBeLessThan(html.indexOf("Perto do que eu gosto"));
     expect(html).not.toContain("Mapa de descoberta");
     expect(DISCOVERY_ENTRIES.every((item) => item.proximity >= 0 && item.proximity <= 100)).toBe(true);
     expect(discoveryEntryLabel(85)).toBe("Perto do que eu gosto");
@@ -83,7 +85,7 @@ describe("discovery visual contracts", () => {
     for (const [name, content] of [["entry", entry()], ["listening", track()], ["no-preview", track(false)],
       ["long-title", track(true, "Uma faixa com um título bastante longo (Ao vivo — edição alternativa)")], ["journey", journey()]] as const) {
       const markup = renderToStaticMarkup(h("div", { className: shell.shell }, header,
-        h("main", { className: shell.page }, h("div", { className: styles.pageTools }, h("span", null, "uma boa música pode abrir outro caminho."), h("span", null, "para depois · 3")), content)));
+        h("main", { className: shell.page }, content)));
       writeFileSync(root + "/" + name + ".html", '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Arcadium — revisão visual</title><style>' + css + '</style><div class="review-note">Revisão visual · dados fictícios · sem banco, APIs ou áudio real · <a href="/entry.html">entrada</a> / <a href="/listening.html">escuta</a> / <a href="/mobile.html">celular</a></div>' + markup + '</html>');
     }
     writeFileSync(root + "/mobile.html", '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Arcadium — revisão mobile</title><style>body{margin:0;background:#212120;color:#ddd;font:13px system-ui}nav{padding:16px;text-align:center}nav a{color:#ddd;margin:0 12px}iframe{display:block;width:390px;height:844px;max-width:100%;margin:auto;border:1px solid #444}</style><nav><a href="/mobile.html?view=entry">entrada</a><a href="/mobile.html?view=listening">escuta</a><a href="/mobile.html?view=long-title">título longo</a><a href="/entry.html">desktop</a></nav><iframe title="Tela de celular" id="phone" src="/entry.html"></iframe><script>const views=["entry","listening","long-title","no-preview"];const v=new URLSearchParams(location.search).get("view");document.getElementById("phone").src="/"+(views.includes(v)?v:"entry")+".html";</script></html>');

@@ -8,12 +8,13 @@ The interpretive texts are the heart of the product. Charts, rankings and number
 
 ## ✦ Interface
 
-Five screens, one narrator. The home screen is **the conversation**: the readings the friend already wrote, each one with the proof it cites, pulled from the database and always on screen at rest. A reading whose numbers do not match the data (`N vezes`, `N%`, a "comeback" across a gap in the history) never reaches the screen.
+Six screens, one narrator. The home screen is **the conversation**: the readings the friend already wrote, each one with the proof it cites, pulled from the database and always on screen at rest. A reading whose numbers do not match the data (`N vezes`, `N%`, a "comeback" across a gap in the history) never reaches the screen.
 
 - **One narrator, one protagonist.** Every line is the friend talking, or mute data. His pen is the only moving thing: it highlights the part of the sentence the proof backs, rules the cited bar, measures the jump between two covers. With music playing, the pen becomes a string that vibrates with the real signal.
 - **The magic pen is the character.** Its travel, highlights and circles bring the friend to each screen. No literal face or mascot replaces it; gestures respond to content and respect reduced motion. See [the artist poster and photo limits](docs/magic-pen-artist-poster.md).
 - **One colour.** A dry track-lane yellow belongs to the pen alone; everything else is ink on paper. Covers bring the rest.
-- **Screens:** conversa (home) · o que mudou (genre share shift, month or year) · pra ouvir depois (discovery, one track at a time, with the map) · tudo que tocou (history by day, with the listening hours) · ajustes.
+- **Copy is the friend, never the spec.** Coverage limits, provider scopes and data caveats live in `docs/`; on screen they become one short line in his voice, or silence. One header per screen, no side boxes repeating it, no links duplicating the navigation. See [the interface pass](docs/interface-voz-do-amigo.md).
+- **Screens:** conversa (home) · o que mudou (genre share shift, month or year) · teu retrato (the artist poster) · descobrir (four ways in, one track at a time; albums in order, saved tracks and past paths in tabs) · tudo que tocou (history by day, with the listening hours) · ajustes.
 
 ---
 
@@ -121,8 +122,8 @@ reading data or calling providers. Browser mutations also require a matching
 (Secure in production), and store only token digests in PostgreSQL. Logout revokes
 the session server-side. Missing authentication configuration fails closed.
 
-Only `POST /api/sync` and `POST /api/ai/refresh` accept scheduler credentials via
-`CRON_SECRET`; they use the explicitly configured `AUTH_USER_ID`. The "buscar agora"
+Only `POST /api/sync`, `POST /api/enrichment` and `POST /api/ai/refresh` accept scheduler
+credentials via `CRON_SECRET`; they use the explicitly configured `AUTH_USER_ID`. The "buscar agora"
 button requires a signed-in session. There is no development or missing-secret
 bypass. Spotify OAuth is an optional provider connection, separate from app login.
 
@@ -131,7 +132,7 @@ shared across server instances. This deliberately conservative personal-account
 limit can temporarily block legitimate login during an attack; it does not block
 existing sessions. Public multi-user registration and password recovery are deferred.
 
-Background sync runs hourly via GitHub Actions (`.github/workflows/scheduled-sync.yml`), using the `APP_URL`, `CRON_SECRET` and `LASTFM_USERNAME` repository secrets.
+Background sync runs hourly via GitHub Actions (`.github/workflows/scheduled-sync.yml`), using the `APP_URL`, `CRON_SECRET` and `LASTFM_USERNAME` repository secrets. Each run then advances enrichment in small batches (artists, covers, Apple catalog) and finally refreshes the readings; an enrichment failure does not block the refresh.
 
 ---
 

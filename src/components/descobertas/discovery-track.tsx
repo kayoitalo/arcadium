@@ -12,14 +12,9 @@ export function DiscoveryTrack({ title, artist, reason, isRevisit, artwork, meta
 }) {
   return <section className={styles.listening} aria-label="Escuta da descoberta">
     <div className={styles.sessionBar}>
-      <span className={styles.eyebrow}>descoberta <span className={styles.barSlash}>/</span> {entryLabel}</span>
+      <span className={styles.eyebrow}>{entryLabel}</span>
       <button className={styles.textButton} onClick={onChangeEntry}>trocar caminho ↗</button>
     </div>
-    <p className={styles.pathContext}>{entryLabel === "Outro universo, com destino" ? "Seguindo o destino do catálogo que você escolheu, sem preencher com vizinhos do teu perfil." : entryLabel === "Um álbum em ordem" ? "A ordem da edição que você escolheu. Uma faixa de cada vez, no teu tempo." : entryLabel === "Do meu repertório" ? "Uma seleção do teu histórico. Não precisa ser novidade para valer o play." : entryLabel === "Perto do que eu gosto"
-      ? "Buscando novidades com ligações mais diretas ao teu repertório."
-      : entryLabel === "Outras conexões"
-        ? "Buscando ligações menos diretas. Pode haver novidades dentro dos gêneros que você já escuta."
-        : "Buscando a partir dos ajustes que você escolheu no mapa."}</p>
     <div className={styles.block}>
       <div className={styles.trackCopy}>
         <section ref={sectionRef} aria-label="A sugestão da vez">

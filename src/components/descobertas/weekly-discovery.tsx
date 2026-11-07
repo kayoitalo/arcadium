@@ -130,11 +130,11 @@ export function WeeklyDiscovery({ journeyId, allowNarrative, onStart = (id) => w
     {error && <p role="alert">{error} <button type="button" onClick={() => setReload((value) => value + 1)}>consultar novamente</button></p>}
     {!waiting && currentStatus === "FAILED" && <p>A consulta ficou interrompida. <button type="button" onClick={() => setReload((value) => value + 1)}>conferir novamente</button></p>}
     {!waiting && currentStatus === "PREPARING" && <p>A semana ainda está sendo preparada. <button type="button" onClick={() => setReload((value) => value + 1)}>ver se ficou pronta</button></p>}
-    {currentStatus === "EMPTY" && <p>O catálogo ainda não confirmou uma porta para esta semana. A estante e os outros caminhos estão disponíveis.</p>}
+    {currentStatus === "EMPTY" && <p>Essa semana não achei uma porta que eu pudesse confirmar. A estante e os outros caminhos continuam aqui.</p>}
     {week && <>
-      <p className={styles.eyebrow}>{report?.previous?.id === week.id ? "jornada anterior · " : ""}{period(week)}</p>
-      {week.limited && <p>Consegui confirmar {week.entries.length === 1 ? "uma porta" : `${week.entries.length} portas`} neste recorte.</p>}
-      {!week.personalized && <p>Uma entrada do catálogo para começar a explorar.</p>}
+      <p className={styles.eyebrow}>{report?.previous?.id === week.id ? "semana anterior · " : ""}{period(week)}</p>
+      {week.limited && <p>Essa semana ficou com {week.entries.length === 1 ? "uma porta" : `${week.entries.length} portas`}.</p>}
+      {!week.personalized && <p>Ainda conheço pouco do teu histórico, então começo por uma porta do catálogo.</p>}
       <ol className={styles.doors}>{week.entries.map((entry) => <li key={entry.id}><WeeklyDoor entry={entry}>
         <p className={styles.eyebrow}>{WEEKLY_TITLES[entry.role]} · {entry.kind === "ALBUM" ? "álbum em ordem" : "faixas do artista"}</p>
         <h3>{entry.album?.albumName ?? entry.artistName}</h3>
