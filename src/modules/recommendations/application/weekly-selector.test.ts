@@ -4,8 +4,9 @@ import { weeklyAlbumKey, weeklyWindow, type WeeklyAlbumEntry } from "../domain/w
 import { WeeklySelector } from "./weekly-selector";
 import { matchWeeklyRecordingCredits } from "./weekly-recording-evidence";
 
-const db = vi.hoisted(() => ({ artists: vi.fn(), counts: vi.fn(), profile: vi.fn() }));
-vi.mock("@/lib/db/prisma", () => ({ prisma: { artist: { findMany: db.artists, groupBy: db.counts } } }));
+const db = vi.hoisted(() => ({ artists: vi.fn(), counts: vi.fn(), profile: vi.fn(), albumPlays: vi.fn(), albums: vi.fn() }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { artist: { findMany: db.artists, groupBy: db.counts },
+  listeningEvent: { groupBy: db.albumPlays }, album: { findMany: db.albums } } }));
 vi.mock("./recommendation-service", () => ({ RecommendationService: class { buildUserProfile = db.profile; } }));
 
 const near = { id: "near", name: "Artista perto", tags: "samba", tracks: [{ name: "Alternativa local" }],
@@ -38,6 +39,8 @@ beforeEach(() => {
   vi.resetAllMocks();
   db.artists.mockResolvedValue([near, bridge, territory]);
   db.counts.mockResolvedValue([]);
+  db.albumPlays.mockResolvedValue([]);
+  db.albums.mockResolvedValue([]);
   db.profile.mockResolvedValue({
     topArtistNames: [near.name], topGenres: ["samba"], knownArtistNames: new Set([near.name.toLowerCase()]),
     knownTrackKeys: new Set([`${bridge.name.toLowerCase()}|a mais tocada`]), feedbackMap: new Map(), totalPlays: 15,
@@ -64,6 +67,28 @@ describe("weekly selection from history and bounded catalog candidates", () => {
       snapshot: null, exposedAt: new Date(), sessionId: null, weekStartsAt: new Date(Date.now() - 21 * 86_400_000) }], Date.now() + 2000);
     expect(result.entries[0].entry).toMatchObject({ role: "NEAR", kind: "ARTIST" });
     expect(lookupEdition).not.toHaveBeenCalledWith("42");
+  });
+
+  it("skips a well-heard album despite a different title format on its track previews", async () => {
+    db.albumPlays.mockResolvedValue([
+      { albumId: null, rawArtistName: near.name, rawAlbumName: "Disco perto", rawTrackName: "Faixa 1 (feat. Outro artista)", _count: { id: 3 } },
+      { albumId: null, rawArtistName: near.name, rawAlbumName: "Disco perto (Deluxe Edition)", rawTrackName: "Faixa 2 (feat. Outro artista)", _count: { id: 2 } },
+    ]);
+    const { selector, lookupEdition } = createSelector();
+    const result = await selector.select("owner", [], Date.now() + 2000);
+    expect(result.entries[0].entry).toMatchObject({ artistName: near.name, role: "NEAR", kind: "ARTIST" });
+    expect(lookupEdition).not.toHaveBeenCalledWith("42");
+    expect(db.albumPlays).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ userId: "owner" }) }));
+  });
+
+  it("lets one repeat track point to the rest of its album", async () => {
+    db.albumPlays.mockResolvedValue([
+      { albumId: null, rawArtistName: near.name, rawAlbumName: "Disco perto", rawTrackName: "Faixa 1", _count: { id: 12 } },
+      { albumId: null, rawArtistName: near.name, rawAlbumName: "Disco perto", rawTrackName: "Faixa 1 (feat. Outro artista)", _count: { id: 4 } },
+    ]);
+    const { selector } = createSelector();
+    const result = await selector.select("owner", [], Date.now() + 2000);
+    expect(result.entries[0].entry).toMatchObject({ artistName: near.name, role: "NEAR", kind: "ALBUM" });
   });
 
   it("offers a catalog door to an account with no history without inventing a bridge", async () => {

@@ -18,6 +18,7 @@ import { AlbumJourneyService } from "../../src/modules/recommendations/applicati
 import { DiscoveryMemoryService } from "../../src/modules/recommendations/application/discovery-memory-service";
 import { WeeklyJourneyService } from "../../src/modules/recommendations/application/weekly-journey-service";
 import type { WeeklySelection } from "../../src/modules/recommendations/application/weekly-selector";
+import { familiarWeeklyAlbums, weeklyAlbumHistoryKeys } from "../../src/modules/recommendations/application/weekly-album-history";
 import { CARTOLA_1976 } from "../../src/modules/recommendations/domain/curated-albums";
 import { TERRITORY_VERSION } from "../../src/modules/recommendations/domain/territories";
 const timings: Array<{ scenario: string; elapsedMs: number; queries: number }> = [];
@@ -52,6 +53,18 @@ afterAll(async () => {
   await state.client?.$disconnect();
 });
 describe("real isolated PostgreSQL operations", () => {
+  it("recognizes repeated albums from account history across raw names and catalog identities", async () => {
+    const artist = await state.client.artist.create({ data: { name: "Artista de regressão", normalizedName: "artista de regressao" } });
+    const album = await state.client.album.create({ data: { artistId: artist.id, name: "Álbum de regressão", normalizedName: "album de regressao",
+      itunesCollectionId: "7130", releaseGroupMbid: randomUUID() } });
+    await state.client.listeningEvent.createMany({ data: [1, 2, 3, 4].map((number) => ({
+      userId: stranger, albumId: album.id, rawArtistName: artist.name, rawAlbumName: number % 2 ? album.name : null,
+      rawTrackName: number % 2 ? "Primeira" : "Segunda (feat. Convidado)", playedAt: new Date(), provider: "synthetic", providerEventKey: randomUUID(),
+    })) });
+    const keys = await timed("weekly-album-familiarity", () => familiarWeeklyAlbums(stranger, [artist.name]));
+    expect(keys).toEqual(new Set(weeklyAlbumHistoryKeys(artist.name, album.name, album.releaseGroupMbid, album.itunesCollectionId)));
+    expect(await familiarWeeklyAlbums(user, [artist.name])).toEqual(new Set());
+  });
   it("prepares one week across concurrent tabs, starts both door types once and preserves the earlier week", async () => {
     const album = { provider: "itunes" as const, collectionId: "42", storefront: "BR", artistName: "Álbum sintético", albumName: "Disco da semana",
       trackCount: 2, releaseDate: null, artworkUrl: null, genre: "Samba", fetchedAt: "2026-11-05T10:00:00Z", sourceUrl: "https://music.apple.com/br/album/42" };

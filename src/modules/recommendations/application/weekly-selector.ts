@@ -9,6 +9,7 @@ import { lastFmSourceURL } from "../domain/cultural-context";
 import { weeklyAlbumKey, weeklyEntrySchema, weeklyFamily, WEEKLY_ROLES, type WeeklyEntry, type WeeklyRole } from "../domain/weekly-journey";
 import { LastFmSimilarArtistProvider } from "../infrastructure/lastfm-similar-adapter";
 import { RecommendationService } from "./recommendation-service";
+import { familiarWeeklyAlbums, weeklyAlbumHistoryKeys } from "./weekly-album-history";
 
 type Source = WeeklyEntry["reference"];
 type Candidate = {
@@ -28,7 +29,9 @@ const artistChart = (artist: string, page = "+tracks") => chartSource(`https://w
 
 function reason(row: Candidate, title: string | null, style: string | null, personalized: boolean) {
   const subject = title ? `“${title.slice(0, 110)}”` : row.artistName.slice(0, 110);
-  if (row.role === "NEAR") return `${subject} parte de uma referência que já aparece nas tuas escutas ou respostas.`;
+  if (row.role === "NEAR") return title
+    ? `${subject} abre outro caminho por ${row.artistName.slice(0, 110)}, que aparece nas tuas escutas ou respostas.`
+    : `${subject} já aparece nas tuas escutas ou respostas. Separei outras faixas pra seguir por aqui.`;
   if (row.role === "BRIDGE") return `O Last.fm aproxima ${row.artistName.slice(0, 95)} de ${row.seed?.slice(0, 95)}. Aqui a porta abre para ${style}.`;
   if (!personalized) return `${subject} é uma porta do catálogo para ${style ?? "este recorte"}.`;
   return `${subject} abre uma porta para ${style}, fora dos estilos mais presentes no teu histórico identificado.`;
@@ -144,6 +147,7 @@ export class WeeklySelector {
       for (const artist of territoryArtists) pushArtist(artist.name, "TERRITORY", undefined, chartSource(artist.url), targetTag);
     }
 
+    const familiarAlbums = await familiarWeeklyAlbums(userId, candidates.flatMap((row) => row.album ? [row.artistName] : []));
     const entries: WeeklySelection["entries"] = [];
     const selectedArtists = new Set<string>(); const selectedFamilies = new Set<string>();
     const checked = new Set<string>();
@@ -170,13 +174,14 @@ export class WeeklySelector {
         if (row.album && albumAttempts < 3 && counters.appleCalls - startingAppleCalls < 2) {
           const key = weeklyAlbumKey(row.artistName, row.album.title, row.album.group);
           const alias = weeklyAlbumKey(row.artistName, row.album.title);
-          if (checked.has(key) || presented.has(key) || presented.has(alias)) continue;
+          const historyKeys = weeklyAlbumHistoryKeys(row.artistName, row.album.title, row.album.group, row.album.collectionId);
+          if (checked.has(key) || presented.has(key) || presented.has(alias) || historyKeys.some((value) => familiarAlbums.has(value))) continue;
           checked.add(key);
           if (/\b(?:greatest hits|best of|karaoke|tribute to)\b/i.test(row.album.title)) continue;
           albumAttempts++;
           const options = row.album.collectionId ? null : await queryApple(() => this.catalog.searchEditions(row.artistName, row.album!.title));
           const id = row.album.collectionId ?? (options?.length === 1 ? options[0].collectionId : undefined);
-          if (!id) continue;
+          if (!id || familiarAlbums.has(`collection:${id}`)) continue;
           const edition = await queryApple(() => this.catalog.lookupEdition(id));
           if (!edition || !sameRecordingText(edition.album.artistName, row.artistName) || !sameRecordingText(edition.album.albumName, row.album.title)) continue;
           if (presented.has(`apple:${edition.album.storefront}:${edition.album.collectionId}`)) continue;
