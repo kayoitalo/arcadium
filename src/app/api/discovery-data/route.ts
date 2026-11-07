@@ -3,9 +3,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { authorizeApi } from "@/lib/security/api-auth";
 import { sourceSnapshots } from "@/modules/recommendations/domain/source-snapshots";
+import { weeklyEntrySchema } from "@/modules/recommendations/domain/weekly-journey";
 const headers = { "Cache-Control": "private, no-store" };
-const cursorSchema = z.object({ section: z.number().int().min(0).max(6), after: z.string().max(200) }).strict();
-const sections = ["sessions", "items", "responses", "collection", "exports", "editorial", "preview-starts"];
+const sections = ["sessions", "items", "responses", "collection", "exports", "editorial", "preview-starts", "weekly-journeys", "weekly-entries"];
+const cursorSchema = z.object({ section: z.number().int().min(0).max(sections.length - 1), after: z.string().max(200) }).strict();
 export async function GET(request: Request) {
   const access = await authorizeApi(request); if (access.response) return access.response;
   const params = new URL(request.url).searchParams;
@@ -23,8 +24,17 @@ export async function GET(request: Request) {
       : cursor.section === 3 ? await prisma.collectionEntry.findMany({ ...page, where: own, select: { id: true, sourceItemId: true, artistName: true, trackName: true, action: true, createdAt: true, updatedAt: true } })
       : cursor.section === 4 ? await prisma.playlistExport.findMany({ ...page, where: own, select: { id: true, sessionId: true, mode: true, playlistUrl: true, totalItems: true, resolvedCount: true, createdAt: true } })
       : cursor.section === 5 ? await prisma.editorialMemory.findMany({ ...page, where: own, select: { id: true, key: true, headline: true, seenAt: true, dismissed: true, createdAt: true } })
-      : await prisma.discoveryEvent.findMany({ ...page, where: own, select: { id: true, itemId: true, createdAt: true } });
+      : cursor.section === 6 ? await prisma.discoveryEvent.findMany({ ...page, where: own, select: { id: true, itemId: true, createdAt: true } })
+      : cursor.section === 7 ? await prisma.weeklyJourney.findMany({ ...page, where: own, select: { id: true, weekKey: true, timezone: true,
+        startsAt: true, endsAt: true, status: true, selectorVersion: true, personalized: true, createdAt: true } })
+      : await prisma.weeklyJourneyEntry.findMany({ ...page, where: { createdAt: { lte: until }, ...(cursor.after ? { id: { gt: cursor.after } } : {}),
+        journey: { userId: access.userId } }, select: { id: true, journeyId: true, position: true, snapshot: true, exposedAt: true, sessionId: true, createdAt: true } });
     const records = rows.slice(0, 100).map((row) => {
+      if (cursor.section === 8 && "snapshot" in row) {
+        const { snapshot, ...record } = row;
+        const saved = weeklyEntrySchema.safeParse(snapshot);
+        return { ...record, snapshot: saved.success ? saved.data : null };
+      }
       if (cursor.section !== 1) return row;
       const { scoreComponents, ...record } = row as typeof row & { scoreComponents?: unknown };
       return { ...record, ...sourceSnapshots(scoreComponents, record as { artistName: string; trackName: string; appleMusicUrl?: string | null }) };
@@ -51,7 +61,10 @@ export async function DELETE(request: Request) {
         await tx.recommendationFeedback.deleteMany({ where });
         await tx.recommendationItem.updateMany({ where: { session: { userId: access.userId } }, data: { status: "PENDING" } });
       }
-      if (parsed.data.scope === "DISCOVERY") await tx.recommendationSession.deleteMany({ where });
+      if (parsed.data.scope === "DISCOVERY") {
+        await tx.weeklyJourney.deleteMany({ where });
+        await tx.recommendationSession.deleteMany({ where });
+      }
       if (["EDITORIAL", "DISCOVERY"].includes(parsed.data.scope)) await tx.editorialMemory.deleteMany({ where });
       return true;
     });

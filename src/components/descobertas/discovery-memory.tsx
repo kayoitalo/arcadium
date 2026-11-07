@@ -17,6 +17,7 @@ import { EditionCredit, EditorialCredit } from "./album-journeys";
 import { ContextExcerpt } from "./track-context";
 import { ListeningCueExcerpt } from "./listening-cues";
 import { ListeningNote } from "@/components/amigo/listening-note";
+import { WeeklyHistory } from "./weekly-discovery";
 
 const when = (value: string) => new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
 const aspects: Record<string, string> = { VOCALS: "vocal", INSTRUMENTAL: "instrumental", LYRICS: "letra", RHYTHM: "ritmo", ATMOSPHERE: "atmosfera", OTHER: "outro" };
@@ -24,7 +25,7 @@ function aspectText(details: unknown) {
   const values = details && typeof details === "object" && "aspects" in details ? details.aspects : null;
   return Array.isArray(values) ? values.filter((value): value is string => typeof value === "string" && Boolean(aspects[value])).map((value) => aspects[value]).join(", ") : "";
 }
-export function DiscoveryMemory() {
+export function DiscoveryMemory({ showWeekly = false }: { showWeekly?: boolean } = {}) {
   const [draft, setDraft] = useState(""); const [query, setQuery] = useState(""); const [onlyResponses, setOnlyResponses] = useState(false);
   const [cursors, setCursors] = useState<string[]>([]); const [attempt, setAttempt] = useState(0);
   const [page, setPage] = useState<MemoryPage | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState(false);
@@ -65,6 +66,7 @@ export function DiscoveryMemory() {
       <nav><Link href="/discovery">voltar à descoberta →</Link><Link href="/discovery/collection">abrir minha coleção →</Link></nav>
       <ListeningNote label="guardei o fio"><p>Tem caminho que merece uma segunda volta. Aqui ficam as indicações e o que você me contou, no momento em que aconteceu.</p></ListeningNote>
     </header>
+    {showWeekly && <WeeklyHistory />}
     <form className={styles.filters} onSubmit={(event) => { event.preventDefault(); focusResults.current = true; setCursors([]); setQuery(draft.trim()); setAttempt((value) => value + 1); }}>
       <label>Artista ou faixa<input maxLength={120} value={draft} onChange={(event) => { focusResults.current = false; setDraft(event.target.value); }} /></label>
       <button type="submit" disabled={loading}>procurar</button>

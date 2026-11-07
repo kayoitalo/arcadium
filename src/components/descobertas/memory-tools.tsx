@@ -37,7 +37,7 @@ export function MemoryTools() {
     finally { running.current = false; setBusy(false); }
   };
   return <section className={styles.tools}><h2>Levar ou apagar a memória</h2>
-    <p>A cópia percorre todas as buscas, indicações, respostas e revisões, coleção, exportações e escolhas editoriais da conta. Acima de 5.000 registros, continua em partes. Evite editar a memória durante a exportação: os valores são lidos ao longo dela.</p>
+    <p>A cópia reúne as jornadas semanais, buscas, indicações, respostas, coleção, exportações e escolhas editoriais da conta. Acima de 5.000 registros, continua em partes. Os valores são lidos ao longo da exportação.</p>
     <button disabled={busy} onClick={() => void exportMemory()}>{checkpoint ? "continuar exportação" : "exportar toda a memória"}</button>
     {message && <p role="status">{message}</p>}
     <details><summary>Apagar dados da memória</summary><p>A exclusão é definitiva. Não apaga reproduções importadas nem leituras salvas da IA. Excluir respostas não esvazia a coleção; a opção de memória inteira remove ambos e as sessões. Outras abas podem criar novos registros depois.</p>

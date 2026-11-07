@@ -1,5 +1,11 @@
 # Continuidade do Arcadium
 
+## Proposta de jornada semanal — 05/11/2026
+
+O [PR 19](https://github.com/kayoitalo/arcadium/pull/19) foi mergeado em `c37fb4b`, com deploy de produção concluído. O proprietário validou na preview que a jornada de Cartola volta à mesma faixa e conferiu a pista com fonte. A [proposta de jornada semanal](weekly-discovery-journey.md) registra o próximo passo, com seleção automática de artistas e álbuns, memória semanal e interface no caderno de escuta. O estudo separa as observações públicas de catálogo das integrações e ensaios ainda previstos. A primeira implementação tem como meta funcionar com zero chamadas de IA.
+
+A branch `codex/weekly-discovery-plan` reúne a documentação no primeiro commit e a implementação da seleção semanal, da escuta e da memória. A preparação funciona com zero chamadas de IA. A apresentação experimental usa escolhas restritas a frases aprovadas e fica atrás de configuração. O fluxo básico fica disponível na preview para revisão. Ver [configuração, sondagens e roteiro](weekly-discovery-journey.md#revisão-da-implementação).
+
 ## Rodada de 05/11/2026 — após merge do PR 18
 
 - [PR 18](https://github.com/kayoitalo/arcadium/pull/18) confirmado como mergeado em `b3e8583`. A rodada de revisão do PR registrou 571 testes, seis cenários PostgreSQL isolados com dados sintéticos e Vercel com sucesso. A branch `codex/curated-cartola` parte dessa master.

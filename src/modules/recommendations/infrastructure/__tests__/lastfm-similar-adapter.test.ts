@@ -68,6 +68,18 @@ describe("LastFmSimilarArtistProvider", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
+  it("reads artist and tag album charts with one bounded request per chart", async () => {
+    const album = { name: "Disco sintético", artist: { name: "Artista semanal" }, mbid: "82ae51a8-b718-4044-9c5d-42a6cbc86e9d" };
+    const fetchSpy = vi.fn().mockResolvedValueOnce(jsonResponse({ topalbums: { album: [album] } }))
+      .mockResolvedValueOnce(jsonResponse({ albums: { album: [album, { ...album, name: "Outra resposta" }] } }));
+    globalThis.fetch = fetchSpy;
+    const provider = new LastFmSimilarArtistProvider("key", undefined, { minIntervalMs: 0 });
+    expect(await provider.getWeeklyAlbums("artist", "Artista semanal", 1)).toEqual([album]);
+    expect(await provider.getWeeklyAlbums("tag", "território sintético", 1)).toEqual([album]);
+    expect(await provider.getWeeklyAlbums("tag", "território sintético", 1)).toEqual([album]);
+    expect(fetchSpy.mock.calls.map(([url]) => new URL(url).searchParams.get("method"))).toEqual(["artist.gettopalbums", "tag.gettopalbums"]);
+  });
+
   it("devolve lista vazia quando o provedor erra, em vez de lançar", async () => {
     globalThis.fetch = vi.fn(async () => jsonResponse({ error: 6 }, 500)) as unknown as typeof fetch;
     const provider = new LastFmSimilarArtistProvider("chave-de-teste", undefined, { minIntervalMs: 0 });

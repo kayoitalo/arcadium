@@ -26,6 +26,49 @@ model User {
   collection      CollectionEntry[]
   editorialMemory EditorialMemory[]
   discoveryEvents DiscoveryEvent[]
+  weeklyJourneys   WeeklyJourney[]
+}
+
+model WeeklyJourney {
+  id              String   @id @default(uuid())
+  userId          String
+  weekKey         String
+  timezone        String
+  startsAt        DateTime
+  endsAt          DateTime
+  selectorVersion Int
+  status          String
+  lease           String?
+  retryAt         DateTime?
+  personalized    Boolean  @default(false)
+  diagnostics     Json?
+  narrativeStatus String?
+  narrative       Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user    User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries WeeklyJourneyEntry[]
+
+  @@unique([userId, weekKey])
+  @@index([userId, startsAt(sort: Desc)])
+}
+
+model WeeklyJourneyEntry {
+  id         String   @id @default(uuid())
+  journeyId  String
+  position   Int
+  artistKey  String
+  albumKey   String?
+  snapshot   Json
+  exposedAt  DateTime?
+  sessionId  String?  @unique
+  createdAt  DateTime @default(now())
+
+  journey WeeklyJourney          @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  session RecommendationSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@unique([journeyId, position])
 }
 
 model EditorialMemory {
@@ -237,6 +280,7 @@ model RecommendationSession {
   user    User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   items   RecommendationItem[]
   exports PlaylistExport[]
+  weeklyEntry WeeklyJourneyEntry?
 
   @@index([userId, createdAt(sort: Desc)])
   @@unique([userId, requestKey])

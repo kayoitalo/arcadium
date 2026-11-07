@@ -16,6 +16,9 @@ import { CollectionService } from "../../src/modules/recommendations/application
 import { TerritoryService } from "../../src/modules/recommendations/application/territory-service";
 import { AlbumJourneyService } from "../../src/modules/recommendations/application/album-journey-service";
 import { DiscoveryMemoryService } from "../../src/modules/recommendations/application/discovery-memory-service";
+import { WeeklyJourneyService } from "../../src/modules/recommendations/application/weekly-journey-service";
+import type { WeeklySelection } from "../../src/modules/recommendations/application/weekly-selector";
+import { familiarWeeklyAlbums, weeklyAlbumHistoryKeys } from "../../src/modules/recommendations/application/weekly-album-history";
 import { CARTOLA_1976 } from "../../src/modules/recommendations/domain/curated-albums";
 import { TERRITORY_VERSION } from "../../src/modules/recommendations/domain/territories";
 const timings: Array<{ scenario: string; elapsedMs: number; queries: number }> = [];
@@ -50,6 +53,61 @@ afterAll(async () => {
   await state.client?.$disconnect();
 });
 describe("real isolated PostgreSQL operations", () => {
+  it("recognizes repeated albums from account history across raw names and catalog identities", async () => {
+    const artist = await state.client.artist.create({ data: { name: "Artista de regressão", normalizedName: "artista de regressao" } });
+    const album = await state.client.album.create({ data: { artistId: artist.id, name: "Álbum de regressão", normalizedName: "album de regressao",
+      itunesCollectionId: "7130", releaseGroupMbid: randomUUID() } });
+    await state.client.listeningEvent.createMany({ data: [1, 2, 3, 4].map((number) => ({
+      userId: stranger, albumId: album.id, rawArtistName: artist.name, rawAlbumName: number % 2 ? album.name : null,
+      rawTrackName: number % 2 ? "Primeira" : "Segunda (feat. Convidado)", playedAt: new Date(), provider: "synthetic", providerEventKey: randomUUID(),
+    })) });
+    const keys = await timed("weekly-album-familiarity", () => familiarWeeklyAlbums(stranger, [artist.name]));
+    expect(keys).toEqual(new Set(weeklyAlbumHistoryKeys(artist.name, album.name, album.releaseGroupMbid, album.itunesCollectionId)));
+    expect(await familiarWeeklyAlbums(user, [artist.name])).toEqual(new Set());
+  });
+  it("prepares one week across concurrent tabs, starts both door types once and preserves the earlier week", async () => {
+    const album = { provider: "itunes" as const, collectionId: "42", storefront: "BR", artistName: "Álbum sintético", albumName: "Disco da semana",
+      trackCount: 2, releaseDate: null, artworkUrl: null, genre: "Samba", fetchedAt: "2026-11-05T10:00:00Z", sourceUrl: "https://music.apple.com/br/album/42" };
+    const entries: WeeklySelection["entries"] = [{
+      albumKey: "album:disco", releaseId: null,
+      entry: { kind: "ALBUM", role: "NEAR", artistName: album.artistName, style: "Samba", family: "samba", reason: "Referência sintética.",
+        reference: { provider: "history", url: null }, album,
+        tracks: [1, 2].map((index) => ({ trackId: `42${index}`, artistName: album.artistName, trackName: `Faixa ${index}`, disc: 1,
+          number: index, durationMs: 180_000, previewUrl: null, sourceUrl: `https://music.apple.com/br/album/42?i=42${index}` })) },
+    }, {
+      albumKey: null, releaseId: null,
+      entry: { kind: "ARTIST", role: "TERRITORY", artistName: "Outra porta", style: "Dub", family: "reggae", reason: "Porta sintética.",
+        reference: { provider: "catalog", url: null }, trackSource: "catalog", tracks: [{ artistName: "Outra porta", trackName: "Entrada" }] },
+    }];
+    const select = vi.fn(async () => ({ entries, personalized: true, diagnostics: { appleCalls: 0, lastFmCalls: 0, failures: 0, deadlineStops: 0 } }));
+    let now = new Date("2026-11-05T10:00:00Z");
+    const weekly = new WeeklyJourneyService({ select }, async (entries) => entries, () => now);
+    await timed("concurrent-weekly-prepare", () => Promise.all([weekly.prepare(user), weekly.prepare(user)]));
+    expect(select).toHaveBeenCalledOnce();
+    const first = (await weekly.current(user)).current!;
+    expect(first).toMatchObject({ status: "READY", weekKey: "2026-11-02", limited: true });
+    expect(first.entries.map((entry) => entry.kind)).toEqual(["ALBUM", "ARTIST"]);
+    expect(first.entries.every((entry) => !entry.exposedAt && !entry.sessionId)).toBe(true);
+    await weekly.expose(stranger, first.entries[0].id);
+    expect((await weekly.byId(user, first.id))?.entries[0].exposedAt).toBeNull();
+    await weekly.expose(user, first.entries[0].id);
+    await expect(weekly.start(stranger, first.entries[0].id)).rejects.toMatchObject({ status: 404 });
+    await expect(weekly.byId(stranger, first.id)).rejects.toMatchObject({ status: 404 });
+    const [a, b] = await timed("concurrent-weekly-start", () => Promise.all([weekly.start(user, first.entries[0].id), weekly.start(user, first.entries[0].id)]));
+    expect(a).toEqual(b);
+    const albumSession = await service().getSession(a.sessionId, user);
+    expect(albumSession?.items.map((item) => item.trackName)).toEqual(["Faixa 1", "Faixa 2"]);
+    expect(albumSession?.journey?.weekly).toEqual({ kind: "ALBUM", entryId: first.entries[0].id, journeyId: first.id });
+    expect(albumSession?.items[0]).toMatchObject({ feedback: {}, previewUrl: null });
+    const artist = await weekly.start(user, first.entries[1].id);
+    expect((await service().getSession(artist.sessionId, user))?.journey?.weekly?.kind).toBe("ARTIST");
+    now = new Date("2026-11-09T10:00:00Z");
+    const next = (await weekly.prepare(user)).current!;
+    expect(next.id).not.toBe(first.id);
+    expect(select.mock.calls).toHaveLength(2);
+    expect((await weekly.history(user)).weeks.map((week) => week?.id)).toEqual([next.id, first.id]);
+    expect((await weekly.byId(user, first.id))?.entries[0]).toMatchObject({ sessionId: a.sessionId, exposedAt: "2026-11-05T10:00:00.000Z" });
+  });
   it("applies additive migrations and checks destination/coverage on a real generated session", async () => {
     const result = await timed("territory-generation", () => service().generateSession({ userId: user, mode: "BALANCED", intent: "TERRITORY", operation: "NEW_ENTRY", requestKey: randomUUID(), territory: { version: TERRITORY_VERSION, genre: "dub" } }));
     expect(result.items).toHaveLength(6); expect(result.coverage).toMatchObject({ status: "INSUFFICIENT", selected: 6, requested: 8 });

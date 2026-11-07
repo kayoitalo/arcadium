@@ -7,6 +7,7 @@ export const editionSummarySchema = z.object({
   artistName: z.string().min(1).max(1000), albumName: z.string().min(1).max(1000), trackCount: z.number().int().min(1).max(80),
   releaseDate: z.string().max(100).nullable(), sourceUrl: z.string().refine((value) => catalogURL(value) === value), artworkUrl: z.string().refine((value) => catalogURL(value) === value).nullable(), fetchedAt: z.string().datetime(),
   explicitness: z.enum(["explicit", "cleaned", "notExplicit"]).nullable().optional(),
+  genre: z.string().trim().min(1).max(100).optional(),
 });
 export const albumTrackEditionSchema = editionSummarySchema.extend({ trackId: z.string().regex(/^\d{1,20}$/), disc: z.number().int().min(1).max(8), number: z.number().int().min(1).max(80) });
 export type EditionSummary = z.infer<typeof editionSummarySchema>;
@@ -37,7 +38,8 @@ export function catalogTrackURL(value: unknown, trackId: string, collectionId?: 
 }
 const collection = z.object({ wrapperType: z.literal("collection"), collectionId: z.number().int().positive().safe(),
   artistName: z.string().min(1).max(1000), collectionName: z.string().min(1).max(1000), trackCount: z.number().int().min(1).max(80),
-  releaseDate: z.string().max(100).optional(), collectionExplicitness: z.enum(["explicit", "cleaned", "notExplicit"]).optional(), collectionViewUrl: z.string().optional(), artworkUrl100: z.string().optional() });
+  releaseDate: z.string().max(100).optional(), collectionExplicitness: z.enum(["explicit", "cleaned", "notExplicit"]).optional(), collectionViewUrl: z.string().optional(), artworkUrl100: z.string().optional(),
+  primaryGenreName: z.unknown().optional() });
 const song = z.object({ wrapperType: z.literal("track"), kind: z.literal("song"), trackId: z.number().int().positive().safe(),
   collectionId: z.number().int().positive().safe(), collectionName: z.string(), artistName: z.string().min(1).max(1000), trackName: z.string().min(1).max(1000),
   discNumber: z.number().int().min(1).max(8), discCount: z.number().int().min(1).max(8), trackNumber: z.number().int().min(1).max(80),
@@ -47,7 +49,8 @@ export function parseEdition(value: unknown, storefront: string, fetchedAt: stri
   const sourceUrl = catalogURL(item.collectionViewUrl); if (!sourceUrl) return null;
   const summary = editionSummarySchema.safeParse({ provider: "itunes", collectionId: String(item.collectionId), storefront, artistName: item.artistName,
     albumName: item.collectionName, trackCount: item.trackCount, releaseDate: item.releaseDate ?? null, sourceUrl,
-    artworkUrl: catalogURL(item.artworkUrl100)?.replace(/\d+x\d+bb(?=\.)/, "600x600bb") ?? null, fetchedAt, explicitness: item.collectionExplicitness ?? null });
+    artworkUrl: catalogURL(item.artworkUrl100)?.replace(/\d+x\d+bb(?=\.)/, "600x600bb") ?? null, fetchedAt, explicitness: item.collectionExplicitness ?? null,
+    ...(typeof item.primaryGenreName === "string" && item.primaryGenreName.trim() ? { genre: item.primaryGenreName.trim().slice(0, 100) } : {}) });
   return summary.success ? summary.data : null;
 }
 export function parseAlbumEdition(results: unknown[], id: string, storefront: string, fetchedAt: string): AlbumEdition | null {

@@ -32,6 +32,13 @@ const topTracksSchema = z.object({
       .default([]),
   }),
 });
+const publicAlbum = z.object({ name: z.string(), artist: z.object({ name: z.string() }), url: z.string().optional(), mbid: z.string().optional() });
+const publicAlbums = z.object({ album: z.array(publicAlbum).default([]) });
+const albumChart = z.union([z.object({ topalbums: publicAlbums }).transform((row) => row.topalbums.album),
+  z.object({ albums: publicAlbums }).transform((row) => row.albums.album)]);
+const publicArtists = z.object({ artist: z.array(z.object({ name: z.string(), url: z.string().optional() })).default([]) });
+const artistChart = z.union([z.object({ topartists: publicArtists }).transform((row) => row.topartists.artist),
+  z.object({ artists: publicArtists }).transform((row) => row.artists.artist)]);
 
 const artistInfoSchema = z.object({
   artist: z
@@ -151,6 +158,26 @@ export class LastFmSimilarArtistProvider implements SimilarArtistProvider {
 
     writeCache(cacheKey, tracks);
     return tracks;
+  }
+
+  async getWeeklyAlbums(kind: "artist" | "tag", value: string, limit = 5) {
+    const size = Math.max(1, Math.min(10, limit));
+    const key = JSON.stringify(["topalbums", kind, value.toLowerCase(), size]);
+    const cached = readCache<z.output<typeof albumChart>>(key);
+    if (cached) { this.diagnostics.cacheHits++; return cached; }
+    const rows = await this.request({ method: `${kind}.gettopalbums`, [kind]: value, limit: String(size), autocorrect: "0" }, albumChart);
+    if (rows) writeCache(key, rows.slice(0, size));
+    return rows?.slice(0, size) ?? [];
+  }
+
+  async getWeeklyArtists(tag: string, limit = 5) {
+    const size = Math.max(1, Math.min(10, limit));
+    const key = JSON.stringify(["topartists", tag.toLowerCase(), size]);
+    const cached = readCache<z.output<typeof artistChart>>(key);
+    if (cached) { this.diagnostics.cacheHits++; return cached; }
+    const rows = await this.request({ method: "tag.gettopartists", tag, limit: String(size) }, artistChart);
+    if (rows) writeCache(key, rows.slice(0, size));
+    return rows?.slice(0, size) ?? [];
   }
 
   /**
