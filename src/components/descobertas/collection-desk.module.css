@@ -1,10 +1,9 @@
 .desk { padding: 48px 0 100px; }
-.header { display: grid; grid-template-columns: 1.3fr 1fr; align-items: end; gap: 48px; padding-bottom: 40px; }
-.eyebrow { text-transform: uppercase; letter-spacing: .13em; font-size: 11px; color: var(--tinta-3); margin-bottom: 20px; }
+.header { padding-bottom: 24px; }
 .counter { display: flex; gap: 18px; align-items: center; border-block: 1px solid var(--fio-2); margin: 24px 0; padding: 20px 0; }
 .counter strong { font-size: 72px; line-height: 1; font-variation-settings: "wdth" 70, "wght" 720; }
 .counter span { color: var(--tinta-3); font-size: 13px; line-height: 1.6; }
-@media(max-width:700px) { .desk { padding-top: 28px; } .header { grid-template-columns: 1fr; gap: 28px; } }
+@media(max-width:700px) { .desk { padding-top: 28px; } }
 
 .desk ol { list-style: none; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 36px; padding: 0; counter-reset: collection-track; }
 .desk ol > li { counter-increment: collection-track; position: relative; padding: 24px 0 24px 42px; min-width: 0; border-top: 1px solid var(--fio-2); }

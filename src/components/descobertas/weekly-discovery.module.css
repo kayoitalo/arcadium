@@ -1,24 +1,28 @@
+/* A jornada da semana: os tokens da casa; o amarelo fica com a caneta. */
 .week {
   position: relative;
   display: grid;
-  gap: .8rem;
-  padding-block: 1.5rem;
-  border-block: 1px solid rgb(145 140 118 / .35);
+  gap: 12px;
+  padding-block: 28px;
+  border-bottom: 1px solid var(--fio-2);
 }
 .week h3, .week p { margin: 0; }
-.week h2 { max-width: 24ch; font-size: clamp(1.7rem, 3vw, 2.5rem); }
+.week p { max-width: 62ch; color: var(--tinta-2); font-size: 14px; line-height: 1.65; }
 .week button, .week summary, .history summary { cursor: pointer; }
-.eyebrow { color: var(--color-ink-muted, #aaa48f); font-size: .73rem; letter-spacing: .085em; text-transform: uppercase; }
-.doors { display: grid; gap: .85rem; padding: 0; margin: .5rem 0; list-style: none; }
-.door { display: grid; gap: .55rem; border-top: 1px solid rgb(145 140 118 / .35); padding-block: .85rem; overflow-wrap: anywhere; }
-.doors li:first-child .door h3 { font-size: clamp(1.35rem, 2.4vw, 2rem); }
-.door h3 { line-height: 1.15; }
-.door p { max-width: 62ch; }
-.door details { width: fit-content; max-width: 100%; }
-.door details ol { margin-block: .65rem; padding-inline-start: 1.4em; }
-.narrative { font-size: .85rem; }
-.narrative button { background: none; color: inherit; border: 0; padding: .35rem 0; text-decoration: underline; text-underline-offset: .2em; }
-.history { padding-block: .8rem; }
-.history ol { padding-inline-start: 1.3rem; }
-.history a { color: inherit; }
-.week :focus-visible, .history :focus-visible { outline: 2px solid var(--color-accent, #ead335); outline-offset: 3px; }
+.eyebrow { color: var(--tinta-3); font-size: 12px; }
+.doors { display: grid; gap: 0; padding: 0; margin: 8px 0; list-style: none; }
+.door { display: grid; gap: 8px; border-top: 1px solid var(--fio); padding-block: 18px; overflow-wrap: anywhere; }
+.door h3 { font-size: 22px; line-height: 1.15; font-variation-settings: "wdth" 82, "wght" 640; color: var(--tinta); }
+.doors li:first-child .door h3 { font-size: clamp(26px, 2.6vw, 36px); font-variation-settings: "wdth" 76, "wght" 700; }
+.door details { width: fit-content; max-width: 100%; color: var(--tinta-3); font-size: 13px; }
+.door details ol { margin-block: 10px; padding-inline-start: 20px; color: var(--tinta-2); }
+.door a { color: var(--tinta-2); text-underline-offset: 4px; }
+.narrative button { background: none; color: var(--tinta-2); border: 0; padding: 8px 0; min-height: 44px; font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 4px; }
+.narrative p { font-size: 12px; color: var(--tinta-3); }
+.history { padding-block: 12px; border-bottom: 1px solid var(--fio); color: var(--tinta-2); font-size: 14px; }
+.history summary { min-height: 44px; padding-block: 12px; }
+.history ol { padding-inline-start: 20px; }
+.history li { padding-block: 6px; }
+.history a { color: inherit; text-underline-offset: 4px; }
+.history button { background: none; border: 0; color: var(--tinta-2); font: inherit; min-height: 44px; text-decoration: underline; text-underline-offset: 4px; }
+.week :focus-visible, .history :focus-visible { outline: 2px solid var(--tinta); outline-offset: 3px; }

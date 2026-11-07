@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const db = vi.hoisted(() => ({ unique: vi.fn(), session: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), album: vi.fn(), library: vi.fn(), item: vi.fn(), lock: vi.fn(), result: vi.fn() }));
+const db = vi.hoisted(() => ({ unique: vi.fn(), session: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), album: vi.fn(), library: vi.fn(), plays: vi.fn(), item: vi.fn(), lock: vi.fn(), result: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => {
   const client = { recommendationSession: { findUnique: db.unique, findFirst: db.session, create: db.create, update: db.update, updateMany: db.updateMany },
-    album: { findFirst: db.album, findMany: db.library }, recommendationItem: { findFirst: db.item }, $queryRaw: db.lock };
+    album: { findFirst: db.album, findMany: db.library }, listeningEvent: { groupBy: db.plays }, recommendationItem: { findFirst: db.item }, $queryRaw: db.lock };
   return { prisma: { ...client, $transaction: (task: any) => task(client) } };
 });
 vi.mock("./recommendation-service", () => ({ RecommendationService: class { getSession = db.result; } }));
@@ -16,7 +16,7 @@ beforeEach(() => {
   vi.resetAllMocks(); db.unique.mockResolvedValue(null); db.create.mockResolvedValue({ id: "new" });
   db.session.mockImplementation((args) => Promise.resolve(args.where.id ? { id: "new", status: "GENERATING" } : null));
   db.album.mockResolvedValue({ name: summary.albumName, artist: { name: "Banda" } });
-  db.result.mockResolvedValue({ sessionId: "new", items: [] }); db.updateMany.mockResolvedValue({ count: 1 }); db.library.mockResolvedValue([]);
+  db.result.mockResolvedValue({ sessionId: "new", items: [] }); db.updateMany.mockResolvedValue({ count: 1 }); db.library.mockResolvedValue([]); db.plays.mockResolvedValue([]);
 });
 const provider = () => ({ searchEditions: vi.fn().mockResolvedValue([summary]), lookupEdition: vi.fn().mockResolvedValue(edition()) });
 const curatedSource = { kind: "curated" as const, id: CARTOLA_1976.credit.id };
@@ -65,9 +65,19 @@ describe("owned album journeys", () => {
     expect(api.searchEditions).not.toHaveBeenCalled(); expect(db.create).not.toHaveBeenCalled();
     expect(db.album.mock.calls[0][0].where.listeningEvents).toEqual({ some: { userId: "owner" } });
   });
+  it("orders the shelf by this account's plays and keeps the cover when enriched", async () => {
+    db.plays.mockResolvedValue([{ albumId: "most", _count: { albumId: 40 } }, { albumId: "less", _count: { albumId: 3 } }]);
+    db.library.mockResolvedValue([{ id: "less", name: "#willpower", coverUrl: null, artist: { name: "will.i.am" } },
+      { id: "most", name: "Bad", coverUrl: "https://coverartarchive.org/x.jpg", artist: { name: "Michael Jackson" } }]);
+    const shelf = await new AlbumJourneyService().library("owner");
+    expect(shelf.albums.map((album) => album.albumName)).toEqual(["Bad", "#willpower"]);
+    expect(shelf.albums[0].coverUrl).toBe("https://coverartarchive.org/x.jpg");
+    expect(db.library.mock.calls[0][0].where.listeningEvents).toEqual({ some: { userId: "owner" } });
+  });
   it("bounds the local library and only accepts owned recommendation references with an album", async () => {
     await new AlbumJourneyService().library("owner", "Ao vivo");
-    expect(db.library).toHaveBeenCalledWith(expect.objectContaining({ take: 21, where: expect.objectContaining({ listeningEvents: { some: { userId: "owner" } } }) }));
+    expect(db.plays).toHaveBeenCalledWith(expect.objectContaining({ take: 21, where: expect.objectContaining({ userId: "owner" }) }));
+    expect(db.library).not.toHaveBeenCalled();
     db.item.mockResolvedValue({ artistName: "Banda", albumName: null }); const api = provider();
     await expect(new AlbumJourneyService(api).editions("owner", { kind: "recommendation", id: "i" })).rejects.toMatchObject({ status: 404 });
     expect(api.searchEditions).not.toHaveBeenCalled();

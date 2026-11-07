@@ -52,6 +52,32 @@ jobs:
             exit 1
           fi
 
+      - name: Enriquecer artistas, capas e catálogo
+        # Lotes pequenos a cada hora: o MusicBrainz aceita uma consulta por
+        # segundo e o catálogo da Apple ~19 por minuto. Sem isso, capas e
+        # gêneros só avançavam com cliques em ajustes. Falhar aqui não
+        # bloqueia os textos: o próximo passo segue com o que já existe.
+        continue-on-error: true
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -uo pipefail
+
+          TARGET_URL="${APP_URL%/}/api/enrichment"
+          failed=0
+          for body in '{"action":"all","batchSize":5}' '{"action":"covers","batchSize":10}' '{"action":"catalog","batchSize":8}'; do
+            HTTP_STATUS=$(curl -s -o enrichment.json -w "%{http_code}" \
+              --max-time 75 \
+              -X POST "${TARGET_URL}" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${CRON_SECRET}" \
+              -d "${body}") || HTTP_STATUS=000
+            echo "${body} → HTTP ${HTTP_STATUS}"
+            if [ "${HTTP_STATUS}" -ge 400 ] || [ "${HTTP_STATUS}" = "000" ]; then failed=1; fi
+          done
+          exit "${failed}"
+
       - name: Renovar os textos da IA
         # Depois do sync, e só se ele passou: a renovação decide pela escuta
         # nova. A rota gera no máximo um pacote por execução e pula sozinha

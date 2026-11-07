@@ -100,7 +100,7 @@ async function runChecks() {
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent?.includes("continuar") && !node.disabled), "bootstrap");
   assert(qa.plays === 0 && !requests.some((r) => r.body.operation === "EXPOSE" || r.url.endsWith("/media")), "Entry must not expose, load media or autoplay");
-  button("continuar →").click();
+  button("continuar de onde parei →").click();
   await wait(() => ready(1) && expose(1), "first mounted/visible item");
   assert(document.activeElement === document.querySelector("h1"), "Focus must reach the incoming title");
   await wait(() => Boolean(document.querySelector('button[aria-label="Ouvir prévia"]:not(:disabled)')), "synthetic media");
@@ -145,7 +145,7 @@ async function runChecks() {
   passed.push("separate discovery, album, collection and memory areas without duplicate panels");
   button("← anterior").click(); await wait(() => ready(1), "backward transition");
   button("trocar caminho ↗").click(); await wait(() => !document.querySelector('[data-discovery-scene]'), "entry return");
-  button("continuar →").click(); await wait(() => ready(1), "same item after entry");
+  button("continuar de onde parei →").click(); await wait(() => ready(1), "same item after entry");
   await wait(() => document.querySelector('svg[data-layer="under"] path[data-kind="ink"]'), "pen after remount");
   assert(qa.plays === 1, "Navigating must not restart audio");
   assert(document.documentElement.scrollWidth <= innerWidth, "Mobile/desktop must not overflow horizontally");

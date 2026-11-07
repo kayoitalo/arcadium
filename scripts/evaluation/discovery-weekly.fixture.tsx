@@ -53,7 +53,7 @@ function control<E extends HTMLElement>(selector: string, name: string) {
   return found;
 }
 async function runDiscoveryChecks() {
-  await wait(() => text().includes("2 portas neste recorte"), "saved weekly coverage");
+  await wait(() => text().includes("Essa semana ficou com 2 portas"), "saved weekly coverage");
   assert(requests.filter((request) => request.body.action === "PREPARE").length === 1, "weekly preparation must happen once");
   assert(!requests.some((request) => request.body.action === "START" || request.body.action === "NARRATE"), "loading must not start sessions or call AI");
   control("summary", "conferir a edição").click();

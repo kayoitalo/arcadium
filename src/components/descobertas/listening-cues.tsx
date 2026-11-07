@@ -6,13 +6,12 @@ import { DiscoveryDisclosure } from "./discovery-disclosure";
 import styles from "./album-journeys.module.css";
 export function ListeningCueExcerpt({ value }: { value: Cues }) {
   return <>
-    {value.status === "INSUFFICIENT_EVIDENCE" && <p>Não há evidência suficiente para uma pista desta versão. Você pode ouvir e registrar o que percebeu; não vou inventar atributos sonoros.</p>}
+    {value.status === "INSUFFICIENT_EVIDENCE" && <p>Não tenho uma pista confiável pra essa versão. Ouve e me conta o que percebeu.</p>}
     {value.cues.map((cue) => <article className={styles.context} key={cue.kind}><p><strong>{cue.fact}</strong></p><p>{cue.invitation}</p>
       {cue.kind === "RECORDING_CREDIT"
         ? <p><a href={cue.source.url} target="_blank" rel="noreferrer">Crédito da gravação na Universal Music Brasil ↗</a> · consultado em <time dateTime={cue.source.checkedOn}>{cue.source.checkedOn.split("-").reverse().join("/")}</time></p>
         : <p><a href={cue.source.url} target="_blank" rel="noreferrer">{cue.kind === "WEEKLY_RECORDING_CREDIT" ? "Crédito da gravação no MusicBrainz ↗" : "Entrada da faixa no Apple Music ↗"}</a> · consultado em <time dateTime={cue.source.fetchedAt}>{new Date(cue.source.fetchedAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</time></p>}
     </article>)}
-    <p>{value.limitation}</p>
   </>;
 }
 export function ListeningCues({ itemId, mediaReady }: { itemId: string; mediaReady: boolean }) {
@@ -26,9 +25,9 @@ export function ListeningCues({ itemId, mediaReady }: { itemId: string; mediaRea
       .catch(() => { if (!controller.signal.aborted) setError(true); });
     return () => controller.abort();
   }, [open, itemId, mediaReady, attempt]);
-  return <DiscoveryDisclosure summary="pistas para esta versão, com fonte" open={open} onOpenChange={setOpen} className={styles.contextDisclosure}>
-    {!value && !error && <p role="status">Conferindo os metadados desta versão…</p>}
-    {error && <p role="alert">Não consegui conferir as pistas. <button onClick={() => setAttempt((n) => n + 1)}>tentar novamente</button></p>}
+  return <DiscoveryDisclosure summary="o que reparar nessa faixa" open={open} onOpenChange={setOpen} className={styles.contextDisclosure}>
+    {!value && !error && <p role="status">Conferindo os créditos dessa versão…</p>}
+    {error && <p role="alert">Não consegui conferir agora. <button onClick={() => setAttempt((n) => n + 1)}>tenta de novo</button></p>}
     {value && <ListeningCueExcerpt value={value} />}
   </DiscoveryDisclosure>;
 }
