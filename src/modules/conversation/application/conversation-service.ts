@@ -4,6 +4,7 @@ import { formatGenre } from "@/lib/format/genre";
 import { AIAnalysisService } from "@/modules/ai-analysis/application/ai-analysis-service";
 import type { ProfileNarrative } from "@/modules/ai-analysis/domain/ai-analysis.types";
 import { ItunesPreviewAdapter } from "@/modules/recommendations/infrastructure/itunes-preview-adapter";
+import { fallbackCover } from "./cover-fallback";
 import { loadArtistGenres } from "@/modules/statistics/application/artist-genres";
 import { decadeDistribution } from "@/modules/statistics/application/decades";
 import { getPeriodRanges, type PeriodKey } from "@/modules/statistics/application/overview-service";
@@ -169,10 +170,13 @@ async function previewFor(trackId: string | null, artist: string, track: string)
   return { url: found?.url ?? null, artworkUrl: found?.artworkUrl ?? null };
 }
 
-async function coverOf(albumId: string | null): Promise<{ url: string | null; title: string | null }> {
+/** A capa salva do disco; sem ela, a reserva do catálogo da Apple, que fica gravada para a próxima visita. */
+async function coverOf(albumId: string | null, artist: string, track: string | null): Promise<{ url: string | null; title: string | null }> {
   if (!albumId) return { url: null, title: null };
   const album = await prisma.album.findUnique({ where: { id: albumId }, select: { coverUrl: true, name: true } });
-  return { url: sharpCover(album?.coverUrl), title: album?.name ?? null };
+  if (!album) return { url: null, title: null };
+  if (album.coverUrl) return { url: sharpCover(album.coverUrl), title: album.name };
+  return { url: await fallbackCover(albumId, artist, album.name, track), title: album.name };
 }
 
 async function transitionEvidence(data: PeriodData, reading: ProfileNarrative, timeZone: string): Promise<Evidence | null> {
@@ -187,7 +191,7 @@ async function transitionEvidence(data: PeriodData, reading: ProfileNarrative, t
   const [from, to] = await Promise.all(
     pair.map(async (event): Promise<TransitionSide> => {
       const [cover, preview] = await Promise.all([
-        coverOf(event.albumId),
+        coverOf(event.albumId, event.artist, event.track),
         previewFor(event.trackId, event.artist, event.track),
       ]);
       const genre = genres.get(event.artist)?.[0];
@@ -276,7 +280,7 @@ async function rankingEvidence(data: PeriodData, reading: ProfileNarrative): Pro
     : null;
 
   const [cover, preview] = await Promise.all([
-    coverOf(albumRow?.albumId ?? null),
+    coverOf(albumRow?.albumId ?? null, artist, previewTrack),
     previewTrack ? previewFor(trackEvent?.trackId ?? null, artist, previewTrack) : Promise.resolve({ url: null, artworkUrl: null }),
   ]);
 

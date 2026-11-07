@@ -32,6 +32,18 @@ describe("owner-scoped enrichment", () => {
       for (const [args] of query.mock.calls) expect(args.where.listeningEvents).toEqual({ some: { userId: "owner" } });
     }
   });
+  it("keeps the Conversa's catalog cover when no better cover turns up", async () => {
+    mocks.albums.mockResolvedValue([{ id: "album", name: "Angels Cry", mbid: null, releaseGroupMbid: null, coverUrl: "https://is1.mzstatic.com/x.jpg", coverSource: "itunes-track", artist: { name: "Angra" } }]);
+    const none = { findAlbumCover: vi.fn().mockResolvedValue(null) };
+    await new EnrichmentService(undefined, undefined, undefined, [none]).enrichMissingAlbumCovers("owner", 1);
+    expect(mocks.albumUpdate).toHaveBeenCalledExactlyOnceWith({ where: { id: "album" }, data: { coverFetchedAt: expect.any(Date) } });
+  });
+  it("still clears an unavailable archive link when nothing replaces it", async () => {
+    mocks.albums.mockResolvedValue([{ id: "album", name: "Disco", mbid: null, releaseGroupMbid: null, coverUrl: "https://coverartarchive.org/release/x/front", coverSource: "cover-art-archive", artist: { name: "Banda" } }]);
+    const none = { findAlbumCover: vi.fn().mockResolvedValue(null) };
+    await new EnrichmentService(undefined, undefined, undefined, [none]).enrichMissingAlbumCovers("owner", 1);
+    expect(mocks.albumUpdate.mock.calls[0][0].data).toMatchObject({ coverUrl: null, coverSource: null });
+  });
   it("does not borrow a live recording or a compilation guest's preview for the studio track", async () => {
     mocks.albums.mockResolvedValue([{ id: "album", artistId: "band", artist: { name: "Band" }, itunesCollectionId: "collection" }]);
     mocks.tracks.mockResolvedValue([
