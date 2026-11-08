@@ -62,12 +62,12 @@ async function runChecks() {
   [...document.querySelectorAll<HTMLButtonElement>("button")].find(node=>node.textContent?.includes("Uma colaboração"))!.click();
   await wait(()=>document.querySelector('[data-portrait-poster] img[alt$="Spotify"]')&&document.querySelector('[data-loaded="true"]'),"Spotify photo after another selection");
   assert(document.querySelector('[data-portrait-poster] img[alt="Spotify"]'),"Selected photo needs Spotify attribution");
-  button("a fase recente os últimos 30 dias, com os 30 anteriores").click();
+  button("os últimos 30 dias").click();
   const periods = () => document.querySelector('[aria-label="Reproduções por período"]')?.textContent ?? "";
   await wait(()=>periods().includes("últimos 30 dias5"),"recent perspective");
   assert(periods().includes("30 dias anteriores15") && periods().includes("últimos 30 dias5"), "Recent and previous windows must remain separate");
   assert(document.querySelector('a[href="/history?search=Artista%20de%20teste"]'), "Portrait must link to the filtered history");
-  button("ao longo do caminho desde o começo").click();
+  button("desde o começo").click();
   [...document.querySelectorAll("summary")].find((node)=>node.textContent?.includes("assuntos que você silenciou"))!.click();
   await wait(()=>[...document.querySelectorAll("button")].some((node)=>node.textContent==="voltar a esse assunto"),"topic drawer");
   button("voltar a esse assunto").click(); await wait(() => ![...document.querySelectorAll("summary")].some((node) => node.textContent?.includes("assuntos que você silenciou")), "restore editorial topic");

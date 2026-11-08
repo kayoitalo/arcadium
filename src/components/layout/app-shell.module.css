@@ -70,27 +70,111 @@
   padding: 0 var(--gutter);
 }
 
+.logout {
+  flex-shrink: 0;
+}
+
+/* o botão do caderno e o próprio caderno só existem no celular */
+.menuToggle {
+  display: none;
+}
+
+.caderno {
+  display: none;
+}
+
 @media (max-width: 760px) {
   .shell {
-    --bar-h: 92px;
+    --bar-h: 56px;
   }
 
+  /* no celular a barra é só a marca e o nome da tela: o resto da tela é da conversa */
   .bar {
-    flex-wrap: wrap;
-    row-gap: 8px;
-  }
-
-  .nav {
-    order: 1;
-    width: 100%;
-    margin-left: 0;
     gap: 16px;
-    /* o que não cabe continua ali: a borda se apaga em vez de cortar a palavra */
-    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    padding: 6px var(--gutter) 14px;
+    background: linear-gradient(var(--papel) 72%, transparent);
   }
 
-  .link {
-    font-size: 13px;
+  .nav,
+  .logout {
+    display: none;
+  }
+
+  .menuToggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    margin-left: auto;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--tinta);
+    font: inherit;
+    font-size: 14px;
+    font-variation-settings: "wdth" 96, "wght" 560;
+    text-decoration: underline;
+    text-decoration-color: var(--tinta-3);
+    text-underline-offset: 6px;
+    cursor: pointer;
+  }
+
+  .caderno {
+    position: fixed;
+    inset: var(--bar-h) 0 0;
+    z-index: 19;
+    display: flex;
+    flex-direction: column;
+    padding: 12px var(--gutter) max(20px, env(safe-area-inset-bottom));
+    overflow-y: auto;
+    background: var(--papel);
+    border-top: 1px solid var(--fio);
+    animation: cadernoIn 200ms var(--glide) both;
+  }
+
+  .caderno ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* as telas na letra da fala: a atual sublinhada em tinta, sem cor (o amarelo é da caneta) */
+  .caderno a {
+    display: block;
+    padding: 10px 0;
+    color: var(--tinta-2);
+    font-size: clamp(36px, 11vw, 48px);
+    font-variation-settings: "wdth" 70, "wght" 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    text-decoration: none;
+  }
+
+  .caderno a[aria-current="page"] {
+    color: var(--tinta);
+    text-decoration: underline;
+    text-decoration-thickness: 3px;
+    text-underline-offset: 8px;
+  }
+
+  .cadernoFoot {
+    display: flex;
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid var(--fio);
+  }
+}
+
+@keyframes cadernoIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .caderno {
+    animation: none;
   }
 }
 

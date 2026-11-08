@@ -1,28 +1,46 @@
-/* A jornada da semana: os tokens da casa; o amarelo fica com a caneta. */
+/* A jornada da semana na aba própria: uma manchete, as portas como cartas. O amarelo fica com a caneta. */
 .week {
   position: relative;
+  isolation: isolate;
   display: grid;
-  gap: 12px;
-  padding-block: 28px;
-  border-bottom: 1px solid var(--fio-2);
+  gap: 14px;
+  padding-block: clamp(28px, 6vh, 56px) 24px;
 }
-.week h3, .week p { margin: 0; }
-.week p { max-width: 62ch; color: var(--tinta-2); font-size: 14px; line-height: 1.65; }
+.head { padding-bottom: 18px; }
+/* só as cartas e os avisos: a fala do topo mantém o tamanho e o respiro da casa */
+.doorText h2, .doorText p, .week > p { margin: 0; }
+.doorText p, .week > p { max-width: 62ch; color: var(--tinta-2); font-size: 14px; line-height: 1.65; }
 .week button, .week summary, .history summary { cursor: pointer; }
-.eyebrow { color: var(--tinta-3); font-size: 12px; }
-.doors { display: grid; gap: 0; padding: 0; margin: 8px 0; list-style: none; }
-.door { display: grid; gap: 8px; border-top: 1px solid var(--fio); padding-block: 18px; overflow-wrap: anywhere; }
-.door h3 { font-size: 22px; line-height: 1.15; font-variation-settings: "wdth" 82, "wght" 640; color: var(--tinta); }
-.doors li:first-child .door h3 { font-size: clamp(26px, 2.6vw, 36px); font-variation-settings: "wdth" 76, "wght" 700; }
+.eyebrow { color: var(--tinta-3); font-size: 13px; }
+.doors { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 0; padding: 0; margin: 8px 0 0; list-style: none; border-top: 1px solid var(--fio-2); }
+.doors > li + li { border-left: 1px solid var(--fio-2); }
+.door { display: grid; grid-template-columns: clamp(120px, 14vw, 200px) minmax(0, 1fr); gap: clamp(18px, 2.4vw, 32px); padding: 28px 32px 28px 0; overflow-wrap: anywhere; }
+.doors > li + li .door { padding-left: 32px; padding-right: 0; }
+.doorCover { width: 100%; }
+.doorText { display: grid; align-content: start; gap: 8px; min-width: 0; }
+.door h2 { font-size: clamp(26px, 2.6vw, 38px); line-height: 1.02; letter-spacing: -.03em; font-variation-settings: "wdth" 72, "wght" 760; color: var(--tinta); }
+.week .artist { color: var(--tinta); font-size: 15px; }
+/* o estado da porta: nova ou em andamento, dito em palavra, não em tamanho de letra */
+.week .state { display: inline-flex; width: fit-content; align-items: center; height: 26px; padding: 0 10px; border: 1px solid var(--fio-2); border-radius: 999px; font-size: 12px; color: var(--tinta-2); }
+.week .state[data-started] { border-color: var(--tinta-3); color: var(--tinta); }
 .door details { width: fit-content; max-width: 100%; color: var(--tinta-3); font-size: 13px; }
+.door details summary { min-height: 44px; padding-block: 12px; }
 .door details ol { margin-block: 10px; padding-inline-start: 20px; color: var(--tinta-2); }
 .door a { color: var(--tinta-2); text-underline-offset: 4px; }
 .narrative button { background: none; color: var(--tinta-2); border: 0; padding: 8px 0; min-height: 44px; font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 4px; }
 .narrative p { font-size: 12px; color: var(--tinta-3); }
-.history { padding-block: 12px; border-bottom: 1px solid var(--fio); color: var(--tinta-2); font-size: 14px; }
+.history { margin-bottom: 48px; padding-block: 12px; border-block: 1px solid var(--fio); color: var(--tinta-2); font-size: 14px; }
 .history summary { min-height: 44px; padding-block: 12px; }
 .history ol { padding-inline-start: 20px; }
 .history li { padding-block: 6px; }
 .history a { color: inherit; text-underline-offset: 4px; }
 .history button { background: none; border: 0; color: var(--tinta-2); font: inherit; min-height: 44px; text-decoration: underline; text-underline-offset: 4px; }
 .week :focus-visible, .history :focus-visible { outline: 2px solid var(--tinta); outline-offset: 3px; }
+@media (max-width: 1100px) {
+  .doors > li + li { border-left: 0; border-top: 1px solid var(--fio-2); }
+  .door, .doors > li + li .door { padding-inline: 0; }
+}
+@media (max-width: 640px) {
+  .door { grid-template-columns: 96px minmax(0, 1fr); gap: 16px; padding-block: 22px; }
+  .door h2 { font-size: 24px; }
+}

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useReducedMotion } from "framer-motion";
 import { privateFetch } from "@/lib/http/private-fetch";
-import { Fala, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
+import { Capa, Fala, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
 import { band } from "@/components/amigo/gestures";
 import { textLines } from "@/components/amigo/measure";
 import { usePen } from "@/components/amigo/use-pen";
@@ -123,32 +123,47 @@ export function WeeklyDiscovery({ journeyId, allowNarrative, onStart = (id) => w
 
   const currentStatus = report?.current?.status;
   const narrative = showNarrative ? week?.narrative : undefined;
+  const count = week?.entries.length ?? 0;
+  const doors = count === 1 ? "uma porta" : `${count} portas`;
+  const previous = Boolean(week && report?.previous?.id === week.id);
+  // uma manchete só: o que a semana tem, com o grifo na contagem
+  const headline = !week ? "Tua jornada da semana." : previous ? `A semana passada teve ${doors}.` : `Essa semana tem ${doors}.`;
   return <div ref={section} className={styles.week} role="region" aria-label="Tua jornada da semana">
-    <Fala level={2} headline="Tua jornada da semana" mark={["semana"]} markRef={mark} marked={pen.started.has("semana")}
-      narrative={narrative?.opening ?? "Abre uma porta de cada vez. Teu lugar fica guardado."} />
+    <header className={styles.head}>
+      <Fala level={1} window={week ? `${previous ? "semana anterior · " : ""}${period(week)}` : undefined} headline={headline}
+        mark={week ? [doors] : ["semana"]} markRef={mark} marked={pen.started.has("semana")}
+        narrative={narrative?.opening ?? "Abre uma de cada vez. Teu lugar em cada uma fica guardado."} />
+    </header>
     {waiting && <p role="status">Conferindo as portas desta semana…</p>}
     {error && <p role="alert">{error} <button type="button" onClick={() => setReload((value) => value + 1)}>consultar novamente</button></p>}
     {!waiting && currentStatus === "FAILED" && <p>A consulta ficou interrompida. <button type="button" onClick={() => setReload((value) => value + 1)}>conferir novamente</button></p>}
     {!waiting && currentStatus === "PREPARING" && <p>A semana ainda está sendo preparada. <button type="button" onClick={() => setReload((value) => value + 1)}>ver se ficou pronta</button></p>}
     {currentStatus === "EMPTY" && <p>Essa semana não achei uma porta que eu pudesse confirmar. A estante e os outros caminhos continuam aqui.</p>}
     {week && <>
-      <p className={styles.eyebrow}>{report?.previous?.id === week.id ? "semana anterior · " : ""}{period(week)}</p>
-      {week.limited && <p>Essa semana ficou com {week.entries.length === 1 ? "uma porta" : `${week.entries.length} portas`}.</p>}
+      {week.limited && <p>Essa semana ficou com {doors}.</p>}
       {!week.personalized && <p>Ainda conheço pouco do teu histórico, então começo por uma porta do catálogo.</p>}
-      <ol className={styles.doors}>{week.entries.map((entry) => <li key={entry.id}><WeeklyDoor entry={entry}>
-        <p className={styles.eyebrow}>{WEEKLY_TITLES[entry.role]} · {entry.kind === "ALBUM" ? "álbum em ordem" : "faixas do artista"}</p>
-        <h3>{entry.album?.albumName ?? entry.artistName}</h3>
-        {entry.album && <p>{entry.artistName}</p>}
-        <p>{entry.reason}</p>
-        {narrative?.transitions[entry.id] && <p>{narrative.transitions[entry.id]}</p>}
-        <DiscoveryDisclosure summary={entry.kind === "ALBUM" ? "conferir a edição" : "ver as faixas da entrada"}>
-          {entry.album ? <EditionCredit album={entry.album} /> : <><p>{entry.trackSource === "lastfm" ? "Faixas populares no Last.fm, filtradas pelas tuas escutas." : "Faixas identificadas no catálogo local."}</p>
-            <ol>{entry.tracks?.map((track) => <li key={track}>{track}</li>)}</ol></>}
-          {entry.reference.url && <p><a href={entry.reference.url} target="_blank" rel="noreferrer">referência no Last.fm ↗</a></p>}
-        </DiscoveryDisclosure>
-        <Respostas inline>{entry.sessionId ? <Resposta href={`/discovery?session=${encodeURIComponent(entry.sessionId)}`}>continuar de onde parei →</Resposta>
-          : <Resposta disabled={Boolean(starting)} onClick={() => void start(entry)}>{starting === entry.id ? "abrindo…" : "começar a escuta →"}</Resposta>}</Respostas>
-      </WeeklyDoor></li>)}</ol>
+      <ol className={styles.doors}>{week.entries.map((entry) => {
+        const name = entry.album?.albumName ?? entry.artistName;
+        return <li key={entry.id}><WeeklyDoor entry={entry}>
+          <Capa cover={{ url: entry.album?.artworkUrl, title: name, artist: entry.artistName }} className={styles.doorCover} />
+          <div className={styles.doorText}>
+            <p className={styles.eyebrow}>{WEEKLY_TITLES[entry.role]} · {entry.kind === "ALBUM" ? "álbum em ordem" : "faixas do artista"}</p>
+            <h2>{name}</h2>
+            {entry.album && <p className={styles.artist}>{entry.artistName}</p>}
+            <p>{entry.reason}</p>
+            {narrative?.transitions[entry.id] && <p>{narrative.transitions[entry.id]}</p>}
+            <p className={styles.state} data-started={Boolean(entry.sessionId) || undefined}>{entry.sessionId ? "em andamento" : "nova"}</p>
+            <Respostas inline>{entry.sessionId
+              ? <Resposta primary href={`/discovery?session=${encodeURIComponent(entry.sessionId)}`}>{`seguir com ${name} →`}</Resposta>
+              : <Resposta disabled={Boolean(starting)} onClick={() => void start(entry)}>{starting === entry.id ? "abrindo…" : entry.kind === "ALBUM" ? "começar o disco →" : `começar com ${entry.artistName} →`}</Resposta>}</Respostas>
+            <DiscoveryDisclosure summary={entry.kind === "ALBUM" ? "conferir a edição" : "ver as faixas da entrada"}>
+              {entry.album ? <EditionCredit album={entry.album} /> : <><p>{entry.trackSource === "lastfm" ? "Faixas populares no Last.fm, filtradas pelas tuas escutas." : "Faixas identificadas no catálogo local."}</p>
+                <ol>{entry.tracks?.map((track) => <li key={track}>{track}</li>)}</ol></>}
+              {entry.reference.url && <p><a href={entry.reference.url} target="_blank" rel="noreferrer">referência no Last.fm ↗</a></p>}
+            </DiscoveryDisclosure>
+          </div>
+        </WeeklyDoor></li>;
+      })}</ol>
       {allowNarrative && <div className={styles.narrative}><button type="button" disabled={narrating || week.narrativeStatus === "PREPARING" || week.narrativeStatus === "FAILED"} onClick={() => void narrate()}>
         {narrating || week.narrativeStatus === "PREPARING" ? "preparando a apresentação…" : week.narrativeStatus === "FAILED" ? "apresentação experimental indisponível" : showNarrative ? "voltar ao texto simples" : "experimentar outra apresentação"}
       </button>{showNarrative && <p>Apresentação experimental com IA. As escolhas e as fontes são as mesmas.</p>}</div>}
@@ -173,13 +188,13 @@ export function WeeklyHistory() {
     } catch { setError(true); }
     finally { inFlight.current = false; setBusy(false); }
   }
-  return <DiscoveryDisclosure className={styles.history} summary="jornadas da semana" open={open} onOpenChange={(value) => {
+  return <DiscoveryDisclosure className={styles.history} summary="semanas anteriores" open={open} onOpenChange={(value) => {
     setOpen(value); if (value && weeks === null) void load();
   }}>
     {busy && <p role="status">Abrindo as semanas…</p>}
     {error && <p role="alert">Não consegui carregar as semanas. <button onClick={() => void load(weeks ? cursor ?? undefined : undefined)}>tentar novamente</button></p>}
     {weeks?.length === 0 && <p>As jornadas que você abrir vão aparecer aqui.</p>}
-    <ol>{weeks?.map((week) => <li key={week.id}><Link href={`/discovery?semana=${encodeURIComponent(week.id)}`}>{period(week)} · {week.entries.length} {week.entries.length === 1 ? "porta" : "portas"} ↗</Link></li>)}</ol>
+    <ol>{weeks?.map((week) => <li key={week.id}><Link href={`/discovery/week?semana=${encodeURIComponent(week.id)}`}>{period(week)} · {week.entries.length} {week.entries.length === 1 ? "porta" : "portas"} →</Link></li>)}</ol>
     {cursor && <button disabled={busy} onClick={() => void load(cursor)}>ver semanas anteriores</button>}
   </DiscoveryDisclosure>;
 }

@@ -3,6 +3,7 @@
 import { Capa } from "@/components/amigo/fala";
 import { shorten } from "@/components/amigo/measure";
 import type { Evidence } from "@/modules/conversation/domain/conversation.types";
+import { splitTrackTitle } from "@/lib/music/track-title";
 import styles from "./conversa.module.css";
 
 /*
@@ -47,7 +48,7 @@ export function ProvaTransicao({
               <Capa cover={entry.cover} playing={playingSide === side} innerRef={register(side)} />
               <figcaption className={styles.caption}>
                 <span className={styles.when}>{entry.when}</span>
-                <span className={styles.track}>{entry.track}</span>
+                <span className={styles.track}>{splitTrackTitle(entry.track).title}</span>
                 <span className={styles.who}>
                   {entry.artist}
                   {entry.genre ? ` · ${entry.genre}` : ""}
@@ -62,7 +63,7 @@ export function ProvaTransicao({
           {sequence.map((entry, order) => (
             <li key={`${entry.when}-${order}`} data-jump={entry.jump}>
               <span className={styles.when}>{entry.when.split(" · ")[1] ?? entry.when}</span>
-              <span className={styles.sequenceTrack}>{entry.track}</span>
+              <span className={styles.sequenceTrack}>{splitTrackTitle(entry.track).title}</span>
               <span className={styles.who}>{entry.artist}</span>
             </li>
           ))}
@@ -111,7 +112,7 @@ export function ProvaLista({
               <li key={`${row.sub}-${row.label}`} className={styles.row} data-lit={focus && lit}>
                 <span className={styles.rowRank}>{index + 1}</span>
                 <span className={styles.rowText}>
-                  <span className={styles.rowLabel}>{row.label}</span>
+                  <span className={styles.rowLabel}>{splitTrackTitle(row.label).title}</span>
                   {row.sub && <span className={styles.rowSub}>{row.sub}</span>}
                 </span>
                 <span className={styles.rowValue}>{row.plays}</span>

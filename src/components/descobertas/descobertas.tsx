@@ -19,7 +19,6 @@ import { useSelection } from "./selection-provider";
 import { MAX_SELECTED_TRACKS, selectionKey } from "./selection";
 import styles from "./descobertas.module.css";
 import { RepertoireFilter, TerritoryDoors } from "./exploration-doors";
-import { WeeklyDiscovery } from "./weekly-discovery";
 import type { TerritoryRequest, RepertoireRestriction, DiscoveryCoverage } from "@/modules/recommendations/domain/territories";
 import { DiscoveryEntry } from "./discovery-entry";
 import { DiscoveryTrack } from "./discovery-track";
@@ -82,8 +81,8 @@ const CORNERS = [
  * capa e vibra com o som. Embaixo, o mapa que decide onde ele procura, e
  * o que você separou para levar.
  */
-export function Descobertas({ initialSessionId = null, initialWeekId = null, showWeekly = false, allowWeeklyNarrative = false }: {
-  initialSessionId?: string | null; initialWeekId?: string | null; showWeekly?: boolean; allowWeeklyNarrative?: boolean;
+export function Descobertas({ initialSessionId = null }: {
+  initialSessionId?: string | null;
 } = {}) {
   const reduced = Boolean(useReducedMotion());
   const [proximity, setProximity] = useState(55);
@@ -105,7 +104,7 @@ export function Descobertas({ initialSessionId = null, initialWeekId = null, sho
   const [destination, setDestination] = useState<string | null>(null);
   const [restrictions, setRestrictions] = useState<RepertoireRestriction | undefined>();
   const [journey, setJourney] = useState<Journey | null>(null);
-  const weeklyHref = journey?.weekly ? `/discovery?semana=${encodeURIComponent(journey.weekly.journeyId)}` : null;
+  const weeklyHref = journey?.weekly ? `/discovery/week?semana=${encodeURIComponent(journey.weekly.journeyId)}` : null;
   const [busy, setBusy] = useState(true);
   const [failed, setFailed] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -449,7 +448,6 @@ export function Descobertas({ initialSessionId = null, initialWeekId = null, sho
         onResume={() => void load(proximity, fame, "RESUME")}
         territoryOpen={territoryOpen} onTerritory={() => setTerritoryOpen((open) => !open)}
         territory={<TerritoryDoors busy={busy || saving} onTerritory={(territory) => void load(55, 50, "NEW_ENTRY", { intent: "TERRITORY", territory })} />} />
-      {showWeekly && <WeeklyDiscovery journeyId={initialWeekId} allowNarrative={allowWeeklyNarrative} />}
       {busy && <p className={styles.quiet} role="status">Procurando tua última busca…</p>}
       {loadError && <p className={styles.entryError} role="alert">{loadError} <button className={styles.textButton} onClick={() => void load(55, 50, "BOOTSTRAP")}>tentar novamente</button></p>}
     </>;
@@ -613,7 +611,7 @@ export function Descobertas({ initialSessionId = null, initialWeekId = null, sho
       </AnimatePresence>
 
       {(choosing || (intent !== "REPERTOIRE" && intent !== "ALBUM" && intent !== "TERRITORY" && !weeklyHref)) && <DiscoveryDisclosure id="mapa-descoberta" className={styles.adjustments} bodyClassName={styles.map} open={mapOpen} onOpenChange={setMapOpen}
-        summary={<><strong>ajustar o caminho</strong><span aria-hidden="true">↘</span></>}>
+        summary={<><strong>ajustar o caminho</strong><span aria-hidden="true">↓</span></>}>
           <div><h2 className={styles.mapTitle}>Qual é a distância da próxima pista?</h2>
             <p className={styles.mapNote}>Mais perto das tuas referências ou um passo pra fora. No outro eixo, quanta gente já conhece.</p>
             <Mapa proximity={draftProximity} fame={draftFame} dots={dots} busy={busy || saving} onChange={move} onCommit={commit} />
@@ -621,7 +619,7 @@ export function Descobertas({ initialSessionId = null, initialWeekId = null, sho
             <ul className={styles.corners} aria-label="Direções da descoberta">
               {CORNERS.map((corner) => <li key={corner.label}><button type="button" disabled={busy || saving}
                 aria-pressed={corner.proximity === draftProximity && corner.fame === draftFame}
-                onClick={() => commit(corner.proximity, corner.fame)}>{corner.label}<span aria-hidden="true">↗</span></button></li>)}
+                onClick={() => commit(corner.proximity, corner.fame)}>{corner.label}<span aria-hidden="true">→</span></button></li>)}
             </ul>
             <Resposta primary disabled={busy || saving} onClick={() => void load(draftProximity, draftFame, "NEW_ENTRY", { intent: choosing || !intent ? "DISCOVER" : intent })}>buscar por aqui →</Resposta>
             {choosing && <RepertoireFilter busy={busy || saving} onRepertoire={(next) => void load(85, 75, "NEW_ENTRY", { intent: "REPERTOIRE", restrictions: next })} />}

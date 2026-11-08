@@ -2,7 +2,11 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { privateFetch } from "@/lib/http/private-fetch";
-import { Fala, Resposta, Respostas } from "@/components/amigo/fala";
+import { useReducedMotion } from "framer-motion";
+import { Fala, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
+import { band } from "@/components/amigo/gestures";
+import { textLines } from "@/components/amigo/measure";
+import { usePen } from "@/components/amigo/use-pen";
 import { useSelection } from "./selection-provider";
 import styles from "./descobertas.module.css";
 import paper from "./collection-desk.module.css";
@@ -26,6 +30,16 @@ export function CollectionDesk() {
   const [exportHidden, setExportHidden] = useState(false);
   const modalOpen = Boolean(exported) && !exportHidden;
   const exportRef = useRef(false); const dialogRef = useRef<HTMLDivElement>(null);
+  // a manchete ganha o grifo da caneta, como em toda tela
+  const stageRef = useRef<HTMLElement>(null); const markRef = useRef<HTMLSpanElement>(null); const silence = useRef<ArrayLike<number> | null>(null);
+  const reduced = Boolean(useReducedMotion());
+  const pen = usePen(stageRef, (origin) => {
+    if (!markRef.current) return null;
+    const { lines, size } = textLines(markRef.current, origin);
+    if (lines.length === 0) return null;
+    const { strokes, width } = band(lines, size);
+    return { gestures: [{ id: "depois", layer: "under", strokes, width, cap: "butt" }], wave: null, notes: [] };
+  }, "pra-depois");
   const exportKept = async () => {
     if (exportRef.current || kept.length === 0) return;
     exportRef.current = true;
@@ -90,11 +104,13 @@ export function CollectionDesk() {
 
 
   const result = exported && exported !== "running" ? exported : null;
-  return <section className={paper.desk}><div inert={modalOpen}>
-    <header className={paper.header}><div><Fala level={1} headline="Isso aqui ficou pra depois." narrative="O que você curtiu ou quis guardar. Tirar daqui não apaga o que você me contou." /></div></header>
-    <div className={paper.counter}><strong>{kept.length.toString().padStart(2,"0")}</strong><span>{kept.length === 1 ? "faixa separada" : "faixas separadas"}</span></div>
+  return <section ref={stageRef} className={paper.desk}><div inert={modalOpen}>
+    <header className={paper.header}><div><Fala level={1} headline="Isso aqui ficou pra depois." mark={["pra depois"]} markRef={markRef} marked={pen.started.has("depois")}
+      narrative="O que você curtiu ou quis guardar. Tirar daqui não apaga o que você me contou." /></div></header>
+    {/* o número e o que dá pra fazer com ele na mesma linha: levar pro Spotify é a ação da tela */}
+    <div className={paper.counter}><strong>{kept.length.toString().padStart(2,"0")}</strong><span>{kept.length === 1 ? "faixa separada" : "faixas separadas"}</span>
+      {kept.length > 0 && <Respostas inline label="Levar"><Resposta primary onClick={() => void exportKept()}>levar {kept.length} pro Spotify</Resposta></Respostas>}</div>
     {selection.error && <p role="alert">{selection.error} <button className={styles.textButton} onClick={() => void selection.refresh()}>atualizar coleção</button></p>}
-          <a className={styles.textButton} href="/api/collection?download=1">baixar a lista (JSON)</a>
           {!selection.ready && !selection.error && <p role="status">Abrindo tua coleção…</p>}
           {selection.localItems.length > 0 && <p className={styles.mapNote}>Há {selection.localItems.length} faixas na lista antiga deste navegador. <button className={styles.textButton} disabled={selection.syncing || !selection.ready} onClick={() => void selection.importLocal()}>trazer para a conta</button></p>}
           {exported && exportHidden && <p className={styles.quiet} role="status">
@@ -116,13 +132,12 @@ export function CollectionDesk() {
                   </li>
                 ))}
               </ol>
-              <Respostas inline label="Levar">
-                <Resposta onClick={() => void exportKept()}>levar {kept.length} pro Spotify</Resposta>
-              </Respostas>
+              <a className={styles.textButton} href="/api/collection?download=1">baixar a lista em JSON</a>
             </>
           )}
 
   </div>
+      <PenLayer pen={pen} signal={silence} reduced={reduced} />
       {modalOpen && createPortal(
         <div className={styles.overlay}>
           <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="levar-titulo" className={styles.dialog}>

@@ -71,6 +71,16 @@
   transition: color 140ms ease 120ms;
 }
 
+/* a faixa passa um pouco das letras: no meio da frase, a palavra vizinha
+   ganha a mesma folga, senão o grifo cola nela ("pra|Burial|em") */
+.mark[data-space-before] {
+  margin-left: 0.09em;
+}
+
+.mark[data-space-after] {
+  margin-right: 0.09em;
+}
+
 .fala[data-active="true"] .mark[data-marked="true"] {
   color: var(--sobre-marca);
 }
@@ -246,6 +256,17 @@
 
 .cover img[data-loaded="true"] {
   opacity: 1;
+}
+
+.coverInitials {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-variation-settings: "wdth" 70, "wght" 760;
+  letter-spacing: 0.02em;
+  color: var(--tinta-3);
 }
 
 .coverEmpty {

@@ -32,7 +32,7 @@ export function DiscoveryEntry({ busy, hasSession, currentRank, total, territory
   const choice = (title: string, description: string, onClick: () => void, pressed?: boolean) => <button className={styles.entryChoice} key={title}
     disabled={busy} onClick={onClick} aria-expanded={pressed}>
     <span><strong>{title}</strong><span className={styles.entryDescription}>{description}</span></span>
-    <span className={styles.entryArrow} aria-hidden="true">{pressed ? "↓" : "↗"}</span>
+    <span className={styles.entryArrow} aria-hidden="true">{pressed ? "↓" : "→"}</span>
   </button>;
   return <section ref={stage} className={styles.entry} aria-label="Escolher caminho de descoberta">
     <div className={styles.entryIntro}>

@@ -74,7 +74,7 @@
 .corner {
   position: absolute;
   left: 8px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--tinta-3);
   pointer-events: none;
 }
@@ -84,7 +84,7 @@
   justify-content: space-between;
   max-width: 420px;
   margin-top: 8px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--tinta-3);
 }
 

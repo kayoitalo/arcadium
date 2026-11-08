@@ -351,9 +351,6 @@ export function Conversa({ moments: all, epilogue }: { moments: ConversationMome
 
   return (
     <div ref={stageRef} className={styles.stage}>
-      <div className={styles.threadHead}>
-        <nav aria-label="Assuntos da conversa">{moments.map((moment,index) => <button key={moment.key} aria-label={`Ir ao assunto ${index+1}`} aria-pressed={index===active} onClick={() => go(index)}>{String(index+1).padStart(2,"0")}</button>)}</nav>
-      </div>
       {[...moments, null].map((moment, index) => {
         const isActive = index === active;
         const isDismissed = dismissed.includes(index);
@@ -423,10 +420,17 @@ export function Conversa({ moments: all, epilogue }: { moments: ConversationMome
       <Respostas>
         {editorialError && <p className={styles.position} role="alert">{editorialError}</p>}
         {sound.error && <p className={styles.position} role="alert">{sound.error}</p>}
-        <p className={styles.position} aria-live="polite" aria-atomic="true">
-          {atEnd ? "Fim da conversa" : `Assunto ${active + 1} de ${moments.length} · ${moments[active]?.window ?? ""}`}
-          {!atEnd && (steps.length > 0 ? " · prévia de 30s" : " · sem prévia neste assunto")}
-        </p>
+        {/* onde estou no fio: o texto e as marcas dos assuntos, que também levam até eles */}
+        <div className={styles.thread}>
+          <p className={styles.position} aria-live="polite" aria-atomic="true">
+            {atEnd ? "Fim da conversa" : `Assunto ${active + 1} de ${moments.length} · ${moments[active]?.window ?? ""}`}
+            {!atEnd && (steps.length > 0 ? " · prévia de 30s" : " · sem prévia neste assunto")}
+          </p>
+          <div className={styles.ticks} role="group" aria-label="Assuntos da conversa">
+            {moments.map((moment, index) => <button key={moment.key} type="button" aria-label={`Ir ao assunto ${index + 1}`} aria-pressed={index === active}
+              data-dismissed={dismissed.includes(index) || undefined} onClick={() => go(index)}><i /></button>)}
+          </div>
+        </div>
         {atEnd ? (
           <>
             <Resposta onClick={() => go(0)} hint="↵">
@@ -437,15 +441,16 @@ export function Conversa({ moments: all, epilogue }: { moments: ConversationMome
           </>
         ) : (
           <>
-            <Resposta onClick={toggleSound} disabled={steps.length === 0 || activeDismissed} hint="T">
+            {/* o que não dá pra fazer neste assunto não ocupa lugar: o texto acima já diz que não há prévia */}
+            {steps.length > 0 && <Resposta onClick={toggleSound} disabled={activeDismissed} hint="T">
               {sound.loading ? "carregando prévia…" : sound.playing ? "para aí" : "toca aí"}
-            </Resposta>
+            </Resposta>}
             <Resposta onClick={() => go(active + 1)} hint="→" primary>
               e o que mais?
             </Resposta>
-            <Resposta onClick={toggleMore} disabled={!canExpand} hint="M" expanded={expanded.includes(active)} controls={`assunto-${active}`}>
+            {canExpand && <Resposta onClick={toggleMore} hint="M" expanded={expanded.includes(active)} controls={`assunto-${active}`}>
               {expanded.includes(active) ? "menos" : "me mostra mais"}
-            </Resposta>
+            </Resposta>}
             <Resposta onClick={dismiss} hint="N">
               {activeDismissed ? "volta atrás" : "nada a ver"}
             </Resposta>

@@ -56,7 +56,8 @@ export function Fala({
       {when && <p className={styles.window}>{when}</p>}
       <Heading ref={headlineRef} className={styles.headline}>
         {pieces.before}
-        <span ref={markRef} className={styles.mark} data-marked={marked}>
+        <span ref={markRef} className={styles.mark} data-marked={marked}
+          data-space-before={/\s$/.test(pieces.before) || undefined} data-space-after={/^\s/.test(pieces.after) || undefined}>
           {pieces.marked}
         </span>
         {pieces.after}
@@ -167,6 +168,14 @@ export function Resposta({
   );
 }
 
+/** Até duas iniciais do título, ignorando artigos e o que vem entre parênteses. */
+export function initials(title: string): string {
+  const words = title.replace(/\s*[([].*?[)\]]/g, "").split(/[\s\-–—/&·]+/)
+    .filter((word) => /[\p{L}\p{N}]/u.test(word) && !/^(a|as|o|os|the|de|da|do|das|dos|e|of|and)$/i.test(word));
+  const letters = words.slice(0, 2).map((word) => [...word.replace(/[^\p{L}\p{N}]/gu, "")][0] ?? "");
+  return letters.join("").toUpperCase() || "·";
+}
+
 export interface CoverData {
   url: string | null | undefined;
   title: string;
@@ -205,6 +214,8 @@ export function Capa({
   return (
     <div ref={innerRef} className={`${styles.cover} ${className}`} data-playing={playing}>
       {state === "failed" && label && <span className={styles.coverEmpty}>{cover.title}</span>}
+      {/* miniatura pequena demais pro título: as iniciais do disco, pra a coluna não virar uma fila de quadrados vazios */}
+      {state === "failed" && !label && <span className={styles.coverInitials} aria-hidden="true">{initials(cover.title)}</span>}
       {src && state !== "failed" && (
         // eslint-disable-next-line @next/next/no-img-element
         <img

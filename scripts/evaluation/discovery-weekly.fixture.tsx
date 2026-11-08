@@ -75,8 +75,8 @@ async function runDiscoveryChecks() {
   render("reopen");
   await wait(() => document.querySelectorAll('a[href*="session="]').length === 2, "resume both sessions");
   assert(requests.filter((request) => request.body.action === "PREPARE").length === 1, "reopening must not prepare again");
-  control("summary", "jornadas da semana").click();
-  await wait(() => document.querySelector(`a[href="/discovery?semana=${oldWeek.id}"]`), "older weeks");
+  control("summary", "semanas anteriores").click();
+  await wait(() => document.querySelector(`a[href="/discovery/week?semana=${oldWeek.id}"]`), "older weeks");
   assert(document.documentElement.scrollWidth <= innerWidth, "weekly journey must fit without horizontal overflow");
   return { passed: ["automatic preparation and partial coverage", "album edition and artist chart", "opt-in narrative", "both starts, resume and weekly memory"],
     viewport: innerWidth, reduced: matchMedia("(prefers-reduced-motion: reduce)").matches, requests: requests.length };

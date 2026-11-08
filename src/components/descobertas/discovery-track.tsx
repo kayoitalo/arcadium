@@ -1,7 +1,7 @@
 "use client";
 import type { ReactNode, RefObject } from "react";
 import { Fala } from "@/components/amigo/fala";
-import { splitTrackTitle } from "./track-title";
+import { splitTrackTitle } from "@/lib/music/track-title";
 import styles from "./descobertas.module.css";
 
 /**

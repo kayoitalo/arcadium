@@ -1,11 +1,13 @@
-.desk { padding: 48px 0 100px; }
+.desk { position: relative; isolation: isolate; padding: 48px 0 100px; }
 .header { padding-bottom: 24px; }
-.counter { display: flex; gap: 18px; align-items: center; border-block: 1px solid var(--fio-2); margin: 24px 0; padding: 20px 0; }
+.counter { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; border-block: 1px solid var(--fio-2); margin: 24px 0; padding: 20px 0; }
 .counter strong { font-size: 72px; line-height: 1; font-variation-settings: "wdth" 70, "wght" 720; }
 .counter span { color: var(--tinta-3); font-size: 13px; line-height: 1.6; }
+.counter > nav[aria-label] { margin-left: auto; padding-top: 0; }
+@media(max-width:700px) { .counter > nav[aria-label] { margin-left: 0; flex-basis: 100%; } }
 @media(max-width:700px) { .desk { padding-top: 28px; } }
 
 .desk ol { list-style: none; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 36px; padding: 0; counter-reset: collection-track; }
 .desk ol > li { counter-increment: collection-track; position: relative; padding: 24px 0 24px 42px; min-width: 0; border-top: 1px solid var(--fio-2); }
-.desk ol > li::before { content: counter(collection-track,decimal-leading-zero); position: absolute; top: 26px; left: 0; color: var(--tinta-3); font-size: 11px; }
+.desk ol > li::before { content: counter(collection-track,decimal-leading-zero); position: absolute; top: 26px; left: 0; color: var(--tinta-3); font-size: 12px; }
 @media(max-width:700px) { .desk ol { grid-template-columns: 1fr; } }

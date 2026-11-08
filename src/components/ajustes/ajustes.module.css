@@ -4,7 +4,7 @@
    ============================================================ */
 
 .page {
-  max-width: 820px;
+  max-width: 1120px;
   padding-bottom: 14vh;
 }
 
@@ -216,4 +216,106 @@
 /* aqui as respostas moram dentro da seção: o espaço já vem da grade */
 .section nav[aria-label] {
   padding-top: 0;
+}
+
+/* ---------- abas: preferência, fontes, dados e manutenção, cada uma no seu lugar ---------- */
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 clamp(20px, 3vw, 36px);
+  margin: 0 0 8px;
+  border-bottom: 1px solid var(--fio);
+}
+
+.tabs button {
+  min-height: 48px;
+  margin-bottom: -1px;
+  padding: 12px 0;
+  border: 0;
+  border-bottom: 1.5px solid transparent;
+  background: none;
+  color: var(--tinta-3);
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+  transition: color 160ms;
+}
+
+.tabs button:hover {
+  color: var(--tinta-2);
+}
+
+.tabs button[aria-selected="true"] {
+  color: var(--tinta);
+  border-bottom-color: var(--tinta);
+}
+
+.panel {
+  animation: panelIn 180ms ease-out both;
+}
+
+.panel > .section {
+  max-width: 760px;
+}
+
+/* a primeira seção de cada aba já tem o fio das abas em cima */
+.panel > .section:first-child {
+  border-top: 0;
+}
+
+.lead {
+  display: grid;
+  gap: 4px;
+  max-width: 760px;
+  padding: clamp(28px, 5vh, 44px) 0;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  column-gap: clamp(32px, 5vw, 72px);
+}
+
+.dangerZone {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  max-width: 760px;
+  margin-top: 12px;
+  padding: 24px 26px;
+  border: 1px solid rgb(224 96 79 / 0.4);
+}
+
+.dangerZone .title {
+  color: var(--erro);
+}
+
+@keyframes panelIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    animation: none;
+  }
+}
+
+.technical {
+  color: var(--tinta-3);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.technical summary {
+  width: fit-content;
+  min-height: 44px;
+  padding-block: 12px;
+  cursor: pointer;
+}
+
+.technical ul {
+  padding-inline-start: 18px;
 }

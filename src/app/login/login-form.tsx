@@ -47,7 +47,7 @@ export function LoginForm() {
       {error && <p id="login-error" role="alert" className={styles.error}>{error}</p>}
       <button type="submit" disabled={busy} className={styles.submit}>
         <span>{busy ? "Abrindo tua sala…" : "entrar na conversa"}</span>
-        <span className={styles.submitArrow} aria-hidden="true">{busy ? "···" : "↗"}</span>
+        <span className={styles.submitArrow} aria-hidden="true">{busy ? "···" : "→"}</span>
       </button>
     </form>
   );

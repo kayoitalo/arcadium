@@ -17,7 +17,7 @@
 .entryChoice strong { display: block; font-size: clamp(22px, 2.1vw, 31px); font-variation-settings: "wdth" 76, "wght" 680; line-height: 1.15; letter-spacing: -.02em; }
 .entryDescription { display: block; margin-top: 12px; max-width: 30ch; color: var(--tinta-3); font-size: 14px; line-height: 1.55; }
 .entryArrow { font-size: 26px; line-height: 1; color: var(--tinta-3); transition: transform 180ms, color 180ms; }
-.entryChoice:hover .entryArrow { color: var(--tinta); transform: translate(2px,-2px); }
+.entryChoice:hover .entryArrow { color: var(--tinta); transform: translateX(3px); }
 .resumeStrip { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; padding: 16px 0; margin-bottom: 28px; border-block: 1px solid var(--fio); }
 .resumeStrip p { margin: 0; font-size: 15px; color: var(--tinta); }
 .resumeStrip strong { font-weight: 560; }
