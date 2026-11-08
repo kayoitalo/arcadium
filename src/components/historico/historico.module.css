@@ -78,7 +78,7 @@
   display: flex;
   justify-content: space-between;
   margin-top: 10px;
-  font-size: 11px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--tinta-3);
 }

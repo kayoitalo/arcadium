@@ -167,9 +167,6 @@ export function Mudou({
           <p className={styles.legend}><span className={styles.legendFrom} aria-hidden="true" /> antes <span className={styles.legendTo} aria-hidden="true" /> agora · participação na escuta com gênero conhecido</p>
           {group("ganhou espaço", shift.rising)}
           {group("perdeu espaço", shift.declining)}
-          <p className={styles.quiet}>
-            Quanto cada gênero ocupou do que você ouviu. O quadrado vazado é o período anterior; o cheio, agora.
-          </p>
         </div>
       </div>
       <PenLayer pen={pen} signal={silence} reduced={reduced} />

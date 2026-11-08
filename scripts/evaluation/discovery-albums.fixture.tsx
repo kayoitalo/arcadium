@@ -98,7 +98,7 @@ async function runChecks() {
   assert(document.documentElement.scrollWidth <= innerWidth, "Album library must fit mobile");
   const libraryCalls=qa.requests.length;
   [...document.querySelectorAll<HTMLButtonElement>("button")].find((node)=>node.textContent?.includes("mais discos"))!.click();
-  await wait(()=>document.querySelectorAll("button[aria-expanded]").length===12,"more local albums");
+  await wait(()=>document.querySelectorAll("button[aria-expanded]").length===20,"more local albums (two shelf rows at a time, up to the 20 received)");
   assert(qa.requests.length===libraryCalls,"Showing more albums must not query any provider");
   button("ouvir este disco →").click(); await wait(() => document.querySelector('[role="alert"]'), "catalog error");
   button("tenta de novo").click(); await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "começar com esta versão →"), "editions retry");

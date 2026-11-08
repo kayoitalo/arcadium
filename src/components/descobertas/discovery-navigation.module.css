@@ -1,9 +1,15 @@
 /* Abas da descoberta: um segundo nível quieto, abaixo da barra da casa. */
-.nav { display: flex; gap: clamp(18px, 3vw, 40px); border-bottom: 1px solid var(--fio); margin: 8px 0 0; overflow-x: auto; }
+/* overflow-y escondido: o traço da aba ativa não pode gerar uma barra de rolagem vertical */
+.nav { display: flex; gap: clamp(18px, 3vw, 40px); border-bottom: 1px solid var(--fio); margin: 8px 0 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.nav::-webkit-scrollbar { display: none; }
 .tab { position: relative; flex-shrink: 0; padding: 12px 0 14px; color: var(--tinta-3); text-decoration: none; transition: color 160ms; }
-.tab strong { display: block; font-size: 15px; font-variation-settings: "wdth" 88, "wght" 620; }
-.tab small { display: block; font-size: 11px; margin-top: 3px; color: var(--tinta-3); }
+.tab strong { display: flex; align-items: center; gap: 7px; min-height: 20px; font-size: 15px; font-variation-settings: "wdth" 88, "wght" 620; }
+/* o contador de "Para depois": remonta a cada faixa nova e pulsa uma vez */
+.count { display: inline-grid; place-items: center; min-width: 19px; height: 19px; padding: 0 6px; border: 1px solid var(--fio-2); border-radius: 999px;
+  font-size: 12px; line-height: 1; font-variant-numeric: tabular-nums; color: var(--tinta); animation: countPop 420ms var(--spring) both; }
+@keyframes countPop { 0% { transform: scale(1); } 45% { transform: scale(1.35); border-color: var(--tinta-2); } 100% { transform: scale(1); } }
+.tab small { display: block; font-size: 12px; margin-top: 3px; color: var(--tinta-3); }
 .tab[aria-current], .tab:hover { color: var(--tinta); }
-.line { position: absolute; height: 1.5px; background: var(--tinta); bottom: -1px; left: 0; right: 0; }
+.line { position: absolute; height: 1.5px; background: var(--tinta); bottom: 0; left: 0; right: 0; }
 @media (max-width: 600px) { .nav { gap: 20px; } .tab { padding: 10px 0 12px; } .tab strong { font-size: 14px; } .tab small { display: none; } }
-@media (prefers-reduced-motion: reduce) { .tab { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .tab { transition: none; } .count { animation: none; } }

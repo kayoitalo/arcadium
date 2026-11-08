@@ -74,7 +74,7 @@ export function DiscoveryHistory({ currentSessionId, currentRank, busy, onResume
   }, [open, currentSessionId, attempt]);
   useEffect(() => { if (open && sessions.length && !loading) setPresented(true); }, [open, sessions.length, loading]);
   return <DiscoveryDisclosure className={styles.collection} bodyClassName={styles.disclosureContent} open={open} onOpenChange={setOpen}
-    summary={<><span>Caminhos anteriores</span><span aria-hidden="true">↘</span></>}>
+    summary={<><span>Caminhos anteriores</span><span aria-hidden="true">↓</span></>}>
       <p className={styles.mapNote}>As vinte buscas mais recentes, reunidas por caminho. Retomar mantém teu lugar e tuas respostas.</p>
       {loading && <p role="status" className={styles.quiet}>Recuperando os caminhos…</p>}
       {error && <p role="alert">Não consegui atualizar os caminhos. <button className={styles.textButton} onClick={() => setAttempt((value) => value + 1)}>tentar novamente</button></p>}

@@ -9,12 +9,14 @@
   position: relative;
   isolation: isolate;
 }
-/* Índice discreto dos assuntos: a leitura abre a tela, ele só acompanha. */
-.threadHead { display: flex; justify-content: flex-end; padding: 4px 0 0; }
-.threadHead nav { display: flex; gap: 6px; max-width: 100%; overflow-x: auto; }
-.threadHead button { min-width: 36px; min-height: 36px; padding: 6px; border: 0; background: transparent; color: var(--tinta-3); font: inherit; font-size: 11px; font-variant-numeric: tabular-nums; border-bottom: 1px solid transparent; cursor: pointer; }
-.threadHead button:hover { color: var(--tinta-2); }
-.threadHead button[aria-pressed="true"] { color: var(--tinta); border-bottom-color: var(--tinta); }
+/* Onde estou no fio: mora com as respostas, no pé, em vez de ocupar o topo da leitura. */
+.thread { flex-basis: 100%; grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 2px; }
+.ticks { display: flex; flex-shrink: 0; }
+.ticks button { display: grid; place-items: center; width: 30px; min-height: 32px; padding: 0; border: 0; background: none; cursor: pointer; }
+.ticks i { display: block; width: 20px; height: 3px; background: var(--fio-2); transition: background 200ms; }
+.ticks button:hover i { background: var(--tinta-3); }
+.ticks button[aria-pressed="true"] i { background: var(--tinta); }
+.ticks button[data-dismissed] i { background: transparent; border-top: 1px solid var(--fio-2); }
 .stage > nav { background: var(--papel); border-top: 1px solid var(--fio-2); padding-top: 16px; }
 
 .block {
@@ -30,11 +32,16 @@
 .block:first-child { min-height: 74dvh; }
 
 .position {
-  flex-basis: 100%;
-  margin: 0 0 2px;
+  margin: 0;
   color: var(--tinta-3);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
+}
+
+/* avisos de erro moram na linha de cima das respostas, inteiros */
+.stage > nav > .position {
+  flex-basis: 100%;
+  grid-column: 1 / -1;
 }
 
 .block[data-end="true"] {

@@ -40,6 +40,9 @@ export function AlbumProgress({ album, curation, tracks, index, disabled, onMove
     </DiscoveryDisclosure>
   </section>;
 }
+/** Duas fileiras da estante por vez; "mais discos" traz outras duas, até o limite já recebido. */
+const SHELF_STEP = 12;
+
 export function AlbumJourneys({ initialItem = null, initialCuration = null, onBegin = (id) => window.location.assign(`/discovery?session=${encodeURIComponent(id)}`) }: {
   initialItem?: string | null; initialCuration?: string | null; onBegin?: (id: string) => void;
 }) {
@@ -48,7 +51,7 @@ export function AlbumJourneys({ initialItem = null, initialCuration = null, onBe
   const [library, setLibrary] = useState<{ albums: AlbumReference[]; more: boolean } | null>(null);
   const [loading, setLoading] = useState(true); const [libraryError, setLibraryError] = useState(false);
   const [selected, setSelected] = useState<AlbumReference | null>(null); const [editions, setEditions] = useState<EditionSummary[] | null>(null);
-  const [visible, setVisible] = useState(6); const [versionVisit, setVersionVisit] = useState(0);
+  const [visible, setVisible] = useState(SHELF_STEP); const [versionVisit, setVersionVisit] = useState(0);
   const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
   const operation = useRef<AbortController | null>(null); const starting = useRef(false);
   const requestKey = useRef<{ signature: string; key: string } | null>(null);
@@ -68,7 +71,7 @@ export function AlbumJourneys({ initialItem = null, initialCuration = null, onBe
       setLoading(false);
       return;
     }
-    const controller = new AbortController(); setLoading(true); setLibraryError(false); setLibrary(null); setVisible(6);
+    const controller = new AbortController(); setLoading(true); setLibraryError(false); setLibrary(null); setVisible(SHELF_STEP);
     const params = new URLSearchParams(initialItem ? { item: initialItem } : { q: query });
     void privateFetch(`/api/album-journeys?${params}`, { signal: controller.signal }).then(async (response) => {
       if (!response.ok) throw new Error(); const data = await response.json(); if (!controller.signal.aborted) setLibrary(data);
@@ -128,8 +131,9 @@ export function AlbumJourneys({ initialItem = null, initialCuration = null, onBe
           <div className={styles.libraryRow}>
             {album.coverUrl
               ? <Capa cover={{ url: album.coverUrl, title: album.albumName, artist: album.artistName }} className={styles.shelfCover} />
-              : <div className={styles.jacket} aria-hidden="true"><i /><b>{album.albumName}</b><small>{album.artistName}</small></div>}
-            <div className={album.coverUrl ? styles.albumTitle : styles.srOnly}><h2>{album.albumName}</h2><p>{album.artistName}</p></div>
+              : <div className={styles.jacket} aria-hidden="true"><i /><b>{album.albumName}</b></div>}
+            {/* com ou sem capa, o mesmo desenho: o quadrado e, embaixo, disco e artista */}
+            <div className={styles.albumTitle}><h2>{album.albumName}</h2><p>{album.artistName}</p></div>
             <button disabled={busy} aria-expanded={active} aria-controls={active ? "album-versions" : undefined} onClick={() => void findEditions(album)}>ouvir este disco →</button>
           </div>
           {active && <section id="album-versions" className={styles.editions} aria-label="Versões deste álbum" aria-busy={busy}>
@@ -147,7 +151,7 @@ export function AlbumJourneys({ initialItem = null, initialCuration = null, onBe
           </section>}
         </li>;
       })}</ul>
-      {library.albums.length > visible && <button className={styles.showMore} onClick={() => setVisible((n)=>n+6)}>mais discos ↓ <span>{Math.min(visible,library.albums.length)} de {library.albums.length}</span></button>}
+      {library.albums.length > visible && <button className={styles.showMore} onClick={() => setVisible((n)=>n+SHELF_STEP)}>mais discos ↓ <span>{Math.min(visible,library.albums.length)} de {library.albums.length}</span></button>}
       {library.more && <p className={styles.note}>Tem mais na estante. Procura pelo nome.</p>}</>}
     <PenLayer pen={pen} signal={signal} reduced={reduced} />
   </div>;
