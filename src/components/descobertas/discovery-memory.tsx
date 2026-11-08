@@ -16,7 +16,6 @@ import { MemoryTools } from "./memory-tools";
 import { EditionCredit, EditorialCredit } from "./album-journeys";
 import { ContextExcerpt } from "./track-context";
 import { ListeningCueExcerpt } from "./listening-cues";
-import { WeeklyHistory } from "./weekly-discovery";
 
 const when = (value: string) => new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
 const aspects: Record<string, string> = { VOCALS: "vocal", INSTRUMENTAL: "instrumental", LYRICS: "letra", RHYTHM: "ritmo", ATMOSPHERE: "atmosfera", OTHER: "outro" };
@@ -24,7 +23,7 @@ function aspectText(details: unknown) {
   const values = details && typeof details === "object" && "aspects" in details ? details.aspects : null;
   return Array.isArray(values) ? values.filter((value): value is string => typeof value === "string" && Boolean(aspects[value])).map((value) => aspects[value]).join(", ") : "";
 }
-export function DiscoveryMemory({ showWeekly = false }: { showWeekly?: boolean } = {}) {
+export function DiscoveryMemory() {
   const [draft, setDraft] = useState(""); const [query, setQuery] = useState(""); const [onlyResponses, setOnlyResponses] = useState(false);
   const [cursors, setCursors] = useState<string[]>([]); const [attempt, setAttempt] = useState(0);
   const [page, setPage] = useState<MemoryPage | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState(false);
@@ -63,7 +62,6 @@ export function DiscoveryMemory({ showWeekly = false }: { showWeekly?: boolean }
       <Fala level={1} headline="O que ficou pelo caminho." mark={["pelo caminho"]} markRef={mark} marked={pen.started.has("memory-title")}
         narrative="As buscas, as indicações e o que você me contou de cada uma. Dá pra retomar de onde parou." />
     </header>
-    {showWeekly && <WeeklyHistory />}
     <form className={styles.filters} onSubmit={(event) => { event.preventDefault(); focusResults.current = true; setCursors([]); setQuery(draft.trim()); setAttempt((value) => value + 1); }}>
       <label>procurar um artista ou faixa<input maxLength={120} value={draft} onChange={(event) => { focusResults.current = false; setDraft(event.target.value); }} /></label>
       <button type="submit" disabled={loading}>procurar</button>

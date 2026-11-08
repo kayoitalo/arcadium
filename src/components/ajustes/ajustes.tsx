@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { useForm } from "react-hook-form";
 import { describeRefresh } from "@/components/ai/refresh-report";
 import { Aviso } from "@/components/amigo/aviso";
-import { Resposta, Respostas } from "@/components/amigo/fala";
+import { Fala, Resposta, Respostas } from "@/components/amigo/fala";
 import styles from "./ajustes.module.css";
 import { DiscoveryHealth } from "./discovery-health";
 
@@ -61,6 +61,11 @@ const ADDRESS_OPTIONS: Array<{ value: AddressAs; label: string; sample: string }
 
 const count = (value: number) => value.toLocaleString("pt-BR");
 
+type Tab = "conta" | "conexoes" | "dados" | "bastidores";
+/** Preferência, fontes, dados e manutenção: cada coisa na sua aba, a manutenção por último. */
+const TABS: Array<[Tab, string]> = [["conta", "Conta"], ["conexoes", "Conexões"], ["dados", "Teus dados"], ["bastidores", "Bastidores"]];
+const isTab = (value: string | null): value is Tab => TABS.some(([id]) => id === value);
+
 function Secao({ title, state, stateKind, children }: { title: string; state?: ReactNode; stateKind?: "erro"; children: ReactNode }) {
   return (
     <section className={styles.section} aria-label={title}>
@@ -108,6 +113,15 @@ export function Ajustes() {
   const addressSaving = useRef(false);
   const [savingAddress, setSavingAddress] = useState(false);
   const searchParams = useSearchParams();
+  // a aba vem do endereço; a volta do Spotify abre direto nas conexões
+  const [tab, setTab] = useState<Tab>(() => {
+    const asked = searchParams.get("aba");
+    return isTab(asked) ? asked : searchParams.get("spotify") ? "conexoes" : "conta";
+  });
+  const chooseTab = (next: Tab) => {
+    setTab(next);
+    window.history.replaceState(null, "", `/settings?aba=${next}`);
+  };
 
   const loadJson = useCallback(async <T,>(url: string, apply: (payload: T) => void, key: string) => {
     setLoads((current) => ({ ...current, [key]: "loading" }));
@@ -146,7 +160,7 @@ export function Ajustes() {
       setMessage({ text: "A autorização não confere com este navegador. Tenta conectar de novo.", kind: "erro" });
     else setMessage({ text: "Não deu pra concluir a conexão com o Spotify.", kind: "erro" });
     void loadSpotify();
-    window.history.replaceState(null, "", "/settings");
+    window.history.replaceState(null, "", "/settings?aba=conexoes");
   }, [searchParams, loadSpotify]);
 
   /** A troca vale para as próximas leituras; as já escritas continuam como estão. */
@@ -291,7 +305,6 @@ export function Ajustes() {
     <div className={styles.page}>
       <Aviso
         compact
-        window="ajustes"
         headline="Daqui eu tiro tudo que te conto."
         narrative="De onde vem cada número, o que fica guardado aqui e pra onde as descobertas podem ir."
       />
@@ -312,154 +325,157 @@ export function Ajustes() {
         </div>
       )}
 
-      <Secao
-        title="o teu Last.fm"
-        state={loads.sync === "loading" ? "consultando…" : loads.sync === "error" ? "não consegui consultar" : syncError ? "a última busca falhou" : connected ? connected.username : "não conectado"}
-        stateKind={syncError ? "erro" : undefined}
-      >
-        <p className={styles.hint}>De onde vem o teu histórico. A busca roda sozinha de hora em hora, mas dá pra forçar agora.</p>
-        <form onSubmit={handleSubmit(onSubmit)} className={styles.form}>
-          <label className={styles.field}>
-            <span>teu usuário</span>
-            <input type="text" {...register("username", { required: "Me diz o usuário" })} placeholder={connected?.username ?? "usuário"} />
-            {errors.username && <em className={styles.fieldError}>{errors.username.message}</em>}
-          </label>
-          <Respostas inline label="Last.fm">
-            <Resposta submit disabled={busy || !isValid}>
-              {activeAction === "sync" ? "buscando…" : "buscar agora"}
-            </Resposta>
-          </Respostas>
-        </form>
-        {connected && (
-          <Numeros
-            items={[
-              ["última busca", connected.lastSyncedAt ? new Date(connected.lastSyncedAt).toLocaleDateString("pt-BR") : "nunca"],
-              ["audições novas nela", count(syncStatus?.latestRun?.insertedCount ?? 0)],
-            ]}
-          />
-        )}
-        {syncError && <p className={styles.fieldError}>{syncError}</p>}
-      </Secao>
+      <div role="tablist" aria-label="Partes dos ajustes" className={styles.tabs}>
+        {TABS.map(([id, label]) => (
+          <button key={id} type="button" role="tab" id={`aba-${id}`} aria-selected={tab === id} aria-controls={`painel-${id}`} onClick={() => chooseTab(id)}>
+            {label}
+          </button>
+        ))}
+      </div>
 
-      <Secao title="como eu falo contigo">
-        <p className={styles.hint}>Escolhe como eu te chamo. Vale a partir da próxima leitura que eu escrever.</p>
-        <ul className={styles.choices} role="group" aria-label="Como ele te chama">
-          {ADDRESS_OPTIONS.map((option) => (
-            <li key={option.value}>
-              <button type="button" disabled={savingAddress} aria-pressed={addressAs === option.value} onClick={() => chooseAddress(option.value)}>
-                {option.label}
-              </button>
-            </li>
-          ))}
-        </ul>
-        {sample && <p className={styles.sample}>{sample}</p>}
-      </Secao>
+      {tab === "conta" && <div role="tabpanel" id="painel-conta" aria-labelledby="aba-conta" className={styles.panel}>
+        <Secao title="como eu falo contigo">
+          <p className={styles.hint}>Escolhe como eu te chamo. Vale a partir da próxima leitura que eu escrever.</p>
+          <ul className={styles.choices} role="group" aria-label="Como ele te chama">
+            {ADDRESS_OPTIONS.map((option) => (
+              <li key={option.value}>
+                <button type="button" disabled={savingAddress} aria-pressed={addressAs === option.value} onClick={() => chooseAddress(option.value)}>
+                  {option.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {sample && <p className={styles.sample}>{sample}</p>}
+        </Secao>
+      </div>}
 
-      <Secao title="os artistas e os discos">
-        <p className={styles.hint}>
-          País, gênero, ano e capa do que você mais ouve. O MusicBrainz aceita uma consulta por segundo, então vai aos poucos.
-        </p>
-        <Respostas inline label="Artistas e capas">
-          <Resposta onClick={enrichArtists} disabled={busy}>
-            {activeAction === "artists" ? "buscando artistas…" : "buscar artistas"}
-          </Resposta>
-          <Resposta onClick={repairCovers} disabled={busy}>
-            {activeAction === "covers" ? "procurando capas…" : "procurar capas"}
-          </Resposta>
-        </Respostas>
-        {coverage && (
-          <Numeros
-            items={[
-              ["artistas com informação", `${coverage.percentage}%`],
-              ["discos", count(coverage.totalCanonicalAlbums)],
-              ["com capa", `${coverage.coverPercentage}%`],
-              ["capas na fila", count(coverage.pendingCoverLookup)],
-            ]}
-          />
-        )}
-      </Secao>
-
-      <Secao
-        title="o catálogo da Apple"
-        state={coverage ? `${count(coverage.albumsInCatalog)} de ${count(coverage.totalCanonicalAlbums)} discos` : undefined}
-      >
-        <p className={styles.hint}>
-          De onde vêm capa, gênero, ano, duração exata e a prévia de 30s — inclusive dos discos que o MusicBrainz não
-          conhece. Cada clique consulta oito discos, começando pelos que você mais ouviu no último mês.
-        </p>
-        <Respostas inline label="Catálogo">
-          <Resposta onClick={fetchCatalog} disabled={busy}>
-            {activeAction === "catalog" ? "consultando…" : "consultar catálogo"}
-          </Resposta>
-        </Respostas>
-        {coverage && (
-          <Numeros
-            items={[
-              ["no catálogo", count(coverage.albumsInCatalog)],
-              ["na fila", count(coverage.pendingCatalogLookup)],
-              ["faixas com duração", `${coverage.durationPercentage}%`],
-            ]}
-          />
-        )}
-      </Secao>
-
-      <Secao title="o que eu escrevo">
-        <p className={styles.hint}>
-          Eu escrevo as leituras de cada período de uma vez e reaproveito por horas; depois de cada busca no Last.fm eu
-          refaço o que envelheceu. Aqui você não espera: cada clique escreve o período mais atrasado.
-        </p>
-        <Respostas inline label="Leituras">
-          <Resposta onClick={writeTexts} disabled={busy}>
-            {activeAction === "ai" ? "escrevendo…" : "escreve agora"}
-          </Resposta>
-        </Respostas>
-        <p className={styles.small}>
-          A resposta do modelo é longa: um clique leva de 20 a 60 segundos. Período já em dia é pulado sem gastar cota.
-        </p>
-      </Secao>
-
-      <Secao title="playlists" state={loads.spotify === "loading" ? "consultando…" : loads.spotify === "error" ? "não consegui consultar" : spotify?.connected ? `Spotify · ${spotify.displayName}` : "não conectado"}>
-        <p className={styles.hint}>
-          O que você separar em “pra ouvir depois” pode virar playlist. Conectado, ela nasce direto na tua conta; sem
-          conectar, você leva links e um arquivo .m3u.
-        </p>
-        <p className={styles.small}>
-          O Spotify é só destino: nada de lá volta pras tuas estatísticas nem pro que eu escrevo. A permissão pedida
-          cria playlists e mais nada.
-        </p>
-        {spotify && !spotify.configured && <p className={styles.small}>{spotify.reason}</p>}
-        {spotify?.configured && (
-          <Respostas inline label="Spotify">
-            {spotify.connected ? (
-              <Resposta onClick={disconnectSpotify} disabled={busy}>
-                desconectar
+      {tab === "conexoes" && <div role="tabpanel" id="painel-conexoes" aria-labelledby="aba-conexoes" className={styles.panel}>
+        <Secao
+          title="o teu Last.fm"
+          state={loads.sync === "loading" ? "consultando…" : loads.sync === "error" ? "não consegui consultar" : syncError ? "a última busca falhou" : connected ? connected.username : "não conectado"}
+          stateKind={syncError ? "erro" : undefined}
+        >
+          <p className={styles.hint}>De onde vem o teu histórico. A busca roda sozinha de hora em hora, mas dá pra forçar agora.</p>
+          <form onSubmit={handleSubmit(onSubmit)} className={styles.form}>
+            <label className={styles.field}>
+              <span>teu usuário</span>
+              <input type="text" {...register("username", { required: "Me diz o usuário" })} placeholder={connected?.username ?? "usuário"} />
+              {errors.username && <em className={styles.fieldError}>{errors.username.message}</em>}
+            </label>
+            <Respostas inline label="Last.fm">
+              <Resposta submit disabled={busy || !isValid}>
+                {activeAction === "sync" ? "buscando…" : "buscar agora"}
               </Resposta>
-            ) : (
-              <Resposta onClick={connectSpotify} disabled={busy}>
-                conectar Spotify
-              </Resposta>
-            )}
-          </Respostas>
-        )}
-      </Secao>
+            </Respostas>
+          </form>
+          {connected && (
+            <Numeros
+              items={[
+                ["última busca", connected.lastSyncedAt ? new Date(connected.lastSyncedAt).toLocaleDateString("pt-BR") : "nunca"],
+                ["audições novas nela", count(syncStatus?.latestRun?.insertedCount ?? 0)],
+              ]}
+            />
+          )}
+          {syncError && <p className={styles.fieldError}>{syncError}</p>}
+        </Secao>
 
-      <DiscoveryHealth />
-      <Secao title="teus dados">
-        <p className={styles.hint}>A cópia do histórico traz até 5.000 reproduções recentes. Na memória das descobertas, você consulta e baixa recortes de buscas e respostas; a coleção tem sua própria cópia em JSON.</p>
-        <div className={styles.actions}>
+        <Secao title="playlists" state={loads.spotify === "loading" ? "consultando…" : loads.spotify === "error" ? "não consegui consultar" : spotify?.connected ? `Spotify · ${spotify.displayName}` : "não conectado"}>
+          <p className={styles.hint}>
+            O que você separar em “pra ouvir depois” pode virar playlist. Conectado, ela nasce direto na tua conta; sem
+            conectar, você leva links e um arquivo .m3u.
+          </p>
+          <p className={styles.small}>
+            O Spotify é só destino: nada de lá volta pras tuas estatísticas nem pro que eu escrevo. A permissão pedida
+            cria playlists e mais nada.
+          </p>
+          {spotify && !spotify.configured && <p className={styles.small}>{spotify.reason}</p>}
+          {spotify?.configured && (
+            <Respostas inline label="Spotify">
+              {spotify.connected ? (
+                <Resposta onClick={disconnectSpotify} disabled={busy}>
+                  desconectar
+                </Resposta>
+              ) : (
+                <Resposta onClick={connectSpotify} disabled={busy}>
+                  conectar Spotify
+                </Resposta>
+              )}
+            </Respostas>
+          )}
+        </Secao>
+      </div>}
+
+      {tab === "dados" && <div role="tabpanel" id="painel-dados" aria-labelledby="aba-dados" className={styles.panel}>
+        <Secao title="teus dados">
+          <p className={styles.hint}>A cópia do histórico traz até 5.000 reproduções recentes. Nos caminhos, você consulta e baixa recortes de buscas e respostas; o que ficou pra depois tem sua própria cópia.</p>
           <Respostas inline label="Dados">
             <Resposta href="/api/user/data" download>
               baixar histórico de reprodução
             </Resposta>
-            <Resposta href="/discovery/memory">memória das descobertas</Resposta>
-            <Resposta href="/discovery?collection=1">minha coleção</Resposta>
+            <Resposta href="/discovery/memory">abrir os caminhos</Resposta>
+            <Resposta href="/discovery/collection">abrir o que ficou pra depois</Resposta>
           </Respostas>
+        </Secao>
+        {/* a única ação sem volta mora separada, longe das que só baixam ou abrem */}
+        <section className={styles.dangerZone} aria-label="Apagar">
+          <h2 className={styles.title}>apagar reproduções e conexões</h2>
+          <p className={styles.hint}>Tira o histórico e desconecta Last.fm e Spotify. Buscas, respostas, coleção e leituras salvas ficam. Não dá pra desfazer.</p>
           <button type="button" className={styles.danger} onClick={eraseEverything} disabled={busy}>
-            apagar reproduções e conexões
+            apagar…
           </button>
+        </section>
+      </div>}
+
+      {tab === "bastidores" && <div role="tabpanel" id="painel-bastidores" aria-labelledby="aba-bastidores" className={styles.panel}>
+        {coverage && (
+          <section className={styles.lead} aria-label="Capas e catálogo">
+            <Fala level={2} headline={`Achei no catálogo ${count(coverage.albumsInCatalog)} dos teus ${count(coverage.totalCanonicalAlbums)} discos.`}
+              narrative="Sem ele, o disco aparece com a etiqueta no lugar da capa e sem trecho. Cada consulta traz mais oito, começando pelos que você mais ouviu no último mês." />
+            <Respostas inline label="Catálogo">
+              <Resposta onClick={fetchCatalog} disabled={busy} primary>
+                {activeAction === "catalog" ? "consultando…" : "procura mais oito"}
+              </Resposta>
+            </Respostas>
+          </section>
+        )}
+        <div className={styles.columns}>
+          <Secao title="os artistas e os discos">
+            <p className={styles.hint}>
+              País, gênero, ano e capa do que você mais ouve. O MusicBrainz aceita uma consulta por segundo, então vai aos poucos.
+            </p>
+            <Respostas inline label="Artistas e capas">
+              <Resposta onClick={enrichArtists} disabled={busy}>
+                {activeAction === "artists" ? "buscando artistas…" : "buscar artistas"}
+              </Resposta>
+              <Resposta onClick={repairCovers} disabled={busy}>
+                {activeAction === "covers" ? "procurando capas…" : "procurar capas"}
+              </Resposta>
+            </Respostas>
+            {coverage && (
+              <Numeros
+                items={[
+                  ["artistas com informação", `${coverage.percentage}%`],
+                  ["discos com capa", `${coverage.coverPercentage}%`],
+                  ["faixas com duração", `${coverage.durationPercentage}%`],
+                ]}
+              />
+            )}
+          </Secao>
+          <Secao title="o que eu escrevo">
+            <p className={styles.hint}>
+              Eu escrevo as leituras de cada período de uma vez e reaproveito por horas; depois de cada busca no Last.fm eu
+              refaço o que envelheceu. Um clique escreve o período mais atrasado e leva de 20 a 60 segundos.
+            </p>
+            <Respostas inline label="Leituras">
+              <Resposta onClick={writeTexts} disabled={busy}>
+                {activeAction === "ai" ? "escrevendo…" : "escreve agora"}
+              </Resposta>
+            </Respostas>
+          </Secao>
         </div>
-        <p className={styles.small}>Apagar reproduções e conexões não remove buscas, respostas, coleção nem leituras salvas.</p>
-      </Secao>
+        <DiscoveryHealth />
+      </div>}
     </div>
   );
 }
+

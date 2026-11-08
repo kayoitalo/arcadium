@@ -23,8 +23,9 @@ const entry = () => h(DiscoveryEntry, { busy: false, hasSession: true, currentRa
 const track = (canPlay = true, title = "Do outro lado") => h(DiscoveryTrack, {
   title, artist: "Maré Alta", reason: "Esta indicação parte de uma faixa que você curtiu. É uma referência fictícia para conferir o layout, sem consultar o teu histórico.",
   sectionRef: createRef<HTMLElement>(), markRef: createRef<HTMLSpanElement>(), marked: false,
-  entryLabel: "Perto do que eu gosto", index: 2, total: 8, onChangeEntry: noop, onPlay: noop, canPlay, playing: false, loading: false,
-  metadata: h("span", null, canPlay ? "prévia de 30s · Apple Music ↗" : "sem prévia"),
+  context: h("p", null, "Perto do que eu gosto · 03 de 08"), onPlay: noop, canPlay, playing: false, loading: false,
+  listenElsewhere: h("a", { href: "https://open.spotify.com/search/Mar%C3%A9%20Alta" }, "ouvir no Spotify ↗"),
+  metadata: h("span", null, canPlay ? "Disco fictício · Apple Music ↗" : "Disco fictício"),
   artwork: h("div", { className: styles.cover, dangerouslySetInnerHTML: { __html: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Capa fictícia para revisão visual"><rect width="400" height="400" fill="#d9d3c5"/><path d="M0 70 400 220V400H0Z" fill="#376467"/><circle cx="270" cy="125" r="60" fill="#b76143"/><path d="m50 335 105-182 95 182" stroke="#d9d3c5" stroke-width="2" fill="none"/><text x="26" y="38" font-family="Archivo, sans-serif" font-size="17" letter-spacing="3" fill="#232822">MARÉ ALTA</text><text x="26" y="375" font-family="Archivo, sans-serif" font-size="13" letter-spacing="3" fill="#ded9c9">DO OUTRO LADO</text></svg>' } }),
 });
 
@@ -42,12 +43,21 @@ describe("discovery visual contracts", () => {
     expect(discoveryEntryLabel(35)).toBe("Outras conexões");
     expect(discoveryEntryLabel(35, "REPERTOIRE")).toBe("Do meu repertório");
   });
-  it("preserves long track/version labels, source context and disabled playback when unavailable", () => {
+  it("preserves long track/version labels and offers another way to listen when there is no preview", () => {
     const title = "Uma faixa com um título bastante longo (Ao vivo — edição alternativa)";
     const html = renderToStaticMarkup(track(false, title));
     expect(html.replace(/<[^>]*>/g, "")).toContain(title); expect(html).toContain("Maré Alta"); expect(html).toContain("Por que essa?");
-    expect(html).toContain("Sem prévia por aqui"); expect(html).toContain('disabled=""');
+    expect(html).toContain("Sem trecho por aqui."); expect(html).toContain("ouvir no Spotify");
+    // sem trecho, nada de play desligado nem convite pra escutar primeiro
+    expect(html).not.toContain('aria-label="Ouvir prévia"'); expect(html).not.toContain("escuta primeiro");
     expect(html).not.toContain("autoplay");
+  });
+  it("moves a catalogue remaster suffix from the headline to the note beside the record", () => {
+    const html = renderToStaticMarkup(track(true, "This Night Has Opened My Eyes - 2011 Remaster"));
+    const heading = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1].replace(/<[^>]*>/g, "");
+    expect(heading).toBe("This Night Has Opened My Eyes");
+    expect(html).toContain("remaster de 2011 · ");
+    expect(html).toContain('aria-label="Ouvir prévia"'); expect(html).toContain("escuta primeiro");
   });
   it("keeps optional responses out of the collapsed DOM and preserves native summary activation", () => {
     const html = renderToStaticMarkup(h(DiscoveryDisclosure, { id: "review", summary: "Outras respostas", open: false, children: h("textarea") }));

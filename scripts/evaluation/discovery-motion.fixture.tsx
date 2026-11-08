@@ -85,10 +85,15 @@ function button(label: string, root: ParentNode = document) {
   if (!result) throw new Error(`Button missing: ${label}`);
   return result;
 }
-function disclosure(label: string) {
-  const summary = [...document.querySelectorAll("summary")].find((node) => node.textContent?.includes(label));
-  if (!summary) throw new Error(`Summary missing: ${label}`);
-  return { summary, details: summary.parentElement as HTMLDetailsElement };
+/** O que muda o caminho mora no menu "mudar o rumo": abre e escolhe pelo começo do rótulo. */
+async function rumo(label: string) {
+  const toggle = [...document.querySelectorAll<HTMLButtonElement>("button[aria-expanded]")].find((node) => node.textContent?.includes("mudar o rumo"));
+  if (!toggle) throw new Error("Rumo menu missing");
+  if (toggle.getAttribute("aria-expanded") !== "true") toggle.click();
+  const item = () => [...document.querySelectorAll<HTMLElement>('[aria-label="Mudar o rumo"] button, [aria-label="Mudar o rumo"] a')].find((node) => node.textContent?.startsWith(label));
+  const deadline = performance.now() + 6000;
+  while (!item()) { if (performance.now() > deadline) throw new Error(`Rumo item missing: ${label}`); await new Promise(requestAnimationFrame); }
+  item()!.click();
 }
 function ready(n: number) { return document.querySelector('[data-discovery-scene="ready"] h1')?.textContent?.includes(`Faixa ${n}`); }
 const feedbackCount = () => requests.filter((r) => r.url.endsWith("/feedback")).length;
@@ -127,24 +132,27 @@ async function runChecks() {
   assert(requests.filter((r) => r.body.operation === "EXPOSE").every((r) => r.ready && r.title.includes(r.body.itemId === "item-1" ? "Faixa 1" : "Faixa 2")), "Exposure must refer to the mounted visible track");
   passed.push("rapid votes, exit/entry, focus, pen and exposure stay synchronized");
 
-  const review = disclosure("outras respostas"); review.summary.click();
-  await wait(() => Boolean(review.details.querySelector("textarea")), "review body");
-  const textarea = review.details.querySelector("textarea")!; textarea.focus(); review.summary.click();
-  await frame();
-  assert(document.activeElement === review.summary && review.details.querySelector('[inert]'), "Closing must hide controls and restore summary focus immediately");
-  // Reopening during the exit must not be closed by a stale completion callback.
-  review.summary.click(); await wait(() => review.summary.getAttribute("aria-expanded") === "true", "rapid reopen");
-  await new Promise((resolve) => setTimeout(resolve, 240));
-  assert(review.details.open && review.details.querySelector("textarea"), "Rapid reopen must retain content");
-  review.summary.click(); await wait(() => !review.details.open && !review.details.querySelector("textarea"), "review closed");
-  passed.push("disclosure closing, focus recovery and interrupted reopening");
+  // as decisões ficam presas no pé; o resto abre ali mesmo, uma gaveta por vez
+  const more = document.querySelector<HTMLButtonElement>('[aria-controls="outras-respostas"]')!;
+  more.click(); await wait(() => document.querySelector("#outras-respostas textarea"), "other responses panel");
+  assert(more.getAttribute("aria-expanded") === "true", "The dock must report the open panel");
+  document.querySelector<HTMLTextAreaElement>("#outras-respostas textarea")!.focus();
+  window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+  await wait(() => !document.querySelector("#outras-respostas"), "panel closed by Escape");
+  assert(document.activeElement === more, "Escape must return focus to the button that opened the panel");
+  const about = document.querySelector<HTMLButtonElement>('[aria-controls="sobre-a-faixa"]')!;
+  about.click(); await wait(() => document.querySelector('#sobre-a-faixa [role="tablist"]'), "track drawer");
+  more.click(); await wait(() => document.querySelector("#outras-respostas") && !document.querySelector("#sobre-a-faixa"), "one panel at a time");
+  more.click(); await wait(() => !document.querySelector("#outras-respostas"), "panel toggled closed");
+  assert(getComputedStyle(more.closest("nav")!).position === "sticky", "Decisions must stay pinned to the bottom of the screen");
+  passed.push("pinned decisions, one dock panel at a time, Escape closing and focus recovery");
 
   assert(![...document.querySelectorAll("summary")].some((node)=>node.textContent?.includes("Caminhos anteriores")), "History belongs to the separate Paths area");
   assert(document.querySelector('a[href="/discovery/memory"]') && document.querySelector('a[href="/discovery/albums"]'), "Workspace navigation must expose separate areas");
   assert(!qa.requests.some((r)=>r.url.endsWith("?history=1")), "Listening should not fetch a second history panel");
   passed.push("separate discovery, album, collection and memory areas without duplicate panels");
-  button("← anterior").click(); await wait(() => ready(1), "backward transition");
-  button("trocar caminho ↗").click(); await wait(() => !document.querySelector('[data-discovery-scene]'), "entry return");
+  await rumo("rever a anterior"); await wait(() => ready(1), "backward transition");
+  await rumo("escolher outro caminho"); await wait(() => !document.querySelector('[data-discovery-scene]'), "entry return");
   button("continuar de onde parei →").click(); await wait(() => ready(1), "same item after entry");
   await wait(() => document.querySelector('svg[data-layer="under"] path[data-kind="ink"]'), "pen after remount");
   assert(qa.plays === 1, "Navigating must not restart audio");

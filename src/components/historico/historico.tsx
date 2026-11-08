@@ -14,6 +14,7 @@ import { usePen, type PenDrawing } from "@/components/amigo/use-pen";
 import { usePulse } from "@/components/amigo/use-pulse";
 import { useSound } from "@/components/amigo/use-sound";
 import styles from "./historico.module.css";
+import { splitTrackTitle } from "@/lib/music/track-title";
 
 interface HistoryEvent {
   id: string;
@@ -269,29 +270,6 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
 
   return (
     <div ref={stageRef} className={styles.stage}>
-      <label className={styles.search}>
-        <input
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="procura artista, faixa ou disco"
-          aria-label="Procurar no histórico"
-        />
-        {search && (
-          <button type="button" className={styles.clear} onClick={() => setSearch("")}>
-            limpar
-          </button>
-        )}
-      </label>
-
-      {busy && <p className={styles.update} role="status">Buscando… Os registros anteriores continuam aqui enquanto eu consulto.</p>}
-      {sound.error && <p className={styles.updateError} role="alert">{sound.error}</p>}
-      {failed && <div className={styles.updateError} role="alert">
-        <p>Não consegui atualizar a busca. Os resultados abaixo são da última consulta que deu certo{loadedQuery ? `: “${loadedQuery}”` : ""}.</p>
-        <Resposta onClick={() => setAttempt((current) => current + 1)}>tentar de novo</Resposta>
-      </div>}
-
-
       <div className={styles.top}>
         <Fala
           level={1}
@@ -345,6 +323,30 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
         )}
       </div>
 
+      {/* a busca fica junto do registro que ela filtra: quem abre a tela é ele falando */}
+      <label className={styles.search}>
+        <input
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="procura artista, faixa ou disco"
+          aria-label="Procurar no histórico"
+        />
+        {search && (
+          <button type="button" className={styles.clear} onClick={() => setSearch("")}>
+            limpar
+          </button>
+        )}
+      </label>
+
+      {busy && <p className={styles.update} role="status">Buscando… Os registros anteriores continuam aqui enquanto eu consulto.</p>}
+      {sound.error && <p className={styles.updateError} role="alert">{sound.error}</p>}
+      {failed && <div className={styles.updateError} role="alert">
+        <p>Não consegui atualizar a busca. Os resultados abaixo são da última consulta que deu certo{loadedQuery ? `: “${loadedQuery}”` : ""}.</p>
+        <Resposta onClick={() => setAttempt((current) => current + 1)}>tentar de novo</Resposta>
+      </div>}
+
+
       <div className={styles.log} aria-busy={busy}>
         {days.length === 0 && loadedQuery && <p className={styles.empty}>Nada por aqui com esse nome.</p>}
         {days.map(([key, events]) => (
@@ -366,7 +368,7 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
                       label={false}
                     />
                     <span ref={register(`texto:${event.id}`)} className={styles.what}>
-                      <span className={styles.track}>{event.rawTrackName}</span>
+                      <span className={styles.track}>{splitTrackTitle(event.rawTrackName).title}</span>
                       <span className={styles.artist}>{event.rawArtistName}</span>
                     </span>
                     {on && event.appleMusicUrl ? (

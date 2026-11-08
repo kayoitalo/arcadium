@@ -14,9 +14,15 @@
   display: grid;
   grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
   column-gap: clamp(28px, 6vw, 112px);
-  align-items: center;
+  align-items: start;
   min-height: calc(100dvh - 140px);
   padding: 6vh 0 10vh;
+}
+
+/* a fala fica no alto e acompanha a lista: com muitos gêneros ela não desce pro meio da tela */
+.block > :first-child {
+  position: sticky;
+  top: calc(var(--bar-h, 56px) + 4vh);
 }
 
 .proof {
@@ -153,6 +159,10 @@
 }
 
 @media (max-width: 760px) {
+  .block > :first-child {
+    position: static;
+  }
+
   .block {
     grid-template-columns: minmax(0, 1fr);
     row-gap: 40px;

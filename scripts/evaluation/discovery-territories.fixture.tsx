@@ -46,6 +46,19 @@ function assert(value: unknown, label: string) { if (!value) throw new Error(lab
 const summary = (label: string) => [...document.querySelectorAll<HTMLElement>("summary")].find((row) => row.textContent?.includes(label))!;
 const choice = (label: string) => [...document.querySelectorAll<HTMLButtonElement>("button")].find((row) => row.querySelector("strong")?.textContent === label)!;
 const button = (label: string) => { const node = [...document.querySelectorAll<HTMLButtonElement>("button")].find((row) => row.textContent?.trim() === label); if (!node) throw new Error(`Button missing: ${label}`); return node; };
+/** O rumo e a gaveta da faixa moram no pé e no topo da escuta, não em blocos soltos. */
+const rumo = async (label: string) => {
+  const toggle = [...document.querySelectorAll<HTMLButtonElement>("button[aria-expanded]")].find((row) => row.textContent?.includes("mudar o rumo"))!;
+  if (toggle.getAttribute("aria-expanded") !== "true") toggle.click();
+  const item = () => [...document.querySelectorAll<HTMLElement>('[aria-label="Mudar o rumo"] button')].find((row) => row.textContent?.startsWith(label));
+  await wait(item, `rumo ${label}`); item()!.click();
+};
+const drawerTab = async (label: string) => {
+  const toggle = document.querySelector<HTMLButtonElement>('[aria-controls="sobre-a-faixa"]')!;
+  if (toggle.getAttribute("aria-expanded") !== "true") toggle.click();
+  const tab = () => [...document.querySelectorAll<HTMLButtonElement>('#sobre-a-faixa [role="tab"]')].find((row) => row.textContent === label);
+  await wait(tab, `drawer ${label}`); tab()!.click();
+};
 const ready = () => document.querySelector('[data-discovery-scene="ready"] h1');
 async function runChecks() {
   const passed: string[] = [];
@@ -65,15 +78,15 @@ async function runChecks() {
   assert(qa.plays === 0, "territory must not autoplay");
   passed.push("explicit destination, no proximity map, undercoverage and no autoplay");
   await wait(() => document.querySelector('button[aria-label="Ouvir prévia"]:not(:disabled)'), "media settled before cue retry scenario");
-  summary("o que reparar nessa faixa").click(); await wait(() => document.querySelector('[role="alert"]')?.textContent?.includes("conferir"), "cue failure");
+  await drawerTab("o que reparar"); await wait(() => document.querySelector('[role="alert"]')?.textContent?.includes("conferir"), "cue failure");
   button("tenta de novo").click(); await wait(() => document.body.textContent?.includes("3:05"), "cue retry");
   assert(document.querySelector('a[href*="i=43"]'), "recording source");
-  button("buscar mais nesse caminho ↗").click(); await pause(); await pause(); await wait(ready, "more");
+  await rumo("buscar mais nesse caminho"); await pause(); await pause(); await wait(ready, "more");
   const more = qa.requests.find((row) => row.body.operation === "MORE")!;
   assert(more.body.intent === "TERRITORY" && !more.body.territory, "MORE must reuse server destination");
   assert(qa.plays === 0, "more must not autoplay");
   passed.push("sourced catalog cue, retry and destination-preserving continuation");
-  button("trocar caminho ↗").click(); await wait(() => choice("Outro universo") && !choice("Outro universo").disabled && summary("ajustar o caminho"), "new entry");
+  await rumo("escolher outro caminho"); await wait(() => choice("Outro universo") && !choice("Outro universo").disabled && summary("ajustar o caminho"), "new entry");
   summary("ajustar o caminho").click();
   await wait(() => document.querySelectorAll('form[aria-label="Recortar o repertório"] input').length === 2, "repertoire form mounted");
   const inputs = [...document.querySelectorAll<HTMLInputElement>('form[aria-label="Recortar o repertório"] input')];
@@ -101,7 +114,7 @@ async function prepareTerritoryCapture(kind: string) {
     qa.empty = false; [...document.querySelectorAll<HTMLElement>("button strong")].find((row) => row.textContent === "dub")!.click();
     await pause(); await wait(ready, "cue capture session");
     await wait(() => document.querySelector('button[aria-label="Ouvir prévia"]:not(:disabled)'), "capture media");
-    summary("o que reparar nessa faixa").click(); await wait(() => document.body.textContent?.includes("3:05"), "cue capture");
+    await drawerTab("o que reparar"); await wait(() => document.body.textContent?.includes("3:05"), "cue capture");
   }
   window.scrollTo({ top: 0, behavior: "instant" }); await new Promise((resolve) => setTimeout(resolve, 250));
 }

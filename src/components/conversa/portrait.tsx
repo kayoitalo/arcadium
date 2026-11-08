@@ -11,9 +11,11 @@ import { usePen } from "@/components/amigo/use-pen";
 import { band, circle, frame } from "@/components/amigo/gestures";
 import { textLines, boxOf } from "@/components/amigo/measure";
 import { useArtistPhoto } from "./use-artist-photo";
+import { Janela } from "@/components/amigo/janela";
 import { coverProxyUrl } from "@/lib/cover";
 type Data = Awaited<ReturnType<PortraitService["load"]>>;
 const count = (n: number) => n.toLocaleString("pt-BR");
+const PERSPECTIVES = [{ key: "all", label: "desde o começo" }, { key: "recent", label: "os últimos 30 dias" }] as const;
 export function Portrait() {
   const [data, setData] = useState<Data | null>(null); const [topics, setTopics] = useState<Array<{ key: string; headline: string }>>([]);
   const [error, setError] = useState(false); const [attempt, setAttempt] = useState(0); const [restoring, setRestoring] = useState(false);
@@ -64,15 +66,12 @@ export function Portrait() {
     {!data && !error && <p className={styles.note} role="status">Reunindo o que ficou…</p>}
     {data && <>
       {!data.total ? <p>Ainda não ouvi nada teu pra montar um retrato. <Link href="/settings">conectar o Last.fm →</Link></p> : <>
-        <div className={styles.caption}><span>{count(data.total)} reproduções no teu histórico</span></div>
-        <div className={styles.viewSwitch} aria-label="Perspectiva do retrato">
-          <button aria-pressed={view === "all"} onClick={() => {if(view!=="all"){setView("all");setChosen(null);setVisit(n=>n+1);}}}><strong>ao longo do caminho</strong><small>desde o começo</small></button>
-          <button aria-pressed={view === "recent"} onClick={() => {if(view!=="recent"){setView("recent");setChosen(null);setVisit(n=>n+1);}}}><strong>a fase recente</strong><small>os últimos 30 dias, com os 30 anteriores</small></button>
-        </div>
+        {/* a perspectiva como frase que troca a palavra, igual às outras telas: sem controle segmentado */}
+        <p className={styles.caption}><Janela options={PERSPECTIVES} value={view} onChange={(next) => { if (next !== view) { setView(next); setChosen(null); setVisit((n) => n + 1); } }}
+          before={`${count(data.total)} reproduções · olhando`} after={view === "recent" ? "com os 30 anteriores ao lado" : undefined} /></p>
         <section className={styles.spread} aria-label={view === "all" ? "Artistas do histórico" : "Artistas da fase recente"}>
-          <div className={styles.index} ref={indexRef} id="portrait-artists"><p className={styles.eyebrow}>{view === "all" ? "quem aparece ao longo do caminho" : "o agora, com o antes ao lado"}</p>
-            <ol>{rows.map((artist, index) => <li key={artist.name}><button aria-pressed={selected?.name === artist.name} onClick={() => choose(artist.name)}>
-              <span>{String(index + 1).padStart(2,"0")}</span><strong>{artist.name}</strong><span aria-hidden="true">↗</span>
+          <div className={styles.index} ref={indexRef} id="portrait-artists">            <ol>{rows.map((artist, index) => <li key={artist.name}><button aria-pressed={selected?.name === artist.name} onClick={() => choose(artist.name)}>
+              <span>{String(index + 1).padStart(2,"0")}</span><strong>{artist.name}</strong><span aria-hidden="true">→</span>
             </button></li>)}</ol>
             <p className={styles.note}>{view === "all" ? "Os vinte que mais tocaram." : "Os doze que mais tocaram nos últimos 30 dias."}</p>
           </div>
