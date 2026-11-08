@@ -319,3 +319,10 @@
 .technical ul {
   padding-inline-start: 18px;
 }
+
+/* a fala dos bastidores é a segunda da tela: menor que a manchete dos ajustes */
+.lead h2 {
+  max-width: 20ch;
+  font-size: clamp(28px, 2.6vw, 42px);
+  color: var(--tinta);
+}
