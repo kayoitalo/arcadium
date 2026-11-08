@@ -1,39 +1,51 @@
 "use client";
 import type { ReactNode, RefObject } from "react";
 import { Fala } from "@/components/amigo/fala";
+import { splitTrackTitle } from "./track-title";
 import styles from "./descobertas.module.css";
 
-export function DiscoveryTrack({ title, artist, reason, isRevisit, artwork, metadata, markRef, headlineRef, marked, sectionRef,
-  onPlay, canPlay, playing, loading, onChangeEntry, entryLabel, index, total }: {
-  title: string; artist: string; reason: string | null; isRevisit?: boolean; artwork: ReactNode; metadata: ReactNode;
+/**
+ * A faixa da vez: a fala dele à esquerda (como na Conversa), a capa à
+ * direita. Sem trecho, o play não fica desligado na tela: a escuta segue
+ * por fora, num link.
+ */
+export function DiscoveryTrack({ title, artist, reason, artwork, metadata, markRef, headlineRef, marked, sectionRef,
+  onPlay, canPlay, playing, loading, inAlbum = false, repertoire = false, context, listenElsewhere }: {
+  title: string; artist: string; reason: string | null; artwork: ReactNode; metadata: ReactNode;
   markRef: RefObject<HTMLSpanElement | null>; headlineRef?: RefObject<HTMLHeadingElement | null>;
   marked: boolean; sectionRef: RefObject<HTMLElement | null>; onPlay: () => void; canPlay: boolean; playing: boolean; loading: boolean;
-  onChangeEntry: () => void; entryLabel: string; index: number; total: number;
+  /** Um disco em ordem: o motivo fala do ponto do disco. */
+  inAlbum?: boolean;
+  /** Do repertório: o trecho é um reencontro, não uma novidade. */
+  repertoire?: boolean;
+  /** A linha de cima: onde essa faixa está no caminho e como mudar o rumo. */
+  context: ReactNode;
+  /** Onde ouvir quando não há trecho por aqui. */
+  listenElsewhere?: ReactNode;
 }) {
+  const shown = splitTrackTitle(title);
   return <section className={styles.listening} aria-label="Escuta da descoberta">
-    <div className={styles.sessionBar}>
-      <span className={styles.eyebrow}>{entryLabel}</span>
-      <button className={styles.textButton} onClick={onChangeEntry}>trocar caminho ↗</button>
-    </div>
+    <div className={styles.sessionBar}>{context}</div>
     <div className={styles.block}>
-      <div className={styles.trackCopy}>
-        <section ref={sectionRef} aria-label="A sugestão da vez">
-        <p className={styles.trackCounter}><span>{String(index + 1).padStart(2, "0")}</span> / {String(total).padStart(2, "0")} <i /> {entryLabel === "Um álbum em ordem" ? "a próxima do disco" : isRevisit ? "uma revisita" : "separei essa pra você"}</p>
-        <Fala className={styles.trackSpeech} level={1} headline={title} mark={[title]} markRef={markRef} headlineRef={headlineRef} marked={marked} />
+      <section ref={sectionRef} className={styles.head} aria-label="A sugestão da vez">
+        <Fala className={styles.trackSpeech} level={1} headline={shown.title} mark={[shown.title]} markRef={markRef} headlineRef={headlineRef} marked={marked} />
+      </section>
+      <div className={styles.byline}>
         <p className={styles.artist}>{artist}</p>
-        </section>
-        <div className={styles.reason}><span className={styles.reasonMark} aria-hidden="true">↳</span><div>
-          <h2>{entryLabel === "Um álbum em ordem" ? "Neste ponto do disco" : "Por que essa?"}</h2><p>{reason ?? "Vale ouvir e me contar o que achou."}</p>
-        </div></div>
-        <div className={styles.listenControl}>
-          <button className={styles.playButton} disabled={!canPlay} onClick={onPlay} aria-pressed={playing} aria-label={playing ? "Parar prévia" : "Ouvir prévia"}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">{playing ? <path d="M7 7h10v10H7z" /> : <path d="m9 5 11 7-11 7z" />}</svg>
-          </button><div><strong>{loading ? "Abrindo a prévia…" : playing ? "Ouvindo agora" : canPlay ? "Dá o play" : "Sem prévia por aqui"}</strong>
-            <span>{canPlay ? entryLabel === "Do meu repertório" ? "um reencontro, em 30 segundos" : "um trecho, em 30 segundos" : "a indicação continua valendo"}</span></div>
-        </div>
-        <div className={styles.meta}>{metadata}</div>
+        <p className={styles.meta}>{shown.edition && <>{shown.edition} · </>}{metadata}</p>
       </div>
-      <div className={styles.record}>{artwork}<span className={styles.recordCaption}>escuta primeiro.<br /><span>o resto pode surpreender.</span></span></div>
+      <div className={styles.reason}>
+        <h2>{inAlbum ? "Neste ponto do disco" : "Por que essa?"}</h2><p>{reason ?? "Vale ouvir e me contar o que achou."}</p>
+      </div>
+      {canPlay || loading ? <div className={styles.listenControl}>
+        <button className={styles.playButton} disabled={!canPlay} onClick={onPlay} aria-pressed={playing} aria-label={playing ? "Parar prévia" : "Ouvir prévia"}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">{playing ? <path d="M7 7h10v10H7z" /> : <path d="m9 5 11 7-11 7z" />}</svg>
+        </button>
+        <div><strong>{loading ? "Abrindo a prévia…" : playing ? "Ouvindo agora" : "Dá o play"}</strong><span>{repertoire ? "um reencontro, em 30 segundos" : "um trecho, em 30 segundos"}</span></div>
+      </div> : <div className={styles.listenElsewhere}>
+        <strong>Sem trecho por aqui.</strong>{listenElsewhere}
+      </div>}
+      <div className={styles.record}>{artwork}{canPlay && <span className={styles.recordCaption}>escuta primeiro.<br /><span>o resto pode surpreender.</span></span>}</div>
     </div>
   </section>;
 }

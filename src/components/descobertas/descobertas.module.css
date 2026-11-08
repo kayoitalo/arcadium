@@ -29,38 +29,71 @@
 /* Listening: the music and the narrator share the foreground. */
 .listening { position: relative; }
 .pathContext { margin: 4px 0 0; max-width: 65ch; color: var(--tinta-3); font-size: 13px; line-height: 1.6; }
-.sessionBar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 0 10px; }
-.barSlash { color: var(--fio-2); font-size: 15px; }
-.block { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); column-gap: clamp(36px, 7vw, 110px); align-items: center; padding: 40px 0 44px; min-height: 540px; }
-.trackCopy { position: relative; z-index: 3; min-width: 0; }
-.trackCounter { display: flex; align-items: center; gap: 10px; margin: 0 0 24px; font-size: 11px; color: var(--tinta-3); }
-.trackCounter > span { color: var(--tinta); font-variant-numeric: tabular-nums; }
-.trackCounter i { display: inline-block; width: 30px; height: 1px; background: var(--fio-2); margin: 0 6px; }
-.trackSpeech h1 { max-width: 13ch; font-size: clamp(44px, 5.7vw, 84px); font-variation-settings: "wdth" 70, "wght" 780; line-height: 1.04; letter-spacing: -.035em; overflow-wrap: anywhere; }
+/* a linha de cima: onde a faixa está no caminho e o menu que muda o rumo */
+.sessionBar { position: relative; z-index: 8; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0 6px; }
+.sessionBar .eyebrow { font-size: 13px; }
+.position { color: var(--tinta); font-variant-numeric: tabular-nums; }
+.rumo { position: relative; flex-shrink: 0; }
+.rumoButton { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0; border: 0; background: none; color: var(--tinta); font: inherit; font-size: 14px;
+  text-decoration: underline; text-decoration-color: var(--tinta-3); text-underline-offset: 6px; cursor: pointer; }
+.rumoPanel { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; display: grid; width: min(360px, calc(100vw - 2 * var(--gutter))); padding: 8px 0;
+  background: #121211; border: 1px solid var(--fio-2); box-shadow: 0 30px 60px -30px rgb(0 0 0 / .9); animation: quietIn 160ms ease-out both; }
+.rumoNote { margin: 6px 20px 10px; color: var(--tinta-3); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
+.rumoItem { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 46px; padding: 0 20px; border: 0; background: none;
+  color: var(--tinta); font: inherit; font-size: 15px; text-align: left; text-decoration: none; cursor: pointer; }
+.rumoItem[data-away] { color: var(--tinta-2); }
+.rumoItem:hover:not(:disabled) { background: rgb(242 239 231 / .05); }
+.rumoItem:disabled { opacity: .45; cursor: wait; }
+.rumoItem span { color: var(--tinta-3); }
+.rumoRule { margin: 8px 20px; border: 0; border-top: 1px solid var(--fio-2); }
+/* a faixa: fala à esquerda (como na Conversa), capa à direita */
+/* as linhas vazias de cima e de baixo absorvem a altura da capa: a fala fica centrada, sem vãos no meio */
+.block { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-rows: 1fr auto auto auto auto 1fr;
+  grid-template-areas: ". record" "head record" "byline record" "reason record" "listen record" ". record";
+  column-gap: clamp(36px, 7vw, 110px); padding: 28px 0 36px; }
+.head { grid-area: head; position: relative; z-index: 3; align-self: end; min-width: 0; }
+.byline { grid-area: byline; min-width: 0; }
+.trackSpeech h1 { max-width: 12ch; font-size: clamp(44px, 5.6vw, 82px); font-variation-settings: "wdth" 70, "wght" 790; line-height: 1.03; letter-spacing: -.035em; overflow-wrap: anywhere; }
 .trackSpeech h1:focus { outline: none; }
 .trackSpeech h1 { scroll-margin-top: 100px; }
-.artist { margin: 18px 0 32px; color: var(--tinta-2); font-size: clamp(18px, 1.8vw, 25px); font-variation-settings: "wdth" 90, "wght" 430; }
-.reason { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 13px; max-width: 46ch; }
-.reasonMark { padding-top: 1px; color: var(--tinta-3); font-size: 22px; }
-.reason h2 { margin: 0 0 8px; font-size: 12px; color: var(--tinta-2); font-variation-settings: "wght" 550; }
-.reason p { margin: 0; color: var(--tinta-3); font-size: 14px; line-height: 1.75; text-wrap: pretty; }
-.listenControl { display: flex; align-items: center; gap: 17px; margin: 30px 0 14px; }
+.artist { margin: 18px 0 4px; color: var(--tinta); font-size: clamp(18px, 1.8vw, 26px); font-variation-settings: "wdth" 90, "wght" 460; }
+.reason { grid-area: reason; max-width: 52ch; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--fio); }
+.reason h2 { margin: 0 0 8px; font-size: 13px; color: var(--tinta-2); font-variation-settings: "wght" 560; }
+.reason p { margin: 0; color: var(--tinta-2); font-size: 16px; line-height: 1.65; text-wrap: pretty; }
+.listenControl { grid-area: listen; display: flex; align-items: center; gap: 17px; margin: 26px 0 0; }
+/* sem trecho: a escuta segue por fora, sem play desligado na frente */
+.listenElsewhere { grid-area: listen; display: flex; flex-wrap: wrap; align-items: center; gap: 0 20px; margin-top: 20px; }
+.listenElsewhere strong { font-size: 15px; font-weight: 500; color: var(--tinta); }
 .playButton { width: 56px; height: 56px; flex: 0 0 56px; display: grid; place-items: center; border: 1px solid var(--tinta-2); border-radius: 50%; background: transparent; color: var(--tinta); cursor: pointer; transition: background 160ms, border-color 160ms; }
 .playButton:hover { background: var(--tinta); color: var(--papel); border-color: var(--tinta); }
 .playButton:disabled { opacity: .35; cursor: not-allowed; background: transparent; color: var(--tinta); }
 .playButton svg { width: 22px; height: 22px; fill: currentColor; }
 .listenControl strong { display: block; font-size: 14px; font-weight: 500; }
-.listenControl span { display: block; margin-top: 4px; color: var(--tinta-3); font-size: 11px; }
-.meta { color: var(--tinta-3); font-size: 11px; line-height: 1.8; }
+.listenControl span { display: block; margin-top: 4px; color: var(--tinta-3); font-size: 12px; }
+.meta { margin: 0; color: var(--tinta-3); font-size: 13px; line-height: 1.7; }
 .meta a { color: inherit; text-underline-offset: 4px; }
 .meta a:hover { color: var(--tinta); }
-.record { position: relative; z-index: 1; display: grid; justify-items: center; gap: 24px; min-width: 0; padding: 20px 12px; }
-.cover { width: min(100%, 400px); aspect-ratio: 1; }
-.recordCaption { justify-self: end; margin-right: 8px; color: var(--tinta-2); font-size: 11px; line-height: 1.7; text-align: right; }
+.record { grid-area: record; position: relative; z-index: 1; display: grid; justify-items: end; gap: 20px; min-width: 0; padding: 12px 0; }
+.cover { width: min(100%, 440px); aspect-ratio: 1; }
+.recordCaption { justify-self: end; color: var(--tinta-2); font-size: 12px; line-height: 1.7; text-align: right; }
 .recordCaption span { color: var(--tinta-3); }
-.decisionBar { border-top: 1px solid var(--fio-2); padding-top: 10px; }
-.decisionBar nav { position: static; padding: 16px 0 10px; background: none; gap: 12px; }
-.feedback { flex-basis: 100%; margin: 0 0 8px; color: var(--tinta-3); font-size: 12px; line-height: 1.6; }
+/* as decisões ficam presas no pé da tela, como as respostas da Conversa */
+.decisionBar { position: relative; z-index: 6; }
+.decisionBar > nav { gap: 10px; }
+.feedback { flex-basis: 100%; grid-column: 1 / -1; margin: 0 0 4px; color: var(--tinta-3); font-size: 13px; line-height: 1.6; }
+.dockToggle { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-left: auto; padding: 0; border: 0; background: none; color: var(--tinta);
+  font: inherit; font-size: 14px; text-decoration: underline; text-decoration-color: var(--tinta-3); text-underline-offset: 6px; cursor: pointer; }
+/* a gaveta que abre do pé: outras respostas ou o que há sobre a faixa */
+.dockPanel { flex-basis: 100%; grid-column: 1 / -1; max-height: min(52vh, 440px); overflow-y: auto; margin: 0 0 8px; padding: 6px 22px 18px;
+  background: #121211; border: 1px solid var(--fio-2); box-shadow: 0 30px 60px -30px rgb(0 0 0 / .9); animation: quietIn 160ms ease-out both; }
+.drawerTabs { display: flex; flex-wrap: wrap; gap: 0 24px; border-bottom: 1px solid var(--fio); }
+.drawerTabs button { min-height: 46px; padding: 12px 0 10px; margin-bottom: -1px; border: 0; border-bottom: 1.5px solid transparent; background: none; color: var(--tinta-3);
+  font: inherit; font-size: 14px; cursor: pointer; }
+.drawerTabs button[aria-selected="true"] { color: var(--tinta); border-bottom-color: var(--tinta); }
+.drawerBody { padding-top: 6px; }
+.drawerBody > div { padding: 8px 0 0; border: 0; }
+.drawerLead { margin: 12px 0 4px; color: var(--tinta); font-size: 15px; }
+.drawerNote { margin: 0; color: var(--tinta-3); font-size: 13px; }
 .feedback[role="alert"] { color: var(--erro); }
 .review { padding: 0 0 20px; color: var(--tinta-3); font-size: 13px; }
 .review summary { width: fit-content; min-height: 44px; padding-block: 13px; cursor: pointer; text-underline-offset: 4px; }
@@ -72,10 +105,7 @@
 .review label:last-child { display: grid; flex-basis: 100%; min-width: 0; }
 .review input { accent-color: var(--tinta); width: 16px; height: 16px; }
 .review textarea { box-sizing: border-box; width: min(100%, 32rem); min-height: 90px; padding: 12px; font: inherit; color: var(--tinta); background: transparent; border: 1px solid var(--fio-2); resize: vertical; }
-.continuity { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 20px 0 34px; border-top: 1px solid var(--fio); }
-.continuity p { margin: 0; font-size: 12px; color: var(--tinta-3); }
-.continuity p > span:first-child { color: var(--tinta); font-variant-numeric: tabular-nums; }
-.continuity > div { display: flex; flex-wrap: wrap; gap: 14px 22px; }
+.review.dockPanel { padding: 6px 22px 18px; }
 .journeyGroup { padding: 18px 0; border-top: 1px solid var(--fio); }
 .journeyGroup h2 { margin: 0 0 14px; color: var(--tinta-3); font-size: 13px; font-weight: 500; }
 .journeyGroup ol { margin: 0; padding-left: 20px; }
@@ -127,14 +157,13 @@
 @media (prefers-reduced-motion: reduce) {
  .entryArrow, .collection > summary > span:last-child, .adjustments > summary > span:last-child { transition: none; }
  .entryChoice:hover .entryArrow { transform: none; }
- .overlay { animation: none; }
+ .overlay, .rumoPanel, .dockPanel { animation: none; }
 }
 @media (max-width: 900px) {
  .entryChoices { grid-template-columns: repeat(2, minmax(0,1fr)); }
  .entryChoice:nth-child(odd) { border-left: 0; padding-left: 0; }
  .entryChoice:nth-child(n+3) { border-top: 1px solid var(--fio-2); }
  .block { column-gap: 32px; }
- .continuity { align-items: start; flex-direction: column; }
  .map { gap: 32px; }
 }
 @media (max-width: 640px) {
@@ -147,33 +176,25 @@
  .entryChoice strong { font-size: 26px; }
  .entryDescription { font-size: 13px; max-width: 34ch; margin-top: 8px; }
  .entryArrow { font-size: 22px; }
- .sessionBar { align-items: start; }
- .sessionBar .eyebrow { display: block; max-width: 22ch; font-size: 10px; line-height: 1.8; }
- .sessionBar .textButton { font-size: 11px; white-space: nowrap; }
- .block { grid-template-columns: minmax(0,1fr); gap: 20px; min-height: auto; padding: 16px 0 25px; }
- .trackCopy { display: contents; }
- .trackCopy > section { grid-row: 1; }
- .record { grid-row: 2; padding: 4px 20px; }
- .listenControl { grid-row: 3; }
- .trackCopy > .meta { grid-row: 4; }
- .reason { grid-row: 5; }
- .cover { width: min(66vw, 280px); }
+ .sessionBar { padding-top: 10px; }
+ .sessionBar .eyebrow { font-size: 12px; line-height: 1.5; }
+ /* no celular a manchete vem primeiro; a capa fica pequena, ao lado do artista */
+ .block { grid-template-columns: 104px minmax(0,1fr); grid-template-rows: none; grid-template-areas: "head head" "record byline" "reason reason" "listen listen"; column-gap: 16px; padding: 14px 0 24px; }
+ .head { margin-bottom: 22px; }
+ .record { align-self: center; justify-items: start; padding: 0; }
+ .cover { width: 104px; }
  .recordCaption { display: none; }
- .trackCounter { margin: 14px 0 17px; }
- .trackSpeech h1 { font-size: clamp(40px, 11vw, 68px); max-width: none; }
- .artist { font-size: 20px; margin: 15px 0 25px; }
- .reason { max-width: none; gap: 10px; }
- .reason p { font-size: 13px; line-height: 1.7; }
- .listenControl { margin-top: 23px; }
- .decisionBar nav { gap: 8px; }
- .decisionBar nav button { padding-inline: 13px; font-size: 13px; }
- .continuity > div { flex-wrap: wrap; gap: 4px 20px; }
- .continuityNote { display: block; margin-top: 5px; }
- .review[open] { padding-inline: 14px; }
+ .byline { align-self: center; }
+ .trackSpeech h1 { font-size: clamp(40px, 12.5vw, 64px); max-width: none; }
+ .artist { font-size: 19px; margin: 0 0 4px; }
+ .reason { max-width: none; margin-top: 22px; padding-top: 16px; }
+ .reason p { font-size: 15px; }
+ .listenControl, .listenElsewhere { margin-top: 18px; }
+ .decisionBar > nav { gap: 8px; }
+ .dockToggle { grid-column: 1 / -1; justify-self: center; margin-left: 0; }
+ .dockPanel, .review.dockPanel { max-height: 60vh; padding-inline: 14px; }
  .map { grid-template-columns: minmax(0,1fr); padding-top: 10px; }
  .mapAside { padding-top: 0; }
  .kept li { gap: 12px; grid-template-columns: minmax(0,1fr) auto; }
  .kept li > .keptHow { display: none; }
 }
-
-.reasonMark > svg { width: 48px; height: 52px; }

@@ -24,8 +24,8 @@ import type { TerritoryRequest, RepertoireRestriction, DiscoveryCoverage } from 
 import { DiscoveryEntry } from "./discovery-entry";
 import { DiscoveryTrack } from "./discovery-track";
 import { AlbumProgress } from "./album-journeys";
-import { TrackContext } from "./track-context";
-import { ListeningCues } from "./listening-cues";
+import { TrackDrawer } from "./track-drawer";
+import { RumoMenu, type RumoItem } from "./rumo-menu";
 import { discoveryEntryLabel } from "./discovery-view";
 import { DiscoveryDisclosure } from "./discovery-disclosure";
 import { DiscoveryTransition, useDiscoveryScene } from "./discovery-transition";
@@ -110,6 +110,8 @@ export function Descobertas({ initialSessionId = null, initialWeekId = null, sho
   const [failed, setFailed] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  /** A gaveta aberta no pé da escuta: outras respostas ou o que há sobre a faixa. */
+  const [panel, setPanel] = useState<"mais" | "sobre" | null>(null);
   const [aspects, setAspects] = useState<string[]>([]);
   const suggestionRef = useRef<HTMLElement>(null);
   const sessionRef = useRef<string | null>(null);
@@ -249,7 +251,20 @@ export function Descobertas({ initialSessionId = null, initialWeekId = null, sho
     if (rect.top < 90 || rect.top > window.innerHeight / 2) headline.scrollIntoView({ behavior: reduced ? "instant" : "smooth", block: "start" });
   }, [current?.id, choosing, busy, scene.ready, scene.visit, reduced]);
 
-  useEffect(() => { setNote(""); setAspects([]); }, [current?.id]);
+  useEffect(() => { setNote(""); setAspects([]); setPanel(null); }, [current?.id]);
+
+  // Esc fecha a gaveta aberta no pé da escuta e devolve o foco a quem abriu
+  useEffect(() => {
+    if (!panel) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      const opener = document.querySelector<HTMLElement>(`[aria-controls="${panel === "mais" ? "outras-respostas" : "sobre-a-faixa"}"]`);
+      setPanel(null);
+      opener?.focus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [panel]);
 
   useEffect(() => {
     const element = suggestionRef.current;
@@ -482,26 +497,75 @@ export function Descobertas({ initialSessionId = null, initialWeekId = null, sho
       </Aviso>
     );
   } else {
+    const pad = (value: number) => String(value).padStart(2, "0");
+    const entryLabel = discoveryEntryLabel(proximity, intent);
+    const where = weeklyHref ? "da semana" : entryLabel;
+    // tudo que muda o caminho mora num menu só: a faixa fica com a frente livre
+    const rumo: RumoItem[] = [
+      ...(weeklyHref ? [{ label: "voltar à jornada da semana", arrow: "→" as const, href: weeklyHref }] : []),
+      ...(journey?.parentSessionId ? [{ label: "voltar ao passo anterior", arrow: "←" as const, disabled: busy || saving,
+        onSelect: () => void load(proximity, fame, "RESUME", { sessionId: journey.parentSessionId }) }] : []),
+      { label: "buscar novidades a partir desta faixa", arrow: "→", disabled: busy || saving,
+        onSelect: () => void load(proximity, fame, "DEEPEN", { itemId: current.id, intent: intent === "CONNECTIONS" ? "CONNECTIONS" : "DISCOVER" }) },
+      ...(intent !== "ALBUM" && !weeklyHref ? [{ label: "buscar mais nesse caminho", arrow: "→" as const, disabled: saving,
+        onSelect: () => void load(proximity, fame, "MORE") }] : []),
+      ...(intent !== "REPERTOIRE" && intent !== "ALBUM" && intent !== "TERRITORY" && !weeklyHref
+        ? [{ label: "ajustar distância e público", arrow: "↓" as const, disabled: saving, onSelect: openMap }] : []),
+      { label: "escolher outro caminho", arrow: "→", away: true, onSelect: showEntries },
+      ...(index > 0 ? [{ label: "rever a anterior", arrow: "←" as const, away: true, disabled: saving, onSelect: () => void moveTo(index - 1) }] : []),
+    ];
+    const anchorNote = journey?.parentSessionId
+      ? journey.anchor ? <>Este caminho parte de “{journey.anchor.trackName}”, de {journey.anchor.artistName}.</> : "Este passo continua uma busca anterior."
+      : null;
+    const elsewhere = `https://open.spotify.com/search/${encodeURIComponent(`${current.artistName} ${current.trackName}`)}`;
     top = (
       <div>
-        {weeklyHref && <p className={styles.journeyContext}><Link href={weeklyHref}>voltar à jornada da semana →</Link></p>}
-        {journey?.parentSessionId && <div className={styles.journeyContext}>
-          {journey.anchor ? <>Este caminho parte de “{journey.anchor.trackName}”, de {journey.anchor.artistName}.</> : "Este passo continua uma busca anterior."}
-          {journey.parentSessionId && <> <button className={styles.textButton} disabled={busy || saving} onClick={() => void load(proximity, fame, "RESUME", { sessionId: journey.parentSessionId })}>voltar ao passo anterior →</button></>}
-        </div>}
         {journey?.album && <AlbumProgress album={journey.album} curation={journey.curation} tracks={queue} index={index} disabled={saving || busy || changing} onMove={(position) => void moveTo(position)} />}
-        <DiscoveryTrack title={current.trackName} artist={current.artistName} reason={current.reason} isRevisit={current.isRevisit}
+        <DiscoveryTrack title={current.trackName} artist={current.artistName} reason={current.reason}
           sectionRef={suggestionRef} headlineRef={headlineRef} markRef={markRef} marked={penInPlace && pen.started.has("grifo:" + current.id)}
-          entryLabel={discoveryEntryLabel(proximity, intent)} index={index} total={queue.length} onChangeEntry={showEntries}
+          inAlbum={intent === "ALBUM"} repertoire={intent === "REPERTOIRE"}
+          context={<>
+            <p className={styles.eyebrow}>{where}{current.isRevisit && " · uma revisita"} · <span className={styles.position}>{pad(index + 1)}</span> de {pad(queue.length)}</p>
+            <RumoMenu items={rumo} note={anchorNote} />
+          </>}
           onPlay={toggleSound} canPlay={Boolean(current.previewUrl)} playing={sound.playing} loading={sound.loading || mediaState === "loading"}
+          listenElsewhere={<>
+            <a className={styles.textButton} href={elsewhere} target="_blank" rel="noreferrer">ouvir no Spotify ↗</a>
+            {current.appleMusicUrl && <a className={styles.textButton} href={current.appleMusicUrl} target="_blank" rel="noreferrer">no Apple Music ↗</a>}
+            {mediaState === "error" && <button className={styles.textButton} onClick={() => setMediaAttempt((value) => value + 1)}>procurar o trecho de novo</button>}
+          </>}
           artwork={<Capa cover={{ url: current.coverUrl, title: current.albumName ?? current.trackName, artist: current.artistName }} playing={sound.playing} innerRef={coverRef} className={styles.cover} eager />}
-          metadata={<>{current.genre && <span>{genreLabel(current.genre)} · </span>}{current.previewUrl ? "prévia de 30s" : mediaState === "loading" ? "buscando capa e prévia…" : mediaState === "error" ? "falha temporária na busca de mídia" : "prévia não encontrada no catálogo consultado"}
-            {mediaState === "error" && <button className={styles.textButton} onClick={() => setMediaAttempt((value) => value + 1)}>tentar novamente</button>}
-            {current.appleMusicUrl && <> · <a href={current.appleMusicUrl} target="_blank" rel="noreferrer">Apple Music ↗</a></>}
+          metadata={<>{current.albumName && <span>{current.albumName} · </span>}{current.genre && <span>{genreLabel(current.genre)}</span>}
+            {current.previewUrl && current.appleMusicUrl && <> · <a href={current.appleMusicUrl} target="_blank" rel="noreferrer">Apple Music ↗</a></>}
             {current.sourceUrl && <> · <a href={current.sourceUrl} target="_blank" rel="noreferrer">referência no Last.fm ↗</a></>}
           </>} />
         <div className={styles.decisionBar}>
         <Respostas>
+          {panel === "mais" && <div id="outras-respostas" className={`${styles.review} ${styles.dockPanel}`} role="group" aria-label="Outras respostas">
+            <fieldset disabled={saving}>
+              <legend>Quer contar o que chamou atenção? É opcional e vai junto com a resposta.</legend>
+              {ASPECTS.map((aspect) => <label key={aspect}>
+                <input type="checkbox" checked={aspects.includes(aspect)} onChange={(event) => setAspects((values) => event.target.checked ? [...values, aspect] : values.filter((value) => value !== aspect))} /> {ASPECT_LABEL[aspect]}
+              </label>)}
+              <label>Comentário opcional<textarea maxLength={2000} value={note} onChange={(event) => setNote(event.target.value)} /></label>
+            </fieldset>
+            <Respostas inline label="Outras respostas">
+              <Resposta onClick={() => void decide("known")} hint="K" disabled={saving}>já conheço</Resposta>
+              <Resposta onClick={() => void decide("disliked")} disabled={saving}>não curti</Resposta>
+              <Resposta onClick={() => void decide("mismatch")} disabled={saving}>não era o que pedi</Resposta>
+              <Resposta onClick={() => void decide("curious")} disabled={saving}>fiquei curioso</Resposta>
+              <Resposta onClick={() => void decide("unheard")} disabled={saving}>ainda não ouvi</Resposta>
+            </Respostas>
+            {Object.values(current.feedback ?? {}).filter((entry) => entry?.type !== "RETRACTED").map((entry) => entry && <p key={entry.id}>
+              Você registrou: {FEEDBACK_LABEL[entry.type] ?? "uma resposta anterior"}{entry.note ? ` — ${entry.note}` : ""}.{" "}
+              <button className={styles.remove} disabled={saving} type="button" onClick={() => void decide("retract", entry.id)}>retirar esta avaliação</button>
+            </p>)}
+            {index < queue.length - 1 && <button type="button" className={styles.textButton} onClick={() => void moveTo(index + 1)} disabled={saving}>próxima sem responder →</button>}
+          </div>}
+          {panel === "sobre" && <div id="sobre-a-faixa" className={styles.dockPanel}>
+            <TrackDrawer itemId={current.id} albumName={current.albumName} mediaReady={mediaState === "ready"}
+              albumHref={current.albumName && intent !== "ALBUM" ? `/discovery/albums?item=${encodeURIComponent(current.id)}` : null} />
+          </div>}
           <p className={styles.feedback} role={feedbackError || sound.error ? "alert" : "status"}>
             {feedbackError || sound.error || (saving ? "Guardando tua resposta…" : kept.length > 0
               ? <Link href="/discovery/collection">{kept.length === 1 ? "1 faixa separada" : `${kept.length} faixas separadas`} pra depois →</Link>
@@ -516,40 +580,12 @@ export function Descobertas({ initialSessionId = null, initialWeekId = null, sho
           <Resposta onClick={() => void decide("skipped")} hint="→" disabled={saving}>
             pula
           </Resposta>
+          <Resposta onClick={() => setPanel((open) => open === "mais" ? null : "mais")} expanded={panel === "mais"} controls="outras-respostas">
+            mais…
+          </Resposta>
+          <button type="button" className={styles.dockToggle} aria-expanded={panel === "sobre"} aria-controls="sobre-a-faixa"
+            onClick={() => setPanel((open) => open === "sobre" ? null : "sobre")}>sobre essa faixa <span aria-hidden="true">{panel === "sobre" ? "↑" : "↓"}</span></button>
         </Respostas>
-        </div>
-        <DiscoveryDisclosure className={styles.review} key={current.id} summary="outras respostas">
-          <fieldset disabled={saving}>
-            <legend>Quer contar o que chamou atenção? É opcional.</legend>
-            {ASPECTS.map((aspect) => <label key={aspect}>
-              <input type="checkbox" checked={aspects.includes(aspect)} onChange={(event) => setAspects((values) => event.target.checked ? [...values, aspect] : values.filter((value) => value !== aspect))} /> {ASPECT_LABEL[aspect]}
-            </label>)}
-            <label>Comentário opcional<textarea maxLength={2000} value={note} onChange={(event) => setNote(event.target.value)} /></label>
-          </fieldset>
-          <Respostas inline label="Outras respostas">
-            <Resposta onClick={() => void decide("known")} hint="K" disabled={saving}>já conheço</Resposta>
-            <Resposta onClick={() => void decide("disliked")} disabled={saving}>não curti</Resposta>
-            <Resposta onClick={() => void decide("mismatch")} disabled={saving}>não era o que pedi</Resposta>
-            <Resposta onClick={() => void decide("curious")} disabled={saving}>fiquei curioso</Resposta>
-            <Resposta onClick={() => void decide("unheard")} disabled={saving}>ainda não ouvi</Resposta>
-          </Respostas>
-          {Object.values(current.feedback ?? {}).filter((entry) => entry?.type !== "RETRACTED").map((entry) => entry && <p key={entry.id}>
-            Você registrou: {FEEDBACK_LABEL[entry.type] ?? "uma resposta anterior"}{entry.note ? ` — ${entry.note}` : ""}.{" "}
-            <button className={styles.remove} disabled={saving} type="button" onClick={() => void decide("retract", entry.id)}>retirar esta avaliação</button>
-          </p>)}
-          {index < queue.length - 1 && <Resposta onClick={() => void moveTo(index + 1)} disabled={saving}>próxima sem responder</Resposta>}
-        </DiscoveryDisclosure>
-        <ListeningCues key={`cues:${current.id}`} itemId={current.id} mediaReady={mediaState === "ready"} />
-        <TrackContext key={`context:${current.id}`} itemId={current.id} albumName={current.albumName} />
-        {current.albumName && intent !== "ALBUM" && <Link className={styles.textButton} href={`/discovery/albums?item=${encodeURIComponent(current.id)}`}>ouvir o álbum desta indicação →</Link>}
-        <div className={styles.continuity}>
-          <p><span>{String(index + 1).padStart(2, "0")}</span> de {String(queue.length).padStart(2, "0")} indicações <span className={styles.continuityNote}>· teu lugar fica guardado</span></p>
-          <div>
-            <button className={styles.textButton} disabled={busy || saving} onClick={() => void load(proximity, fame, "DEEPEN", { itemId: current.id, intent: intent === "CONNECTIONS" ? "CONNECTIONS" : "DISCOVER" })}>buscar novidades a partir desta faixa ↗</button>
-            {index > 0 && <button className={styles.textButton} disabled={saving} onClick={() => void moveTo(index - 1)}>← anterior</button>}
-            {intent !== "ALBUM" && !weeklyHref && <button className={styles.textButton} disabled={saving} onClick={() => void load(proximity, fame, "MORE")}>buscar mais nesse caminho ↗</button>}
-            {intent !== "REPERTOIRE" && intent !== "ALBUM" && intent !== "TERRITORY" && !weeklyHref && <button className={styles.textButton} disabled={saving} onClick={openMap}>ajustar caminho</button>}
-          </div>
         </div>
       </div>
     );

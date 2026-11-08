@@ -26,7 +26,7 @@ Hipótese: retomar sem reiniciar, distinguir operações e interpretar corretame
 | Escuta | Pula / ainda não ouvi | Não declara rejeição. |
 | Legado | `NOT_INTERESTED` | Permanece genérico; não é convertido em um motivo mais específico. |
 
-Os canais coexistem: gostar e guardar são registros distintos. Os motivos opcionais (vocal, instrumental, letra, ritmo, atmosfera e outro) ficam associados à avaliação e ao exemplo declarado, sem inferir descritores de outras músicas. Só aparecem ao abrir “outras respostas ou revisar”.
+Os canais coexistem: gostar e guardar são registros distintos. Os motivos opcionais (vocal, instrumental, letra, ritmo, atmosfera e outro) ficam associados à avaliação e ao exemplo declarado, sem inferir descritores de outras músicas. Só aparecem ao abrir “mais…”, no pé da escuta, junto das outras respostas.
 
 Revisar acrescenta um registro com revisão crescente e referência à avaliação substituída. Retirar cria um registro de retirada no canal escolhido; não apaga os anteriores nem os outros canais. Uma referência já superada é recusada. Chaves de operação impedem que uma resposta antiga reenviada por falha de rede desfaça uma decisão posterior.
 

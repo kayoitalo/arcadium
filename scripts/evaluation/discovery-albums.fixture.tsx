@@ -80,6 +80,14 @@ const frame = () => new Promise(requestAnimationFrame);
 async function wait(check: () => unknown, label: string) { const limit = performance.now() + 7000; while (!check()) { if (performance.now() > limit) throw new Error(`Timeout: ${label}`); await frame(); } }
 function assert(value: unknown, label: string) { if (!value) throw new Error(label); }
 function button(label: string) { const node = [...document.querySelectorAll<HTMLButtonElement>("button")].find((el) => el.textContent?.trim() === label); if (!node) throw new Error(`Button missing: ${label}`); return node; }
+/** A gaveta "sobre essa faixa" abre do pé da escuta; cada aba consulta a fonte só quando é escolhida. */
+async function drawerTab(label: string) {
+  const toggle = document.querySelector<HTMLButtonElement>('[aria-controls="sobre-a-faixa"]');
+  if (!toggle) throw new Error("Track drawer toggle missing");
+  if (toggle.getAttribute("aria-expanded") !== "true") toggle.click();
+  const tab = () => [...document.querySelectorAll<HTMLButtonElement>('#sobre-a-faixa [role="tab"]')].find((el) => el.textContent === label);
+  await wait(tab, `drawer ${label}`); tab()!.click();
+}
 function summary(label: string) { const node = [...document.querySelectorAll("summary")].find((el) => el.textContent?.includes(label)); if (!node) throw new Error(`Summary missing: ${label}`); return node; }
 const ready = (n: number) => document.querySelector('[data-discovery-scene="ready"] h1')?.textContent?.includes(`Faixa ${n}`);
 const bodyText = () => document.body.textContent ?? "";
@@ -117,7 +125,8 @@ async function runChecks() {
   assert(qa.plays === 0, "Moving/resuming must not autoplay");
   passed.push("disc/track navigation, cursor resume and feedback kept separate");
   assert(!qa.requests.some((r) => r.url === "/api/discovery-context"), "Context must not fetch before explicitly opened");
-  summary("um pouco de contexto").click(); await wait(() => bodyText().includes("Fonte indisponível"), "context failure");
+  await drawerTab("um pouco de contexto"); await wait(() => bodyText().includes("Fonte indisponível"), "context failure");
+  assert(![...document.querySelectorAll('#sobre-a-faixa [role="tab"]')].some((el) => el.textContent === "o disco"), "An ordered album must not point back to its own album");
   button("tenta de novo").click(); await wait(() => document.querySelector("blockquote"), "sourced excerpt");
   assert(document.querySelector('a[href="https://www.last.fm/music/Synthetic/Album"]'), "Context needs a direct source");
   assert(bodyText().includes("consultado em") && document.querySelector('[aria-pressed="true"]')?.textContent === "sobre o álbum", "Context date and scope must be explicit");
@@ -148,8 +157,8 @@ async function runChecks() {
   const curatedStart = qa.requests.slice(beforeCurated).find((r) => r.body.action === "BEGIN");
   assert(curatedStart?.body.collectionId === CARTOLA_1976.collectionId && curatedStart.body.source.id === CARTOLA_1976.credit.id, "Start must use the published reference");
   assert(!qa.requests.some((r) => r.url === "/api/listening-cues"), "Recording cues must wait for explicit opening");
-  const cuePanel = summary("o que reparar nessa faixa").closest("details")!;
-  summary("o que reparar nessa faixa").click();
+  await drawerTab("o que reparar");
+  const cuePanel = document.querySelector<HTMLElement>("#sobre-a-faixa")!;
   await wait(() => cuePanel.querySelector("article, [role=alert]") || cuePanel.textContent?.includes("Não tenho uma pista confiável"), "recording credit response");
   assert(cuePanel.textContent?.includes("Altamiro Carrilho"), `Expected the recording credit, received: ${cuePanel.textContent}`);
   assert([...document.querySelectorAll("a")].some((row) => row.href === CARTOLA_1976.credit.sourceUrl && row.textContent?.includes("Crédito da gravação")), "The recording credit must link its publisher separately");

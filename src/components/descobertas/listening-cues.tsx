@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import { privateFetch } from "@/lib/http/private-fetch";
 import { listeningCuesSchema, type ListeningCues as Cues } from "@/modules/recommendations/domain/listening-cues";
-import { DiscoveryDisclosure } from "./discovery-disclosure";
 import styles from "./album-journeys.module.css";
 export function ListeningCueExcerpt({ value }: { value: Cues }) {
   return <>
@@ -14,20 +13,20 @@ export function ListeningCueExcerpt({ value }: { value: Cues }) {
     </article>)}
   </>;
 }
+/** Montado só quando a aba "o que reparar" abre: os créditos são conferidos aí. */
 export function ListeningCues({ itemId, mediaReady }: { itemId: string; mediaReady: boolean }) {
-  const [open, setOpen] = useState(false); const [value, setValue] = useState<Cues | null>(null);
+  const [value, setValue] = useState<Cues | null>(null);
   const [error, setError] = useState(false); const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    if (!open) return;
     const controller = new AbortController(); setValue(null); setError(false);
     void privateFetch("/api/listening-cues", { method: "POST", signal: controller.signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ itemId }) })
       .then(async (response) => { if (!response.ok) throw new Error(); const data = listeningCuesSchema.parse(await response.json()); if (!controller.signal.aborted) setValue(data); })
       .catch(() => { if (!controller.signal.aborted) setError(true); });
     return () => controller.abort();
-  }, [open, itemId, mediaReady, attempt]);
-  return <DiscoveryDisclosure summary="o que reparar nessa faixa" open={open} onOpenChange={setOpen} className={styles.contextDisclosure}>
+  }, [itemId, mediaReady, attempt]);
+  return <div className={styles.contextDisclosure}>
     {!value && !error && <p role="status">Conferindo os créditos dessa versão…</p>}
     {error && <p role="alert">Não consegui conferir agora. <button onClick={() => setAttempt((n) => n + 1)}>tenta de novo</button></p>}
     {value && <ListeningCueExcerpt value={value} />}
-  </DiscoveryDisclosure>;
+  </div>;
 }
