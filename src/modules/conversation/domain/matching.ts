@@ -145,9 +145,9 @@ export function observedGap(
   return active / months.length >= minShare;
 }
 
-const PERIOD_ORDER: PeriodKey[] = ["7d", "30d", "1y", "all"];
+const PERIOD_ORDER: PeriodKey[] = ["1d", "7d", "30d", "1y", "all"];
 /** O que só acontece de vez em quando vem antes do que sempre existe (o topo, as épocas). */
-const KIND_ORDER: EvidenceKind[] = ["loop", "comeback", "outlier", "transition", "ranking", "decades"];
+const KIND_ORDER: EvidenceKind[] = ["night", "binge", "loop", "debut", "comeback", "outlier", "transition", "ranking", "decades"];
 
 /** "22 out 2023": o dia de uma audição antiga, com o ano — numa volta, é o ano que conta. */
 export function formatDay(date: Date, timeZone = "America/Sao_Paulo"): string {
@@ -208,6 +208,7 @@ export function selectMoments<T extends { period: PeriodKey; kind: EvidenceKind 
 
 /** A janela dita pelo amigo, em vez do nome técnico do período. */
 export function windowLabel(period: PeriodKey, firstPlay: Date | null, timeZone = "America/Sao_Paulo"): string {
+  if (period === "1d") return "de ontem pra cá";
   if (period === "7d") return "essa semana";
   if (period === "30d") return "nesse último mês";
   if (period === "1y") return "de um ano pra cá";

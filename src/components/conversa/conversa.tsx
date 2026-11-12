@@ -11,7 +11,7 @@ import { usePulse } from "@/components/amigo/use-pulse";
 import { useSound, type SoundStep } from "@/components/amigo/use-sound";
 import type { ConversationMoment, Evidence } from "@/modules/conversation/domain/conversation.types";
 import { decadeLabel, ProvaDecadas, ProvaLista, ProvaTransicao } from "./provas";
-import { ProvaLoop, ProvaSurpresa, ProvaVolta } from "./provas-raras";
+import { ProvaEstreia, ProvaLoop, ProvaMadrugada, ProvaMaratona, ProvaSurpresa, ProvaVolta } from "./provas-raras";
 import styles from "./conversa.module.css";
 import { privateFetch } from "@/lib/http/private-fetch";
 
@@ -59,7 +59,8 @@ function marksOf(evidence: Evidence | null | undefined): string[] | undefined {
     return [row.label, row.sub].filter(Boolean);
   }
   if (evidence.kind === "loop") return [evidence.track, evidence.artist];
-  if (evidence.kind === "comeback" || evidence.kind === "outlier") return [evidence.artist];
+  if (evidence.kind === "night") return evidence.steps.flatMap((step) => [step.track, step.artist]);
+  if (evidence.kind !== "decades") return [evidence.artist];
   return evidence.focus.flatMap((decade) => [decadeLabel(decade), `${decade}s`]);
 }
 
@@ -430,6 +431,9 @@ export function Conversa({
             {evidence?.kind === "loop" && <ProvaLoop evidence={evidence} playing={isActive && sound.playing} />}
             {evidence?.kind === "comeback" && <ProvaVolta evidence={evidence} playing={isActive && sound.playing} />}
             {evidence?.kind === "outlier" && <ProvaSurpresa evidence={evidence} playing={isActive && sound.playing} />}
+            {evidence?.kind === "debut" && <ProvaEstreia evidence={evidence} playing={isActive && sound.playing} />}
+            {evidence?.kind === "night" && <ProvaMadrugada evidence={evidence} playing={isActive && sound.playing} />}
+            {evidence?.kind === "binge" && <ProvaMaratona evidence={evidence} playing={isActive && sound.playing} />}
             {!moment && epilogue}
           </section>
         );

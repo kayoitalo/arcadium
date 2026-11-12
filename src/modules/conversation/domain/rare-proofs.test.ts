@@ -65,8 +65,14 @@ describe("o durável é escrito uma vez por mês", () => {
   const now = new Date("2026-11-11T12:00:00Z");
   const daysAgo = (days: number) => new Date(now.getTime() - days * 86_400_000);
 
-  it("a semana vem primeiro na fila e o ano e o tudo por último", () => {
-    expect(REFRESH_PRIORITY).toEqual(["7d", "30d", "1y", "all"]);
+  it("o dia e a semana vêm primeiro na fila e o ano e o tudo por último", () => {
+    expect(REFRESH_PRIORITY).toEqual(["1d", "7d", "30d", "1y", "all"]);
+  });
+
+  it("o dia é refeito no máximo duas vezes por dia, para sobrar vez para a semana e o mês", () => {
+    expect(refreshDecision({ builtAt: new Date(now.getTime() - 11 * 3_600_000), fingerprint: "a" }, "b", "1d", now)).toBe("too_recent");
+    expect(refreshDecision({ builtAt: new Date(now.getTime() - 13 * 3_600_000), fingerprint: "a" }, "b", "1d", now)).toBe("changed");
+    expect(refreshDecision({ builtAt: new Date(now.getTime() - 25 * 3_600_000), fingerprint: "a" }, "a", "1d", now)).toBe("too_old");
   });
 
   it("escuta mudada não refaz o ano antes de quatro semanas", () => {

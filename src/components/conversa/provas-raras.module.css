@@ -87,6 +87,47 @@
   font-variation-settings: "wdth" 90, "wght" 640;
 }
 
+.dates dt {
+  overflow-wrap: anywhere;
+}
+
+/* madrugada: o que tocou, na ordem, com a hora de cada uma */
+.steps {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 0;
+  padding: 14px 0 0;
+  list-style: none;
+  border-top: 1px solid var(--fio);
+}
+
+.steps li {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 12px;
+  align-items: baseline;
+}
+
+.steps li > :last-child {
+  grid-column: 2;
+}
+
+.stepTrack {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-variation-settings: "wdth" 86, "wght" 620;
+  color: var(--tinta);
+}
+
+/* maratona: as faixas do dia, abaixo do artista */
+.spaced {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--fio);
+}
+
 /* surpresa: o ponto fora da curva fica separado da lista dos que dominam */
 .apart {
   margin-top: 10px;

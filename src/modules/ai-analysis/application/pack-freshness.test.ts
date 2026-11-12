@@ -33,17 +33,17 @@ describe("refreshDecision", () => {
 
   it("generates when there is no pack or it is too old", () => {
     expect(refreshDecision(null, "abc", "30d", now)).toBe("missing");
-    expect(refreshDecision({ builtAt: hoursAgo(80), fingerprint: "abc" }, "abc", "30d", now)).toBe("too_old");
+    expect(refreshDecision({ builtAt: hoursAgo(100), fingerprint: "abc" }, "abc", "30d", now)).toBe("too_old");
   });
 
   it("waits for the minimum age before reacting to a changed listening", () => {
     expect(refreshDecision({ builtAt: hoursAgo(3), fingerprint: "old" }, "new", "30d", now)).toBe("too_recent");
-    expect(refreshDecision({ builtAt: hoursAgo(13), fingerprint: "old" }, "new", "30d", now)).toBe("changed");
+    expect(refreshDecision({ builtAt: hoursAgo(25), fingerprint: "old" }, "new", "30d", now)).toBe("changed");
     expect(refreshDecision({ builtAt: hoursAgo(13), fingerprint: "same" }, "same", "30d", now)).toBe("fresh");
   });
 
   it("gives each period its own pace", () => {
-    expect(refreshDecision({ builtAt: hoursAgo(25), fingerprint: "a" }, "a", "7d", now)).toBe("too_old");
+    expect(refreshDecision({ builtAt: hoursAgo(49), fingerprint: "a" }, "a", "7d", now)).toBe("too_old");
     expect(refreshDecision({ builtAt: hoursAgo(25), fingerprint: "a" }, "b", "all", now)).toBe("too_recent");
     expect(oldEnoughToCheck(hoursAgo(2), "7d", now)).toBe(false);
     expect(oldEnoughToCheck(null, "7d", now)).toBe(true);

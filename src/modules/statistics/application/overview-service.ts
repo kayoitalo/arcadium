@@ -3,7 +3,8 @@ import { previewPath } from "@/lib/music/preview-path";
 import { loadArtistGenres } from "./artist-genres";
 import { decadeDistribution, type DecadeDistribution } from "./decades";
 
-export type PeriodKey = "7d" | "30d" | "1y" | "all";
+/** "1d" são as últimas 24 horas: a janela da conversa que muda de um dia para o outro. */
+export type PeriodKey = "1d" | "7d" | "30d" | "1y" | "all";
 export interface PeriodRange { start: Date; end: Date }
 
 /**
@@ -20,7 +21,7 @@ export const RACK_SIZE = 12;
 export function getPeriodRanges(period: PeriodKey, referenceDate = new Date()): { current: PeriodRange; previous: PeriodRange | null } {
   const end = new Date(referenceDate);
   if (period === "all") return { current: { start: new Date(0), end }, previous: null };
-  const days = period === "7d" ? 7 : period === "1y" ? 365 : 30;
+  const days = period === "1d" ? 1 : period === "7d" ? 7 : period === "1y" ? 365 : 30;
   const start = new Date(end.getTime() - days * 86_400_000);
   return { current: { start, end }, previous: { start: new Date(start.getTime() - days * 86_400_000), end: start } };
 }

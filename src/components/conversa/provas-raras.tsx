@@ -72,6 +72,93 @@ export function ProvaVolta({ evidence, playing }: { evidence: Extract<Evidence, 
   );
 }
 
+/** A estreia: a primeira audição da vida, com a hora e a faixa por onde ele entrou. */
+export function ProvaEstreia({ evidence, playing }: { evidence: Extract<Evidence, { kind: "debut" }>; playing: boolean }) {
+  return (
+    <div className={styles.proof}>
+      <div className={styles.solo}>
+        <Capa cover={evidence.cover} playing={playing} className={styles.soloCover} />
+        <div className={own.fact}>
+          <p className={own.value}>
+            1ª vez <span>por aqui</span>
+          </p>
+          <p className={own.name}>{evidence.artist}</p>
+          <dl className={own.dates}>
+            <div data-lit="true">
+              <dt>entrou com {splitTrackTitle(evidence.firstTrack).title}</dt>
+              <dd>{evidence.firstAt}</dd>
+            </div>
+          </dl>
+          <p className={styles.quiet}>
+            {evidence.plays} {evidence.plays === 1 ? "audição" : "audições"} desde então
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** A madrugada: de que hora a que hora, e o que tocou, na ordem. */
+export function ProvaMadrugada({ evidence, playing }: { evidence: Extract<Evidence, { kind: "night" }>; playing: boolean }) {
+  const rest = evidence.plays - evidence.steps.length;
+  const [day] = evidence.steps[0]?.when.split(" · ") ?? [""];
+  return (
+    <div className={styles.proof}>
+      <div className={styles.solo}>
+        <Capa cover={evidence.cover} playing={playing} className={styles.soloCover} />
+        <div className={own.fact}>
+          <p className={own.value}>
+            {evidence.from}–{evidence.to} <span>{day}</span>
+          </p>
+          <ol className={own.steps} aria-label="O que tocou de madrugada">
+            {evidence.steps.map((step, order) => (
+              <li key={`${step.when}-${order}`}>
+                <span className={styles.when}>{step.when.split(" · ")[1] ?? step.when}</span>
+                <span className={own.stepTrack}>{splitTrackTitle(step.track).title}</span>
+                <span className={styles.who}>{step.artist}</span>
+              </li>
+            ))}
+          </ol>
+          <p className={styles.quiet}>
+            {evidence.plays} audições seguidas{rest > 0 ? ` · e mais ${rest} depois dessas` : ""}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** A maratona: quantas das audições de um dia foram de um artista só, e com quais faixas. */
+export function ProvaMaratona({ evidence, playing }: { evidence: Extract<Evidence, { kind: "binge" }>; playing: boolean }) {
+  const max = evidence.tracks[0]?.plays || 1;
+  return (
+    <div className={styles.proof}>
+      <div className={styles.solo}>
+        <Capa cover={evidence.cover} playing={playing} className={styles.soloCover} />
+        <div className={own.fact}>
+          <p className={own.value}>
+            {evidence.plays} de {evidence.dayTotal} <span>audições em {evidence.day}</span>
+          </p>
+          <p className={own.name}>{evidence.artist}</p>
+          <ol className={`${styles.rows} ${own.spaced}`} data-plain="true">
+            {evidence.tracks.map((row) => (
+              <li key={row.track} className={styles.row}>
+                <span className={styles.rowText}>
+                  <span className={styles.rowLabel}>{splitTrackTitle(row.track).title}</span>
+                </span>
+                <span className={styles.rowValue}>{row.plays}</span>
+                <span className={styles.rowBar}>
+                  <span style={{ width: `${(row.plays / max) * 100}%` }} />
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** A surpresa: os gêneros que dominam a janela e, fora deles, o artista que não conversa com nenhum. */
 export function ProvaSurpresa({ evidence, playing }: { evidence: Extract<Evidence, { kind: "outlier" }>; playing: boolean }) {
   const max = Math.max(...evidence.dominant.map((entry) => entry.share), 1);

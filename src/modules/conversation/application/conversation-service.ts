@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { previewPath } from "@/lib/music/preview-path";
 import { formatGenre } from "@/lib/format/genre";
 import { AIAnalysisService } from "@/modules/ai-analysis/application/ai-analysis-service";
-import { describeGap, findOutliers } from "@/modules/ai-analysis/application/listening-signals";
+import { describeGap, findBinge, findLateNight, findOutliers, localClock } from "@/modules/ai-analysis/application/listening-signals";
 import type { ProfileNarrative } from "@/modules/ai-analysis/domain/ai-analysis.types";
 import { ItunesPreviewAdapter } from "@/modules/recommendations/infrastructure/itunes-preview-adapter";
 import { fallbackCover } from "./cover-fallback";
@@ -49,14 +49,18 @@ import {
  */
 
 /**
- * A conversa da tela inicial só fala do que muda: a semana e o mês. O que
+ * A conversa da tela inicial só fala do que muda: o dia, a semana e o mês. O que
  * quase não muda (o ano, tudo) é escrito uma vez por mês e mora no retrato —
  * na tela inicial, repetia o mesmo assunto por semanas.
  */
 export type ConversationScope = "recent" | "lasting";
-const PERIODS: Record<ConversationScope, PeriodKey[]> = { recent: ["7d", "30d"], lasting: ["1y", "all"] };
-/** Assuntos por janela: com duas janelas em cada conversa, três de cada dão os seis do fio. */
-const PER_PERIOD = 3;
+const PERIODS: Record<ConversationScope, PeriodKey[]> = { recent: ["1d", "7d", "30d"], lasting: ["1y", "all"] };
+/** Assuntos por janela: dois de cada, para o dia, a semana e o mês caberem nos seis do fio. */
+const PER_PERIOD = 2;
+/** Madrugada e maratona só são escritas para o dia e a semana (profile-builder). */
+const DAILY: PeriodKey[] = ["1d", "7d"];
+/** Quantas audições da madrugada a prova lista. */
+const NIGHT_STEPS = 6;
 /** Os mesmos limites de quem escreve (profile-builder): a prova mede o que a leitura viu. */
 const COMEBACK_GAP_DAYS = 90;
 const DOMINANT_GENRES = 5;
@@ -310,6 +314,89 @@ async function comebackEvidence(
   return null;
 }
 
+/** Quem estreou: a primeira audição da vida caiu dentro da janela. */
+async function debutEvidence(data: PeriodData, reading: ProfileNarrative, timeZone: string): Promise<Evidence | null> {
+  if (data.period === "all") return null;
+  const text = textOf(reading);
+  const cited = (await data.artists()).filter((artist) => artist.plays >= 2 && mentions(text, artist.name));
+  for (const artist of cited) {
+    const first = await prisma.listeningEvent.findFirst({
+      where: { userId: data.userId, rawArtistName: artist.name },
+      orderBy: { playedAt: "asc" },
+      select: { playedAt: true, rawTrackName: true },
+    });
+    if (!first || first.playedAt < data.start) continue;
+
+    const total = await data.total();
+    if (!claimsAgree(claimedCounts(text), [artist.plays, total])) return null;
+    if (!claimsAgree(claimedShares(text), [percent(artist.plays, total)])) return null;
+    const media = await mediaFor(data, artist.name, null);
+    return {
+      kind: "debut",
+      artist: artist.name,
+      plays: artist.plays,
+      firstAt: formatWhen(first.playedAt, timeZone),
+      firstTrack: first.rawTrackName,
+      ...media,
+    };
+  }
+  return null;
+}
+
+/** A sessão de madrugada: as audições seguidas entre 0h e 5h, com a hora de cada uma. */
+async function nightEvidence(data: PeriodData, reading: ProfileNarrative, timeZone: string): Promise<Evidence | null> {
+  if (!DAILY.includes(data.period)) return null;
+  const events = await data.orderedEvents();
+  const session = findLateNight(events, timeZone);
+  if (!session) return null;
+  const text = textOf(reading);
+  if (!claimsAgree(claimedCounts(text), [session.plays, events.length])) return null;
+  // porcentagem não se prova com uma lista de horas
+  if (claimedShares(text).length > 0) return null;
+
+  const run = events.slice(session.start, session.start + session.plays);
+  // a capa é de quem a frase cita; se ela não cita ninguém da sessão, de quem abriu a noite
+  const lead = run.find((event) => mentions(text, event.track) || mentions(text, event.artist)) ?? run[0];
+  const media = await mediaFor(data, lead.artist, lead.track);
+  return {
+    kind: "night",
+    from: session.from,
+    to: session.to,
+    plays: session.plays,
+    steps: run.slice(0, NIGHT_STEPS).map((event) => ({ artist: event.artist, track: event.track, when: formatWhen(event.playedAt, timeZone) })),
+    cover: media.cover,
+    previewUrl: media.previewUrl,
+  };
+}
+
+/** O dia de um artista só: quantas das audições daquele dia foram dele, e com quais faixas. */
+async function bingeEvidence(data: PeriodData, reading: ProfileNarrative, timeZone: string): Promise<Evidence | null> {
+  if (!DAILY.includes(data.period)) return null;
+  const events = await data.orderedEvents();
+  const binge = findBinge(events, timeZone);
+  const text = textOf(reading);
+  if (!binge || !mentions(text, binge.artist)) return null;
+
+  const artistPlays = events.filter((event) => event.artist === binge.artist).length;
+  if (!claimsAgree(claimedCounts(text), [binge.plays, binge.dayTotal, artistPlays, events.length])) return null;
+  if (!claimsAgree(claimedShares(text), [percent(binge.plays, binge.dayTotal), percent(artistPlays, events.length)])) return null;
+
+  const ofTheDay = events.filter((event) => event.artist === binge.artist && localClock(event.playedAt, timeZone).day === binge.day);
+  const counts = new Map<string, number>();
+  for (const event of ofTheDay) counts.set(event.track, (counts.get(event.track) ?? 0) + 1);
+  const tracks = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([track, plays]) => ({ track, plays }));
+  const media = await mediaFor(data, binge.artist, tracks[0]?.track ?? null);
+  return {
+    kind: "binge",
+    artist: binge.artist,
+    plays: binge.plays,
+    dayTotal: binge.dayTotal,
+    day: formatWhen(ofTheDay[0].playedAt, timeZone).split(" · ")[0],
+    tracks,
+    ...media,
+  };
+}
+
 /** O ponto fora da curva: um artista cujo gênero não conversa com nenhum dos que dominam a janela. */
 async function outlierEvidence(data: PeriodData, reading: ProfileNarrative): Promise<Evidence | null> {
   const artists = await data.artists();
@@ -549,6 +636,9 @@ const KIND_OF_SIGNAL: Record<string, EvidenceKind> = {
   loop: "loop",
   comebacks: "comeback",
   outliers: "outlier",
+  debuts: "debut",
+  lateNight: "night",
+  binge: "binge",
 };
 
 /** O ângulo que a leitura recebeu no sorteio diz de que ela trata: a prova dele vem primeiro. */
@@ -556,6 +646,9 @@ const KIND_OF_ANGLE: Record<string, EvidenceKind> = {
   loop: "loop",
   volta: "comeback",
   surpresa: "outlier",
+  estreia: "debut",
+  madrugada: "night",
+  maratona: "binge",
   transicao: "transition",
   epoca: "decades",
   "mais-ouvido": "ranking",
@@ -576,6 +669,9 @@ async function evidenceFor(
     loop: () => loopEvidence(data, reading, timeZone),
     comeback: () => comebackEvidence(data, reading, timeZone, monthly),
     outlier: () => outlierEvidence(data, reading),
+    debut: () => debutEvidence(data, reading, timeZone),
+    night: () => nightEvidence(data, reading, timeZone),
+    binge: () => bingeEvidence(data, reading, timeZone),
   };
   // a prova segue o ângulo da leitura e, depois, o que ela cita, na ordem em
   // que cita: uma leitura de época que também cita o topo é sobre a época
