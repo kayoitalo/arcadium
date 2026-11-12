@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { previewPath } from "@/lib/music/preview-path";
 import { formatGenre } from "@/lib/format/genre";
 import { AIAnalysisService } from "@/modules/ai-analysis/application/ai-analysis-service";
+import { describeGap, findOutliers } from "@/modules/ai-analysis/application/listening-signals";
 import type { ProfileNarrative } from "@/modules/ai-analysis/domain/ai-analysis.types";
 import { ItunesPreviewAdapter } from "@/modules/recommendations/infrastructure/itunes-preview-adapter";
 import { fallbackCover } from "./cover-fallback";
@@ -24,7 +25,9 @@ import {
   claimsAgree,
   decadesIn,
   focusIn,
+  formatDay,
   formatWhen,
+  loopRun,
   mentions,
   observedGap,
   pickTransition,
@@ -45,7 +48,19 @@ import {
  * o número da frase e o da tela são o mesmo número.
  */
 
-const PERIODS: PeriodKey[] = ["7d", "30d", "1y"];
+/**
+ * A conversa da tela inicial só fala do que muda: a semana e o mês. O que
+ * quase não muda (o ano, tudo) é escrito uma vez por mês e mora no retrato —
+ * na tela inicial, repetia o mesmo assunto por semanas.
+ */
+export type ConversationScope = "recent" | "lasting";
+const PERIODS: Record<ConversationScope, PeriodKey[]> = { recent: ["7d", "30d"], lasting: ["1y", "all"] };
+/** Assuntos por janela: com duas janelas em cada conversa, três de cada dão os seis do fio. */
+const PER_PERIOD = 3;
+/** Os mesmos limites de quem escreve (profile-builder): a prova mede o que a leitura viu. */
+const COMEBACK_GAP_DAYS = 90;
+const DOMINANT_GENRES = 5;
+const TOP_ARTISTS = 10;
 /** Linhas de lista na prova; a tela mostra 5 e "me mostra mais" abre o resto. */
 const ROWS = 10;
 /** Abaixo disso o retrato das décadas é parcial demais para ser prova. */
@@ -83,6 +98,7 @@ interface Candidate {
 class PeriodData {
   private events?: Promise<Array<{ artist: string; track: string; playedAt: Date; albumId: string | null; trackId: string | null }>>;
   private tops = new Map<string, Promise<RankRow[]>>();
+  private everyone?: Promise<Array<{ name: string; plays: number }>>;
 
   constructor(
     readonly userId: string,
@@ -154,6 +170,14 @@ class PeriodData {
     return rows;
   }
 
+  /** Todos os artistas da janela, do que mais tocou para o que menos: a volta e a surpresa moram fora do topo. */
+  artists() {
+    this.everyone ??= prisma.listeningEvent
+      .groupBy({ by: ["rawArtistName"], where: this.where, _count: { id: true }, orderBy: { _count: { id: "desc" } } })
+      .then((rows) => rows.map((row) => ({ name: row.rawArtistName, plays: row._count.id })));
+    return this.everyone;
+  }
+
   async total(): Promise<number> {
     return prisma.listeningEvent.count({ where: this.where });
   }
@@ -177,6 +201,142 @@ async function coverOf(albumId: string | null, artist: string, track: string | n
   if (!album) return { url: null, title: null };
   if (album.coverUrl) return { url: sharpCover(album.coverUrl), title: album.name };
   return { url: await fallbackCover(albumId, artist, album.name, track), title: album.name };
+}
+
+/** A capa e a prévia de um artista na janela: a faixa citada, ou a que mais tocou dele. */
+async function mediaFor(data: PeriodData, artist: string, track: string | null) {
+  const scope = { ...data.where, rawArtistName: artist, ...(track ? { rawTrackName: track } : {}) };
+  const [albumRow] = await prisma.listeningEvent.groupBy({
+    by: ["albumId"],
+    where: { ...scope, NOT: { albumId: null } },
+    _count: { id: true },
+    orderBy: { _count: { id: "desc" } },
+    take: 1,
+  });
+  const previewTrack =
+    track ??
+    (
+      await prisma.listeningEvent.groupBy({
+        by: ["rawTrackName"],
+        where: scope,
+        _count: { id: true },
+        orderBy: { _count: { id: "desc" } },
+        take: 1,
+      })
+    )[0]?.rawTrackName ??
+    null;
+  const trackEvent = previewTrack
+    ? await prisma.listeningEvent.findFirst({
+        where: { userId: data.userId, rawArtistName: artist, rawTrackName: previewTrack, NOT: { trackId: null } },
+        orderBy: { playedAt: "desc" },
+        select: { trackId: true },
+      })
+    : null;
+  const [cover, preview] = await Promise.all([
+    coverOf(albumRow?.albumId ?? null, artist, previewTrack),
+    previewTrack ? previewFor(trackEvent?.trackId ?? null, artist, previewTrack) : Promise.resolve({ url: null, artworkUrl: null }),
+  ]);
+  const view: ConversationCover = { url: cover.url ?? preview.artworkUrl, title: cover.title ?? previewTrack ?? artist, artist };
+  return { cover: view, previewUrl: preview.url, previewTrack };
+}
+
+/** A faixa que tocou várias vezes seguidas: a sequência de verdade, com a hora de cada vez. */
+async function loopEvidence(data: PeriodData, reading: ProfileNarrative, timeZone: string): Promise<Evidence | null> {
+  const events = await data.orderedEvents();
+  const run = loopRun(events);
+  if (!run) return null;
+  const { artist, track } = events[run.start];
+  const text = textOf(reading);
+  if (!mentions(text, track) && !mentions(text, artist)) return null;
+
+  const trackPlays = events.filter((event) => event.artist === artist && event.track === track).length;
+  const artistPlays = events.filter((event) => event.artist === artist).length;
+  if (!claimsAgree(claimedCounts(text), [run.times, trackPlays, artistPlays, events.length])) return null;
+  if (!claimsAgree(claimedShares(text), [percent(trackPlays, events.length), percent(artistPlays, events.length)])) return null;
+
+  const media = await mediaFor(data, artist, track);
+  return {
+    kind: "loop",
+    artist,
+    track,
+    times: run.times,
+    plays: events.slice(run.start, run.start + run.times).map((event) => formatWhen(event.playedAt, timeZone)),
+    cover: media.cover,
+    previewUrl: media.previewUrl,
+  };
+}
+
+/** Quem voltou depois de um sumiço: a última audição antes e a primeira da volta. */
+async function comebackEvidence(
+  data: PeriodData,
+  reading: ProfileNarrative,
+  timeZone: string,
+  monthly: () => Promise<Map<string, number>>,
+): Promise<Evidence | null> {
+  // em "tudo" não existe um antes de onde voltar
+  if (data.period === "all") return null;
+  const text = textOf(reading);
+  const cited = (await data.artists()).filter((artist) => mentions(text, artist.name));
+  for (const artist of cited) {
+    const last = await prisma.listeningEvent.findFirst({
+      where: { userId: data.userId, rawArtistName: artist.name, playedAt: { lt: data.start } },
+      orderBy: { playedAt: "desc" },
+      select: { playedAt: true },
+    });
+    if (!last) continue;
+    const daysAway = Math.floor((data.start.getTime() - last.playedAt.getTime()) / 86_400_000);
+    if (daysAway < COMEBACK_GAP_DAYS || !observedGap(await monthly(), last.playedAt, data.start)) continue;
+    const first = await prisma.listeningEvent.findFirst({
+      where: { ...data.where, rawArtistName: artist.name },
+      orderBy: { playedAt: "asc" },
+      select: { playedAt: true },
+    });
+    if (!first) continue;
+
+    const total = await data.total();
+    if (!claimsAgree(claimedCounts(text), [artist.plays, total])) return null;
+    if (!claimsAgree(claimedShares(text), [percent(artist.plays, total)])) return null;
+    const media = await mediaFor(data, artist.name, null);
+    return {
+      kind: "comeback",
+      artist: artist.name,
+      awayFor: describeGap(daysAway),
+      lastBefore: formatDay(last.playedAt, timeZone),
+      firstBack: formatDay(first.playedAt, timeZone),
+      plays: artist.plays,
+      ...media,
+    };
+  }
+  return null;
+}
+
+/** O ponto fora da curva: um artista cujo gênero não conversa com nenhum dos que dominam a janela. */
+async function outlierEvidence(data: PeriodData, reading: ProfileNarrative): Promise<Evidence | null> {
+  const artists = await data.artists();
+  const genres = await loadArtistGenres(artists.map((artist) => artist.name));
+  const weight = new Map<string, number>();
+  for (const artist of artists) {
+    const own = genres.get(artist.name) ?? [];
+    for (const genre of own) weight.set(genre, (weight.get(genre) ?? 0) + artist.plays / own.length);
+  }
+  const ranked = [...weight.entries()].sort((a, b) => b[1] - a[1]);
+  const dominant = ranked.slice(0, DOMINANT_GENRES);
+  const outliers = findOutliers(
+    artists.map((artist) => ({ ...artist, genres: genres.get(artist.name) ?? [] })),
+    dominant.map(([genre]) => genre),
+    { exclude: new Set(artists.slice(0, TOP_ARTISTS).map((artist) => artist.name)), limit: 50 },
+  );
+  const text = textOf(reading);
+  const chosen = outliers.find((artist) => mentions(text, artist.name));
+  if (!chosen) return null;
+
+  const total = await data.total();
+  const allWeight = ranked.reduce((sum, [, value]) => sum + value, 0) || 1;
+  const shares = dominant.map(([genre, value]) => ({ genre: formatGenre(genre), share: percent(value, allWeight) }));
+  if (!claimsAgree(claimedCounts(text), [chosen.plays, total])) return null;
+  if (!claimsAgree(claimedShares(text), [percent(chosen.plays, total), ...shares.map((entry) => entry.share)])) return null;
+  const media = await mediaFor(data, chosen.name, null);
+  return { kind: "outlier", artist: chosen.name, genre: formatGenre(chosen.genre), plays: chosen.plays, dominant: shares, ...media };
 }
 
 async function transitionEvidence(data: PeriodData, reading: ProfileNarrative, timeZone: string): Promise<Evidence | null> {
@@ -362,7 +522,8 @@ async function comebacksHold(
 ): Promise<boolean> {
   if (!(reading.referencedEvidence ?? []).includes("comebacks")) return true;
   const text = textOf(reading);
-  const artists = (await data.top("artist")).map((row) => row.label).filter((artist) => mentions(text, artist));
+  // todos os artistas da janela: quem volta raramente está entre os dez primeiros
+  const artists = (await data.artists()).map((row) => row.name).filter((artist) => mentions(text, artist));
   if (artists.length === 0) return false;
   for (const artist of artists) {
     const last = await prisma.listeningEvent.findFirst({
@@ -385,18 +546,43 @@ const KIND_OF_SIGNAL: Record<string, EvidenceKind> = {
   topArtists: "ranking",
   risingArtists: "ranking",
   topTracks: "ranking",
+  loop: "loop",
+  comebacks: "comeback",
+  outliers: "outlier",
 };
 
-async function evidenceFor(data: PeriodData, reading: ProfileNarrative, timeZone: string): Promise<Candidate | null> {
+/** O ângulo que a leitura recebeu no sorteio diz de que ela trata: a prova dele vem primeiro. */
+const KIND_OF_ANGLE: Record<string, EvidenceKind> = {
+  loop: "loop",
+  volta: "comeback",
+  surpresa: "outlier",
+  transicao: "transition",
+  epoca: "decades",
+  "mais-ouvido": "ranking",
+  mudanca: "ranking",
+  numeros: "ranking",
+};
+
+async function evidenceFor(
+  data: PeriodData,
+  reading: ProfileNarrative,
+  timeZone: string,
+  monthly: () => Promise<Map<string, number>>,
+): Promise<Candidate | null> {
   const resolvers: Record<EvidenceKind, () => Promise<Evidence | null>> = {
     transition: () => transitionEvidence(data, reading, timeZone),
     ranking: () => rankingEvidence(data, reading),
     decades: () => decadesEvidence(data, reading),
+    loop: () => loopEvidence(data, reading, timeZone),
+    comeback: () => comebackEvidence(data, reading, timeZone, monthly),
+    outlier: () => outlierEvidence(data, reading),
   };
-  // a prova segue o que a leitura cita primeiro: uma leitura de época que
-  // também cita o topo é sobre a época, não sobre o topo
+  // a prova segue o ângulo da leitura e, depois, o que ela cita, na ordem em
+  // que cita: uma leitura de época que também cita o topo é sobre a época
   const kinds = [
-    ...new Set((reading.referencedEvidence ?? []).map((signal) => KIND_OF_SIGNAL[signal]).filter(Boolean)),
+    ...new Set(
+      [KIND_OF_ANGLE[reading.angle ?? ""], ...(reading.referencedEvidence ?? []).map((signal) => KIND_OF_SIGNAL[signal])].filter(Boolean),
+    ),
   ];
   const attempts = kinds.map((kind) => [kind, resolvers[kind]] as const);
 
@@ -415,7 +601,7 @@ export class ConversationService {
    * precisa ser escrita ou renovada — quem chama agenda isso depois da
    * resposta, uma janela por visita, para não gastar a cota de uma vez.
    */
-  async load(userId: string): Promise<{ view: ConversationView; refresh: PeriodKey | null }> {
+  async load(userId: string, scope: ConversationScope = "recent"): Promise<{ view: ConversationView; refresh: PeriodKey | null }> {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { timezone: true } });
     const timeZone = user?.timezone ?? "America/Sao_Paulo";
     const first = await prisma.listeningEvent.findFirst({
@@ -425,10 +611,10 @@ export class ConversationService {
     });
     if (!first) return { view: { moments: [], writing: false, hasHistory: false }, refresh: null };
 
-    const packs = await Promise.all(PERIODS.map(async (period) => ({ period, pack: await this.ai.peekPack(userId, period) })));
+    const packs = await Promise.all(PERIODS[scope].map(async (period) => ({ period, pack: await this.ai.peekPack(userId, period) })));
     const refresh = packs.find(({ pack }) => !pack || pack.stale)?.period ?? null;
     const stamp = packs.map(({ pack }) => pack?.view.builtAt ?? "-").join("|");
-    const cacheKey = `${userId}:${stamp}`;
+    const cacheKey = `${userId}:${scope}:${stamp}`;
     const cached = cache.get(cacheKey);
     if (cached && Date.now() - cached.at < CACHE_MS) return { view: cached.value, refresh };
 
@@ -441,12 +627,12 @@ export class ConversationService {
       const data = new PeriodData(userId, period, pack.view.builtAt ? new Date(pack.view.builtAt) : new Date());
       for (const reading of pack.view.readings) {
         if (!(await comebacksHold(data, reading, monthly))) continue;
-        const candidate = await evidenceFor(data, reading, timeZone);
+        const candidate = await evidenceFor(data, reading, timeZone, monthly);
         if (candidate) candidates.push(candidate);
       }
     }
 
-    const moments: ConversationMoment[] = selectMoments(candidates).map(({ period, reading, evidence }) => ({
+    const moments: ConversationMoment[] = selectMoments(candidates, { perPeriod: PER_PERIOD }).map(({ period, reading, evidence }) => ({
       key: `${period}:${reading.headline}`,
       period,
       window: windowLabel(period, first.playedAt, timeZone),

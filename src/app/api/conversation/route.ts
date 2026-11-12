@@ -25,7 +25,9 @@ export async function GET(request: Request) {
     const user = await prisma.user.findUnique({ where: { id: access.userId }, select: { id: true } });
     if (!user) return NextResponse.json({ moments: [], writing: false, hasHistory: false });
 
-    const { view, refresh } = await new ConversationService().load(user.id);
+    // ?scope=lasting: as leituras do ano e de tudo, que moram no retrato
+    const scope = new URL(request.url).searchParams.get("scope") === "lasting" ? "lasting" : "recent";
+    const { view, refresh } = await new ConversationService().load(user.id, scope);
     if (refresh && automaticAiAllowed()) {
       after(async () => {
         await new AIAnalysisService()

@@ -14,12 +14,18 @@ import {
 export const PACK_CADENCE: Record<PeriodKey, { minHours: number; maxHours: number }> = {
   "7d": { minHours: 6, maxHours: 24 },
   "30d": { minHours: 12, maxHours: 72 },
-  "1y": { minHours: 24, maxHours: 24 * 7 },
-  all: { minHours: 72, maxHours: 24 * 14 },
+  // o durável é escrito uma vez por mês: um dia a mais de escuta não muda a
+  // história de um ano, e cada pacote desses tirava a vez da semana na cota
+  "1y": { minHours: 24 * 28, maxHours: 24 * 31 },
+  all: { minHours: 24 * 28, maxHours: 24 * 31 },
 };
 
-/** A ordem em que o cron olha os períodos: o que mais aparece na tela vem primeiro. */
-export const REFRESH_PRIORITY: PeriodKey[] = ["30d", "7d", "1y", "all"];
+/**
+ * A ordem em que o cron olha os períodos: a semana primeiro, porque é a
+ * que muda de um dia para o outro e a que a conversa da tela inicial mais
+ * precisa nova; o durável fica por último e quase sempre é pulado.
+ */
+export const REFRESH_PRIORITY: PeriodKey[] = ["7d", "30d", "1y", "all"];
 
 /**
  * A impressão digital de uma escuta: só o que muda a HISTÓRIA que os textos

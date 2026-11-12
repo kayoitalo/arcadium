@@ -15,11 +15,11 @@ export class DiscoveryMemoryService {
   async summary(userId: string) {
     const latest = await prisma.recommendationSession.findFirst({ where: { userId, status: "ACTIVE" },
       orderBy: [{ lastOpenedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }, { id: "desc" }],
-      select: { id: true, currentRank: true, createdAt: true, _count: { select: { items: true } }, items: { orderBy: { rank: "asc" }, take: 80, select: { artistName: true, trackName: true, rank: true } } } });
+      select: { id: true, currentRank: true, createdAt: true, _count: { select: { items: true } }, items: { orderBy: { rank: "asc" }, take: 80, select: { artistName: true, trackName: true, albumName: true, coverUrl: true, rank: true } } } });
     if (!latest) return { latest: null };
     const current = latest.items.find((item) => item.rank === latest.currentRank);
     return { latest: { id: latest.id, currentRank: latest.currentRank, total: latest._count.items,
-      current: current ? { artistName: current.artistName, trackName: current.trackName } : null } };
+      current: current ? { artistName: current.artistName, trackName: current.trackName, albumName: current.albumName, coverUrl: current.coverUrl } : null } };
   }
   async list(userId: string, query: z.infer<typeof memoryQuery>): Promise<MemoryPage> {
     const cursor = decodeMemoryCursor(query.cursor);

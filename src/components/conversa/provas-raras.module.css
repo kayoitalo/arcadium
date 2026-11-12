@@ -1,0 +1,95 @@
+/* ============================================================
+   Loop, volta e surpresa: o fato em destaque ao lado da capa, e
+   embaixo dele as audições que o sustentam. Mesmas tintas das
+   outras provas; nada aqui tem cor própria.
+   ============================================================ */
+
+.fact {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fact > p {
+  margin: 0;
+}
+
+.value {
+  padding-bottom: 10px;
+  font-size: clamp(1.9rem, 1.3rem + 2.2vw, 3.4rem);
+  font-variation-settings: "wdth" 76, "wght" 760;
+  line-height: 1;
+  color: var(--tinta);
+}
+
+.value span {
+  margin-left: 6px;
+  font-size: 13px;
+  font-variation-settings: "wdth" 96, "wght" 520;
+  color: var(--tinta-3);
+}
+
+.name {
+  font-size: clamp(0.98rem, 0.85rem + 0.4vw, 1.2rem);
+  font-variation-settings: "wdth" 84, "wght" 680;
+  line-height: 1.15;
+  color: var(--tinta);
+  overflow-wrap: anywhere;
+}
+
+/* loop: a hora de cada vez */
+.plays {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 14px 0 0;
+  padding: 14px 0 0;
+  list-style: none;
+  border-top: 1px solid var(--fio);
+}
+
+.playsDay {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: var(--tinta-3);
+}
+
+/* volta: as duas datas, com o sumiço entre elas */
+.dates {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--fio);
+}
+
+.dates > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dates dt {
+  font-size: 12px;
+  color: var(--tinta-3);
+}
+
+.dates dd {
+  margin: 0;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta-3);
+}
+
+.dates > div[data-lit="true"] dd {
+  color: var(--tinta);
+  font-variation-settings: "wdth" 90, "wght" 640;
+}
+
+/* surpresa: o ponto fora da curva fica separado da lista dos que dominam */
+.apart {
+  margin-top: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--fio-2);
+}

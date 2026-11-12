@@ -61,6 +61,8 @@ export function Portrait() {
     <header className={styles.intro}><div>
       <Fala level={1} headline="O que permanece no teu fone." mark={["teu fone"]} markRef={mark} marked={pen.started.has("portrait-title")}
         narrative="Tem nomes que atravessam o tempo. Outros estão tomando conta dos últimos dias. Escolhe um e chega mais perto." />
+      {/* as leituras do ano e de tudo saíram da conversa: mudam pouco, e moram aqui */}
+      <nav aria-label="Leituras de longo prazo"><Link href="/portrait/longo">o que eu reparei de um ano pra cá →</Link></nav>
     </div></header>
     {error && <p role="alert">Não consegui atualizar o retrato ou guardar tua escolha. <button onClick={() => setAttempt((v) => v + 1)}>tenta de novo</button></p>}
     {!data && !error && <p className={styles.note} role="status">Reunindo o que ficou…</p>}

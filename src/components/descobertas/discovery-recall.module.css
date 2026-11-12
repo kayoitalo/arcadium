@@ -1,0 +1,189 @@
+/* ============================================================
+   A retomada, no fim da conversa. Mesma hierarquia das provas do fio:
+   rótulo pequeno, a capa como imagem da música, o nome em tinta cheia
+   e o resto em tinta-2. Nenhum número solto maior que a música.
+   ============================================================ */
+
+.recall {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  column-gap: clamp(28px, 6vw, 112px);
+  row-gap: 36px;
+  align-items: start;
+  margin-top: clamp(40px, 7vh, 72px);
+  padding-top: clamp(24px, 4vh, 36px);
+  border-top: 1px solid var(--fio-2);
+}
+
+.recall[data-solo="true"],
+.recall[data-quiet="true"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.part {
+  min-width: 0;
+}
+
+.label {
+  margin: 0 0 18px;
+  color: var(--tinta-3);
+  font-size: 13px;
+  font-weight: 400;
+  font-variation-settings: "wdth" 96, "wght" 520;
+  line-height: 1.5;
+}
+
+/* ---------- onde a busca parou ---------- */
+
+.resume {
+  display: grid;
+  grid-template-columns: clamp(96px, 11vw, 148px) minmax(0, 1fr);
+  column-gap: clamp(18px, 2vw, 28px);
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+
+.resume:not(:has(.cover)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cover {
+  width: 100%;
+  transition: scale 320ms var(--glide);
+}
+
+.resume:hover .cover {
+  scale: 1.03;
+}
+
+.where {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: var(--tinta-2);
+  font-size: 15px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.where strong {
+  color: var(--tinta);
+  font-size: clamp(1.1rem, 1rem + 0.5vw, 1.45rem);
+  font-variation-settings: "wdth" 88, "wght" 640;
+  line-height: 1.2;
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  color: var(--tinta-3);
+  font-size: 13px;
+}
+
+.progress i {
+  position: relative;
+  flex: 0 0 72px;
+  height: 3px;
+  background: var(--fio-2);
+}
+
+.progress b {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--tinta);
+}
+
+/* ---------- o que ficou pra depois ---------- */
+
+.saved {
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.saved li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 12px;
+  padding: 11px 0;
+  border-top: 1px solid var(--fio);
+  color: var(--tinta-2);
+  font-size: 15px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.saved li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.saved strong {
+  color: var(--tinta);
+  font-weight: 560;
+}
+
+/* ---------- os caminhos ---------- */
+
+.more {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--tinta-2);
+  font-size: 14px;
+  text-decoration: underline;
+  text-decoration-color: var(--fio-2);
+  text-underline-offset: 5px;
+  transition: color 200ms, text-decoration-color 200ms;
+}
+
+.resume .more {
+  margin-top: 4px;
+}
+
+a.more:hover,
+.resume:hover .more {
+  color: var(--tinta);
+  text-decoration-color: var(--tinta);
+}
+
+.resume:focus-visible,
+a.more:focus-visible {
+  outline: 2px solid var(--marca);
+  outline-offset: 4px;
+}
+
+.failed {
+  margin: 0;
+  color: var(--tinta-2);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.failed button {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 5px;
+  cursor: pointer;
+}
+
+@media (max-width: 760px) {
+  .recall {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cover {
+    transition: none;
+  }
+}
