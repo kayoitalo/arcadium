@@ -11,6 +11,7 @@ import { usePulse } from "@/components/amigo/use-pulse";
 import { useSound, type SoundStep } from "@/components/amigo/use-sound";
 import type { ConversationMoment, Evidence } from "@/modules/conversation/domain/conversation.types";
 import { decadeLabel, ProvaDecadas, ProvaLista, ProvaTransicao } from "./provas";
+import { ProvaEstreia, ProvaLoop, ProvaMadrugada, ProvaMaratona, ProvaSurpresa, ProvaVolta } from "./provas-raras";
 import styles from "./conversa.module.css";
 import { privateFetch } from "@/lib/http/private-fetch";
 
@@ -42,8 +43,8 @@ function stepsOf(evidence: Evidence | null | undefined): SoundStep[] {
       ...(evidence.to.previewUrl ? [{ url: evidence.to.previewUrl }] : []),
     ];
   }
-  if (evidence.kind === "ranking") return evidence.previewUrl ? [{ url: evidence.previewUrl }] : [];
-  return [];
+  if (evidence.kind === "decades") return [];
+  return evidence.previewUrl ? [{ url: evidence.previewUrl }] : [];
 }
 
 /** O que a prova sustenta, como a frase nomearia: se a manchete citar, o grifo vai ali. */
@@ -57,6 +58,9 @@ function marksOf(evidence: Evidence | null | undefined): string[] | undefined {
     const row = evidence.rows[evidence.focusIndex];
     return [row.label, row.sub].filter(Boolean);
   }
+  if (evidence.kind === "loop") return [evidence.track, evidence.artist];
+  if (evidence.kind === "night") return evidence.steps.flatMap((step) => [step.track, step.artist]);
+  if (evidence.kind !== "decades") return [evidence.artist];
   return evidence.focus.flatMap((decade) => [decadeLabel(decade), `${decade}s`]);
 }
 
@@ -73,8 +77,22 @@ function ruler(bar: HTMLElement, origin: DOMRect): { base: Point[]; box: ReturnT
   };
 }
 
-/** `epilogue` fecha o fio: o convite para continuar só aparece depois que ele terminou de falar. */
-export function Conversa({ moments: all, epilogue }: { moments: ConversationMoment[]; epilogue?: ReactNode }) {
+/**
+ * `epilogue` fecha o fio: o convite para continuar só aparece depois que ele terminou de falar.
+ * `endReplies` são as respostas que esse convite oferece no pé; sem elas, fica o caminho genérico.
+ */
+export function Conversa({
+  moments: all,
+  epilogue,
+  endReplies,
+  ending = FIM,
+}: {
+  moments: ConversationMoment[];
+  epilogue?: ReactNode;
+  endReplies?: ReactNode;
+  /** A fala que fecha o fio; a do retrato fala de mês, não de dias. */
+  ending?: { headline: string; narrative: string };
+}) {
   const reduced = Boolean(useReducedMotion());
   const moments = all;
   const [editorialError, setEditorialError] = useState<string | null>(null);
@@ -372,8 +390,8 @@ export function Conversa({ moments: all, epilogue }: { moments: ConversationMome
             <Fala
               level={index === 0 ? 1 : 2}
               window={moment?.window}
-              headline={moment?.headline ?? FIM.headline}
-              narrative={moment?.narrative ?? FIM.narrative}
+              headline={moment?.headline ?? ending.headline}
+              narrative={moment?.narrative ?? ending.narrative}
               insight={moment?.insight}
               closing={moment?.closing}
               reply={REPLY}
@@ -410,6 +428,12 @@ export function Conversa({ moments: all, epilogue }: { moments: ConversationMome
                 register={refs}
               />
             )}
+            {evidence?.kind === "loop" && <ProvaLoop evidence={evidence} playing={isActive && sound.playing} />}
+            {evidence?.kind === "comeback" && <ProvaVolta evidence={evidence} playing={isActive && sound.playing} />}
+            {evidence?.kind === "outlier" && <ProvaSurpresa evidence={evidence} playing={isActive && sound.playing} />}
+            {evidence?.kind === "debut" && <ProvaEstreia evidence={evidence} playing={isActive && sound.playing} />}
+            {evidence?.kind === "night" && <ProvaMadrugada evidence={evidence} playing={isActive && sound.playing} />}
+            {evidence?.kind === "binge" && <ProvaMaratona evidence={evidence} playing={isActive && sound.playing} />}
             {!moment && epilogue}
           </section>
         );
@@ -436,8 +460,8 @@ export function Conversa({ moments: all, epilogue }: { moments: ConversationMome
             <Resposta onClick={() => go(0)} hint="↵">
               de novo
             </Resposta>
+            {endReplies ?? <Resposta href="/discovery">seguir descobrindo</Resposta>}
             <Resposta href="/taste-evolution">o que mudou</Resposta>
-            <Resposta href="/discovery">seguir descobrindo</Resposta>
           </>
         ) : (
           <>

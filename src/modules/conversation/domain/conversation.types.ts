@@ -78,6 +78,80 @@ export type Evidence =
       focusShare: number;
       /** Quanto das audições tem ano conhecido, em %: sem isso o retrato mente. */
       coverage: number;
+    }
+  | {
+      kind: "loop";
+      artist: string;
+      track: string;
+      /** Quantas vezes seguidas. */
+      times: number;
+      /** A hora de cada uma das vezes, na ordem em que tocaram. */
+      plays: string[];
+      cover: ConversationCover;
+      previewUrl: string | null;
+    }
+  | {
+      kind: "comeback";
+      artist: string;
+      /** O sumiço em palavras: "9 meses", "mais de 2 anos". */
+      awayFor: string;
+      /** A última audição antes do sumiço e a primeira da volta. */
+      lastBefore: string;
+      firstBack: string;
+      /** Audições do artista na janela, depois da volta. */
+      plays: number;
+      cover: ConversationCover;
+      previewUrl: string | null;
+      previewTrack: string | null;
+    }
+  | {
+      kind: "debut";
+      artist: string;
+      /** Audições do artista na janela, desde a primeira. */
+      plays: number;
+      /** A primeira audição da vida: quando foi e qual faixa. */
+      firstAt: string;
+      firstTrack: string;
+      cover: ConversationCover;
+      previewUrl: string | null;
+      previewTrack: string | null;
+    }
+  | {
+      kind: "night";
+      /** De que hora a que hora, no relógio de quem ouviu: "01:12", "03:40". */
+      from: string;
+      to: string;
+      plays: number;
+      /** O começo da sessão, na ordem em que tocou. */
+      steps: ListeningStep[];
+      cover: ConversationCover;
+      previewUrl: string | null;
+    }
+  | {
+      kind: "binge";
+      artist: string;
+      plays: number;
+      /** Tudo que tocou naquele dia, de qualquer artista. */
+      dayTotal: number;
+      /** "8 nov". */
+      day: string;
+      /** As faixas dele que mais tocaram naquele dia. */
+      tracks: Array<{ track: string; plays: number }>;
+      cover: ConversationCover;
+      previewUrl: string | null;
+      previewTrack: string | null;
+    }
+  | {
+      kind: "outlier";
+      artist: string;
+      /** O gênero dele, que não divide palavra com nenhum dos que dominam a janela. */
+      genre: string;
+      plays: number;
+      /** Os gêneros que dominam a janela, com a fatia de cada um em %. */
+      dominant: Array<{ genre: string; share: number }>;
+      cover: ConversationCover;
+      previewUrl: string | null;
+      previewTrack: string | null;
     };
 
 export type EvidenceKind = Evidence["kind"];
