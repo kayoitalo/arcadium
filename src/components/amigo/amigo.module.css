@@ -234,6 +234,32 @@
   color: var(--tinta-3);
 }
 
+/* o visto de quem guardou: desenhado uma vez, como a caneta escreveria */
+.visto {
+  display: inline-block;
+  flex-shrink: 0;
+  margin-right: 6px;
+  vertical-align: -4px;
+  overflow: visible;
+}
+
+.visto path {
+  fill: none;
+  stroke: var(--marca);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: vistoIn 420ms var(--glide) 80ms forwards;
+}
+
+@keyframes vistoIn {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
 /* ---------- a régua da prévia ---------- */
 
 .ruler {
