@@ -15,7 +15,7 @@ import { decadeLabel, ProvaDecadas, ProvaLista, ProvaTransicao } from "./provas"
 import { ProvaEstreia, ProvaLoop, ProvaMadrugada, ProvaMaratona, ProvaSurpresa, ProvaVolta } from "./provas-raras";
 import styles from "./conversa.module.css";
 import { privateFetch } from "@/lib/http/private-fetch";
-import { deliverCard, renderCard } from "./cartao";
+import { cardFromMoment, deliverCard, renderCard } from "./cartao";
 
 /*
  * A conversa: a tela inicial. Um fio que se rola e se revisita — o
@@ -392,7 +392,7 @@ export function Conversa({
     if (!moment || card === "busy") return;
     setCard("busy");
     try {
-      const file = await renderCard(moment, getComputedStyle(document.body).fontFamily);
+      const file = await renderCard(cardFromMoment(moment), getComputedStyle(document.body).fontFamily);
       const outcome = await deliverCard(file);
       setCard(outcome === "saved" ? "saved" : "idle");
     } catch {
@@ -499,6 +499,8 @@ export function Conversa({
               de novo
             </Resposta>
             {endReplies ?? <Resposta href="/discovery">seguir descobrindo</Resposta>}
+            {/* a retrospectiva mora no fim do fio: é ele contando o ano, depois de contar a semana */}
+            <Resposta href="/year">teu ano, em capítulos</Resposta>
             <Resposta href="/taste-evolution">o que mudou</Resposta>
           </>
         ) : (
