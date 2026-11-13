@@ -13,6 +13,7 @@ import type { TraceGesture, WaveSpec } from "@/components/amigo/trace";
 import { usePen, type PenDrawing } from "@/components/amigo/use-pen";
 import { usePulse } from "@/components/amigo/use-pulse";
 import { useSound } from "@/components/amigo/use-sound";
+import { useTabTitle } from "@/components/amigo/use-tab-title";
 import styles from "./historico.module.css";
 import { splitTrackTitle } from "@/lib/music/track-title";
 import type { MonthCovers } from "@/modules/statistics/domain/month-calendar";
@@ -224,6 +225,8 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
   const showMonth = Boolean(month && month.days.length > 0 && !loadedQuery && !query);
   const fullestId = `dia-cheio:${month?.month ?? ""}`;
   const live = data?.events.find((event) => sounding(event)) ?? null;
+
+  useTabTitle(live ? `${splitTrackTitle(live.rawTrackName).title} · ${live.rawArtistName}` : null);
 
   const draw = (origin: DOMRect): PenDrawing => {
     const gestures: TraceGesture[] = [];

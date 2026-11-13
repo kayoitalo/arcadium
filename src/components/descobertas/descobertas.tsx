@@ -7,12 +7,14 @@ import { AnimatePresence, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Aviso } from "@/components/amigo/aviso";
 import { Capa, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
+import { Regua } from "@/components/amigo/regua";
 import { band, frame } from "@/components/amigo/gestures";
 import { boxOf, textLines } from "@/components/amigo/measure";
 import type { TraceGesture, WaveSpec } from "@/components/amigo/trace";
 import { usePen, type PenDrawing } from "@/components/amigo/use-pen";
 import { usePulse } from "@/components/amigo/use-pulse";
 import { useSound } from "@/components/amigo/use-sound";
+import { useTabTitle } from "@/components/amigo/use-tab-title";
 import { genreLabel } from "@/lib/format/genre";
 import { Mapa, type MapDot } from "./mapa";
 import { useSelection } from "./selection-provider";
@@ -355,6 +357,8 @@ export function Descobertas({ initialSessionId = null }: {
     [current, sessionId, stop, busy, selection, note, aspects, applySession, scene.ready],
   );
 
+  useTabTitle(sound.playing && current ? `${current.trackName} · ${current.artistName}` : null);
+
   const toggleSound = useCallback(() => {
     if (scene.ready && current?.previewUrl) toggle(current.previewUrl);
   }, [current, toggle, scene.ready]);
@@ -527,6 +531,7 @@ export function Descobertas({ initialSessionId = null }: {
             <RumoMenu items={rumo} note={anchorNote} />
           </>}
           onPlay={toggleSound} canPlay={Boolean(current.previewUrl)} playing={sound.playing} loading={sound.loading || mediaState === "loading"}
+          ruler={<Regua read={sound.position} onSeek={sound.seek} />}
           listenElsewhere={<>
             <a className={styles.textButton} href={elsewhere} target="_blank" rel="noreferrer">ouvir no Spotify ↗</a>
             {current.appleMusicUrl && <a className={styles.textButton} href={current.appleMusicUrl} target="_blank" rel="noreferrer">no Apple Music ↗</a>}
