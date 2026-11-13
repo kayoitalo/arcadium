@@ -45,7 +45,8 @@ Três itens da proposta 10 já estavam no código e não foram refeitos: o "nada
 
 ## Verificação
 
-- `vitest`: 639 testes em 121 arquivos, incluindo os novos (cor da capa, gestos novos da caneta, calendário e fuso, régua, diagramação do cartão, pista, capítulos do ano, título da aba). `tsc` e `next build` passam.
+- `vitest`: 641 testes em 122 arquivos, incluindo os novos (cor da capa, gestos novos da caneta, calendário e fuso, régua, diagramação do cartão, pista, capítulos do ano, título da aba). `tsc` e `next build` passam.
 - Os seis runners de navegador sintéticos passam nos quatro tamanhos. O de álbuns foi atualizado para a estante de lombadas.
+- As consultas SQL novas (mês em capas, pista, ano, dias recentes do retrato, quanto tocou na estante) rodaram num PostgreSQL 16 local e descartável, com as migrations do repositório e dados fictícios. Foi ali que apareceu, e foi corrigido, o caso de "quem chegou" sumir quando o nome do ano também é novo.
 - As telas novas foram conferidas com componentes reais e dados fictícios em 1280 px e 390 px.
 - **Não verificado:** dados reais e navegação autenticada na preview; a folha de compartilhar em aparelho de verdade; Safari. A aceitação visual continua sendo do proprietário.
