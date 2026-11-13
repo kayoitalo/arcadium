@@ -37,7 +37,7 @@ export async function loadYearReview(userId: string, now = new Date()): Promise<
              EXTRACT(MONTH FROM (MIN("playedAt") AT TIME ZONE 'UTC') AT TIME ZONE ${timezone})::int AS month
       FROM "ListeningEvent" WHERE "userId" = ${userId} AND "playedAt" < ${until}
       GROUP BY 1 HAVING MIN("playedAt") >= ${start}
-      ORDER BY 2 DESC, 1 ASC LIMIT 1`,
+      ORDER BY 2 DESC, 1 ASC LIMIT 2`,
     prisma.$queryRaw<Array<{ hour: number; plays: number }>>`
       SELECT EXTRACT(HOUR FROM ("playedAt" AT TIME ZONE 'UTC') AT TIME ZONE ${timezone})::int AS hour, COUNT(*)::int AS plays
       FROM "ListeningEvent" WHERE "userId" = ${userId} AND "playedAt" >= ${start} AND "playedAt" < ${until}
@@ -56,11 +56,13 @@ export async function loadYearReview(userId: string, now = new Date()): Promise<
   ], { isolationLevel: "RepeatableRead" });
 
   const n = (value: unknown) => Number(value ?? 0);
+  // o nome do ano já tem o capítulo dele: "quem chegou" é o novato seguinte, se o do ano também for novo
+  const arrived = newcomers.find((row) => row.name !== artists[0]?.name && n(row.plays) > 0);
   const facts: YearFacts = {
     year, ongoing: now < end, throughMonth: now < end ? Number(localDay(now, timezone).slice(5, 7)) : 12,
     plays: n(totals[0]?.plays), artists: n(totals[0]?.artists),
     topArtist: artists[0] ? { name: artists[0].name, plays: n(artists[0].plays) } : null,
-    newcomer: newcomers[0] && n(newcomers[0].plays) > 0 ? { name: newcomers[0].name, plays: n(newcomers[0].plays), firstMonth: n(newcomers[0].month) } : null,
+    newcomer: arrived ? { name: arrived.name, plays: n(arrived.plays), firstMonth: n(arrived.month) } : null,
     peakHour: hours[0] ? { hour: n(hours[0].hour), plays: n(hours[0].plays) } : null,
     fullestMonth: months[0] ? { month: n(months[0].month), plays: n(months[0].plays) } : null,
     topAlbum: albums[0] ? { name: albums[0].name, artist: albums[0].artist, plays: n(albums[0].plays), months: n(albums[0].months), coverUrl: albums[0].coverUrl } : null,
