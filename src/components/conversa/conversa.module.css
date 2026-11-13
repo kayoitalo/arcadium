@@ -11,6 +11,12 @@
 }
 /* Onde estou no fio: mora com as respostas, no pé, em vez de ocupar o topo da leitura. */
 .thread { flex-basis: 100%; grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 2px; }
+.thread > .position { flex: 1; min-width: 0; }
+/* o cartão do assunto: uma ação quieta, em texto, junto de onde estou no fio */
+.cardButton { flex-shrink: 0; min-height: 32px; padding: 0; border: 0; background: none; color: var(--tinta-2); font: inherit; font-size: 13px;
+  text-decoration: underline; text-decoration-color: var(--tinta-3); text-underline-offset: 5px; white-space: nowrap; cursor: pointer; }
+.cardButton:hover { color: var(--tinta); }
+.cardButton:disabled { color: var(--tinta-3); cursor: default; }
 .ticks { display: flex; flex-shrink: 0; }
 .ticks button { display: grid; place-items: center; width: 30px; min-height: 32px; padding: 0; border: 0; background: none; cursor: pointer; }
 .ticks i { display: block; width: 20px; height: 3px; background: var(--fio-2); transition: background 200ms; }

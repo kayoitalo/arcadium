@@ -14,6 +14,7 @@ import type { ConversationMoment, Evidence } from "@/modules/conversation/domain
 import { decadeLabel, ProvaDecadas, ProvaLista, ProvaTransicao } from "./provas";
 import styles from "./conversa.module.css";
 import { privateFetch } from "@/lib/http/private-fetch";
+import { deliverCard, renderCard } from "./cartao";
 
 /*
  * A conversa: a tela inicial. Um fio que se rola e se revisita — o
@@ -88,6 +89,8 @@ export function Conversa({ moments: all, epilogue }: { moments: ConversationMome
   const [dismissed, setDismissed] = useState<number[]>([]);
   const [expanded, setExpanded] = useState<number[]>([]);
   const [cut, setCut] = useState(0);
+  /** O cartão do assunto da vez: montando, entregue ou com erro. */
+  const [card, setCard] = useState<"idle" | "busy" | "saved" | "failed">("idle");
 
   const stageRef = useRef<HTMLDivElement>(null);
   const parts = useRef(new Map<string, HTMLElement>());
@@ -362,6 +365,23 @@ export function Conversa({ moments: all, epilogue }: { moments: ConversationMome
 
   useEffect(() => () => window.clearTimeout(dismissTimer.current), []);
 
+  // outro assunto, outro cartão
+  useEffect(() => { setCard("idle"); }, [active]);
+
+  /** O assunto da vez vira um cartão 4:5, com o grifo e as capas, pra mandar pra alguém. */
+  const makeCard = useCallback(async () => {
+    const moment = moments[active];
+    if (!moment || card === "busy") return;
+    setCard("busy");
+    try {
+      const file = await renderCard(moment, getComputedStyle(document.body).fontFamily);
+      const outcome = await deliverCard(file);
+      setCard(outcome === "saved" ? "saved" : "idle");
+    } catch {
+      setCard("failed");
+    }
+  }, [active, card, moments]);
+
   return (
     <div ref={stageRef} className={styles.stage}>
       {[...moments, null].map((moment, index) => {
@@ -441,6 +461,9 @@ export function Conversa({ moments: all, epilogue }: { moments: ConversationMome
             {atEnd ? "Fim da conversa" : `Assunto ${active + 1} de ${moments.length} · ${moments[active]?.window ?? ""}`}
             {!atEnd && (steps.length > 0 ? " · prévia de 30s" : " · sem prévia neste assunto")}
           </p>
+          {!atEnd && !activeDismissed && <button type="button" className={styles.cardButton} onClick={() => void makeCard()} disabled={card === "busy"}>
+            {card === "busy" ? "montando o cartão…" : card === "saved" ? "cartão salvo ✓" : card === "failed" ? "não deu. tenta de novo" : "virar cartão ↓"}
+          </button>}
           <div className={styles.ticks} role="group" aria-label="Assuntos da conversa">
             {moments.map((moment, index) => <button key={moment.key} type="button" aria-label={`Ir ao assunto ${index + 1}`} aria-pressed={index === active}
               data-dismissed={dismissed.includes(index) || undefined} onClick={() => go(index)}><i /></button>)}
