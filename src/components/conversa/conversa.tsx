@@ -391,6 +391,7 @@ export function Conversa({ moments: all, epilogue }: { moments: ConversationMome
                 evidence={evidence}
                 expanded={isExpanded}
                 playingSide={isActive ? playingSide : null}
+                glow={isActive && !isDismissed}
                 register={refs}
               />
             )}
@@ -400,6 +401,7 @@ export function Conversa({ moments: all, epilogue }: { moments: ConversationMome
                 expanded={isExpanded}
                 playing={isActive && sound.playing}
                 lit={!isDismissed && pen.done.has(`${index}:regua`)}
+                glow={isActive && !isDismissed}
                 register={refs}
               />
             )}
