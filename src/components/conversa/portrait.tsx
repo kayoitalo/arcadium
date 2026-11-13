@@ -13,6 +13,7 @@ import { textLines, boxOf } from "@/components/amigo/measure";
 import { useArtistPhoto } from "./use-artist-photo";
 import { Janela } from "@/components/amigo/janela";
 import { coverProxyUrl } from "@/lib/cover";
+import { Risquinhos } from "@/components/amigo/risquinhos";
 type Data = Awaited<ReturnType<PortraitService["load"]>>;
 const count = (n: number) => n.toLocaleString("pt-BR");
 const PERSPECTIVES = [{ key: "all", label: "desde o começo" }, { key: "recent", label: "os últimos 30 dias" }] as const;
@@ -83,6 +84,11 @@ export function Portrait() {
             <button className={styles.backToIndex} onClick={() => { indexRef.current?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.focus({preventScroll:true}); indexRef.current?.scrollIntoView({block:"start",behavior:reduced?"instant":"smooth"}); }}>escolher outro nome ↑</button>
             {view === "all" && lifetime && <>
               <div className={styles.numbers}><div><strong>{count(lifetime.plays)}</strong><span>reproduções</span></div><div><strong ref={metricRef}>{count(lifetime.days)}</strong><span>dias distintos</span></div></div>
+              {/* os risquinhos contam os dias recentes: só aparecem depois que o traço circulou o dado */}
+              {lifetime.recentDays > 0 && <p className={styles.tallyLine} data-lit={pen.done.has(inkKey+":count")}>
+                <Risquinhos count={lifetime.recentDays} lit={pen.done.has(inkKey+":count")} label={`${lifetime.recentDays} ${lifetime.recentDays === 1 ? "risquinho" : "risquinhos"}`} />
+                <span>{lifetime.recentDays === 1 ? "apareceu em 1 dos últimos 30 dias" : `apareceu em ${lifetime.recentDays} dos últimos 30 dias`}</span>
+              </p>}
               <p className={styles.annotation}>↳ esse nome deixou um rastro por aqui.</p>
             </>}
             {view === "recent" && recent && <>

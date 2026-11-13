@@ -45,7 +45,12 @@
 .photoPending small { font-size:12px; }
 .numbers { grid-column:2; grid-row:3; display:flex; flex-wrap:wrap; gap:24px 56px; margin:14px 0; }
 .numbers div { display:grid; gap:12px; justify-items:start; }
-.numbers strong { font-size:clamp(42px,5.6vw,86px); font-variation-settings:"wdth" 76,"wght" 540; line-height:1; font-variant-numeric:tabular-nums; }
+/* número de cartaz: a Archivo na largura mínima, grande como em pôster de show */
+.numbers strong { font-size:clamp(64px,8.4vw,148px); font-variation-settings:"wdth" 62,"wght" 800; line-height:.84; letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
+/* a contagem dele: os risquinhos e o que eles contam, na cor e na letra das anotações */
+.tallyLine { display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px; margin:0; }
+.tallyLine span { font-size:12px; font-variation-settings:"wdth" 82,"wght" 800; letter-spacing:.04em; text-transform:uppercase; color:var(--marca); opacity:0; transition:opacity 420ms ease 200ms; }
+.tallyLine[data-lit="true"] span { opacity:1; }
 .numbers span { font-size:12px; color:var(--tinta-3); }
 .posterCopy > .note { grid-column:2; grid-row:4; }
 .annotation { grid-column:2; grid-row:5; font-size:14px; line-height:1.7; color:var(--tinta-2); margin:0; }
@@ -70,6 +75,7 @@
   .posterPhoto { order:3; width:100%; }
   .photoSpace,.photoSpace > img { max-height:480px; }
   .numbers,.comparison { order:4; width:100%; }
+  .tallyLine { order:5; }
   .posterCopy > .note { order:5; }
   .annotation { order:6; }
   .follow { order:7; }
