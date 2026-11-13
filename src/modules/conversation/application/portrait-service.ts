@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
-export interface PortraitArtist { name: string; plays: number; days: number; firstAt: Date; lastAt: Date }
+export interface PortraitArtist { name: string; plays: number; days: number;
+  /** Em quantos dos últimos 30 dias o nome apareceu, no fuso de quem ouve: é o que os risquinhos contam. */
+  recentDays: number; firstAt: Date; lastAt: Date }
 export class PortraitService {
   async load(userId: string, now = new Date()) {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { timezone: true } });
@@ -9,7 +11,9 @@ export class PortraitService {
     const [summary, artists, changes] = await prisma.$transaction([
       prisma.listeningEvent.aggregate({ where: { userId, playedAt: { lte: now } }, _count: { id: true }, _min: { playedAt: true }, _max: { playedAt: true } }),
       prisma.$queryRaw<PortraitArtist[]>`SELECT "rawArtistName" AS "name", COUNT(*)::int AS "plays",
-        COUNT(DISTINCT DATE(("playedAt" AT TIME ZONE 'UTC') AT TIME ZONE ${timezone}))::int AS "days", MIN("playedAt") AS "firstAt", MAX("playedAt") AS "lastAt"
+        COUNT(DISTINCT DATE(("playedAt" AT TIME ZONE 'UTC') AT TIME ZONE ${timezone}))::int AS "days",
+        COUNT(DISTINCT DATE(("playedAt" AT TIME ZONE 'UTC') AT TIME ZONE ${timezone})) FILTER (WHERE "playedAt" >= ${recent})::int AS "recentDays",
+        MIN("playedAt") AS "firstAt", MAX("playedAt") AS "lastAt"
         FROM "ListeningEvent" WHERE "userId" = ${userId} AND "playedAt" <= ${now}
         GROUP BY "rawArtistName" ORDER BY COUNT(*) DESC, "rawArtistName" ASC LIMIT 20`,
       prisma.$queryRaw<Array<{ name: string; current: number; previous: number }>>`SELECT "rawArtistName" AS "name",

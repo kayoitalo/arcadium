@@ -343,6 +343,27 @@
   translate: -50% 0;
 }
 
+/* os risquinhos de contagem: na cor dele, revelados da esquerda pra direita
+   quando o traço chega no dado, como as outras anotações da grade */
+.tally {
+  display: block;
+  flex-shrink: 0;
+  overflow: visible;
+  clip-path: inset(-4px 100% -4px -4px);
+  transition: clip-path 620ms var(--glide);
+}
+
+.tally[data-lit="true"] {
+  clip-path: inset(-4px -4px -4px -4px);
+}
+
+.tally path {
+  fill: none;
+  stroke: var(--marca);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
 .note[data-dim="true"] {
   opacity: 0.35;
 }
