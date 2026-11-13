@@ -459,7 +459,7 @@ export function Descobertas({ initialSessionId = null }: {
       </Aviso>
     );
   } else if (!queue || busy) {
-    top = <Aviso window="seguindo as tuas pistas" headline="Peraí. Tua próxima descoberta está a caminho." narrative="Tô cruzando tuas referências. Já volto com a primeira." />;
+    top = <Aviso waiting window="seguindo as tuas pistas" headline="Peraí. Tua próxima descoberta está a caminho." narrative="Tô cruzando tuas referências. Já volto com a primeira." />;
   } else if (failed) {
     top = (
       <Aviso headline="Me perdi procurando." narrative={loadError ?? "Não consegui buscar nesse canto."}>

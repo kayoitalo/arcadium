@@ -142,6 +142,15 @@
   padding: 7vh 0 5vh;
 }
 
+/* o lugar do rascunho: três linhas que a caneta escreve enquanto ele busca,
+   na medida e no corpo do texto que vai chegar */
+.draft {
+  width: min(46ch, 100%);
+  height: 4.5em;
+  margin-top: clamp(20px, 3vh, 32px);
+  font-size: clamp(1rem, 0.9rem + 0.35vw, 1.2rem);
+}
+
 /* ---------- respostas ---------- */
 
 .reactions {
