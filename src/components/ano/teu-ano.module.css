@@ -1,0 +1,178 @@
+/* ============================================================
+   Teu ano, em capítulos: a mesma conversa — fala à esquerda, prova à
+   direita —, só que uma tela por vez e com um fio de capítulos em cima,
+   como quem passa as páginas de um caderno.
+   ============================================================ */
+
+.stage {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - var(--bar-h, 56px) - 20px);
+}
+
+/* o fio dos capítulos: tracinhos em tinta, como os assuntos da conversa */
+.progress {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.progress button {
+  display: grid;
+  align-items: center;
+  width: 100%;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.progress i {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--fio-2);
+  transition: background 240ms ease;
+}
+
+.progress li[data-state="lido"] i {
+  background: var(--tinta-2);
+}
+
+.progress li[data-state="agora"] i {
+  background: var(--tinta);
+}
+
+.chapter {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  column-gap: clamp(28px, 6vw, 112px);
+  align-items: center;
+  padding: clamp(40px, 8vh, 96px) 0;
+  /* a entrada cria um contexto de empilhamento: o capítulo fica acima da faixa do grifo
+     (camada 2) e abaixo do traço de cima (camada 4), senão a letra some atrás do amarelo */
+  position: relative;
+  z-index: 3;
+  animation: chapterIn 320ms var(--glide);
+}
+
+.fala h1 {
+  max-width: 16ch;
+}
+
+.proof {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  min-width: 0;
+}
+
+/* o número de cartaz: a Archivo na largura mínima, como no retrato */
+.number {
+  display: grid;
+  justify-items: center;
+  /* folga pro círculo dele fechar em volta do número sem passar pela legenda */
+  gap: 30px;
+  margin: 0;
+}
+
+.number strong {
+  font-size: clamp(88px, 12vw, 200px);
+  font-variation-settings: "wdth" 62, "wght" 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.84;
+  letter-spacing: -0.04em;
+}
+
+.number figcaption {
+  font-size: 13px;
+  color: var(--tinta-3);
+}
+
+.record {
+  display: grid;
+  gap: 18px;
+  width: min(100%, 340px);
+  margin: 0;
+}
+
+.cover {
+  width: 100%;
+}
+
+.record figcaption {
+  display: grid;
+  gap: 4px;
+}
+
+.recordTitle {
+  font-size: clamp(26px, 2.6vw, 40px);
+  font-variation-settings: "wdth" 62, "wght" 800;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.recordArtist {
+  font-size: 13px;
+  color: var(--tinta-3);
+}
+
+.tally {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 10px;
+}
+
+.tally > span {
+  font-size: 12px;
+  font-variation-settings: "wdth" 82, "wght" 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--marca);
+  opacity: 0;
+  transition: opacity 420ms ease 200ms;
+}
+
+.tally > span[data-lit="true"] {
+  opacity: 1;
+}
+
+@keyframes chapterIn {
+  from {
+    opacity: 0;
+    translate: 0 10px;
+  }
+}
+
+@media (max-width: 760px) {
+  .chapter {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 40px;
+    align-content: start;
+    padding: 5vh 0 4vh;
+  }
+
+  .proof {
+    justify-items: start;
+  }
+
+  .number {
+    justify-items: start;
+  }
+
+  .record {
+    width: min(100%, 240px);
+  }
+}

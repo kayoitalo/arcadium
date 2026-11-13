@@ -14,6 +14,18 @@ import type { ConversationCover, ConversationMoment } from "@/modules/conversati
 
 export const CARD = { width: 1080, height: 1350 } as const;
 
+/** O que vai no cartão, venha de um assunto da conversa ou de um capítulo do ano. */
+export interface CardContent {
+  window: string;
+  headline: string;
+  narrative: string;
+  /** O que a prova sustenta, em ordem de preferência: o grifo vai no primeiro que a frase cita. */
+  marks?: string[];
+  covers: ConversationCover[];
+  /** Duas capas de um salto: a cota dele entre elas. */
+  jump?: { gapMinutes: number; captions: [string, string] };
+}
+
 const INK = { papel: "#0b0b0a", tinta: "#f2efe7", tinta2: "#b4afa5", tinta3: "#928c82", fio2: "#3b3935", marca: "#f3d31b" };
 const MARGIN = 96;
 
@@ -37,12 +49,20 @@ function loadImage(source: string): Promise<HTMLImageElement | null> {
   });
 }
 
-/** As capas que a prova do assunto mostra: as duas do salto, ou a do ranking. */
-export function cardCovers(moment: ConversationMoment): ConversationCover[] {
+/** Um assunto da conversa como cartão: a frase, o grifo e as capas da prova. */
+export function cardFromMoment(moment: ConversationMoment): CardContent {
   const { evidence } = moment;
-  if (evidence.kind === "transition") return [evidence.from.cover, evidence.to.cover];
-  if (evidence.kind === "ranking") return [evidence.cover];
-  return [];
+  const base = { window: moment.window, headline: moment.headline, narrative: moment.narrative };
+  if (evidence.kind === "transition") {
+    return { ...base, covers: [evidence.from.cover, evidence.to.cover],
+      marks: [evidence.to.track, evidence.from.track, evidence.to.artist, evidence.from.artist],
+      jump: { gapMinutes: evidence.gapMinutes, captions: [evidence.from, evidence.to].map((side) => `${side.artist} · ${side.when.split(" · ")[0]}`) as [string, string] } };
+  }
+  if (evidence.kind === "ranking") {
+    const row = evidence.rows[evidence.focusIndex];
+    return { ...base, covers: [evidence.cover], marks: [row?.label, row?.sub].filter((value): value is string => Boolean(value)) };
+  }
+  return { ...base, covers: [] };
 }
 
 function drawCover(context: Context, image: HTMLImageElement | null, cover: ConversationCover, x: number, y: number, side: number, tint: Tint | null, family: string) {
@@ -93,8 +113,8 @@ function drawHeadline(context: Context, lines: CardLine[], size: number, x: numb
   return top + cap + (lines.length - 1) * leading;
 }
 
-/** Desenha o cartão de um assunto e devolve o canvas pronto. */
-export async function drawCard(moment: ConversationMoment, family: string): Promise<HTMLCanvasElement> {
+/** Desenha o cartão e devolve o canvas pronto. */
+export async function drawCard(moment: CardContent, family: string): Promise<HTMLCanvasElement> {
   const canvas = document.createElement("canvas");
   canvas.width = CARD.width;
   canvas.height = CARD.height;
@@ -103,7 +123,7 @@ export async function drawCard(moment: ConversationMoment, family: string): Prom
   const measure = (text: string) => context.measureText(text).width;
   const inner = CARD.width - MARGIN * 2;
 
-  const covers = cardCovers(moment);
+  const covers = moment.covers;
   const images = await Promise.all(covers.map((cover) => {
     const source = coverProxyUrl(cover.url);
     return source ? loadImage(source) : Promise.resolve(null);
@@ -138,12 +158,7 @@ export async function drawCard(moment: ConversationMoment, family: string): Prom
   const coverSide = covers.length === 0 ? 0 : 280;
   const proofTop = footTop - 64 - coverSide - (covers.length ? 54 : 0);
 
-  const marks = moment.evidence.kind === "transition"
-    ? [moment.evidence.to.track, moment.evidence.from.track, moment.evidence.to.artist, moment.evidence.from.artist]
-    : moment.evidence.kind === "ranking"
-      ? [moment.evidence.rows[moment.evidence.focusIndex]?.label, moment.evidence.rows[moment.evidence.focusIndex]?.sub].filter((value): value is string => Boolean(value))
-      : undefined;
-  const pieces = markPieces(moment.headline, marks);
+  const pieces = markPieces(moment.headline, moment.marks);
   const headline = fitHeadline([124, 112, 100, 88, 76, 66], covers.length ? 4 : 6, (size) => {
     setFont(context, family, size, 820, "condensed", -0.03);
     return layoutMarked(pieces, inner - size * 0.1, measure);
@@ -157,7 +172,7 @@ export async function drawCard(moment: ConversationMoment, family: string): Prom
   layoutPlain(moment.narrative, inner * 0.86, measure, Math.min(4, room))
     .forEach((line, index) => context.fillText(line, MARGIN, headlineEnd + 86 + index * 48));
 
-  if (covers.length === 2 && moment.evidence.kind === "transition") {
+  if (covers.length === 2 && moment.jump) {
     const [left, right] = [MARGIN, CARD.width - MARGIN - coverSide];
     drawCover(context, images[0], covers[0], left, proofTop, coverSide, tints[0], family);
     drawCover(context, images[1], covers[1], right, proofTop, coverSide, tints[1], family);
@@ -176,13 +191,13 @@ export async function drawCard(moment: ConversationMoment, family: string): Prom
     context.textAlign = "center";
     context.fillText("PAM.", (a + b) / 2, y - 34);
     setFont(context, family, 22, 500, "normal");
-    context.fillText(moment.evidence.gapMinutes < 1 ? "logo em seguida" : `${moment.evidence.gapMinutes} min depois`, (a + b) / 2, y + 44);
+    context.fillText(moment.jump.gapMinutes < 1 ? "logo em seguida" : `${moment.jump.gapMinutes} min depois`, (a + b) / 2, y + 44);
     context.textAlign = "left";
-    [moment.evidence.from, moment.evidence.to].forEach((side, index) => {
+    moment.jump.captions.forEach((caption, index) => {
       const x = index === 0 ? left : right;
       setFont(context, family, 22, 500, "normal");
       context.fillStyle = INK.tinta3;
-      context.fillText(layoutPlain(`${side.artist} · ${side.when.split(" · ")[0]}`, coverSide, measure, 1)[0] ?? "", x, proofTop + coverSide + 38);
+      context.fillText(layoutPlain(caption, coverSide, measure, 1)[0] ?? "", x, proofTop + coverSide + 38);
     });
   } else if (covers.length === 1) {
     drawCover(context, images[0], covers[0], MARGIN, proofTop, coverSide, tints[0], family);
@@ -204,7 +219,7 @@ export async function drawCard(moment: ConversationMoment, family: string): Prom
 }
 
 /** O cartão como arquivo PNG. */
-export async function renderCard(moment: ConversationMoment, family: string): Promise<File> {
+export async function renderCard(moment: CardContent, family: string): Promise<File> {
   const canvas = await drawCard(moment, family);
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
   if (!blob) throw new Error("não consegui montar a imagem");
