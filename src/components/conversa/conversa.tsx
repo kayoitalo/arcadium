@@ -409,6 +409,7 @@ export function Conversa({
                 evidence={evidence}
                 expanded={isExpanded}
                 playingSide={isActive ? playingSide : null}
+                glow={isActive && !isDismissed}
                 register={refs}
               />
             )}
@@ -418,6 +419,7 @@ export function Conversa({
                 expanded={isExpanded}
                 playing={isActive && sound.playing}
                 lit={!isDismissed && pen.done.has(`${index}:regua`)}
+                glow={isActive && !isDismissed}
                 register={refs}
               />
             )}

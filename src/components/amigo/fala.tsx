@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, type ReactNode, type Ref, type RefObject } from "react";
+import { useCallback, useEffect, useState, type CSSProperties, type ReactNode, type Ref, type RefObject } from "react";
 import { coverProxyUrl } from "@/lib/cover";
+import { readTint, type Tint } from "@/lib/cover-tint";
+import { knownTint, rememberTint } from "./use-cover-tint";
 import { markPieces } from "./measure";
 import { Trace } from "./trace";
 import type { Pen } from "./use-pen";
@@ -186,6 +188,10 @@ export interface CoverData {
  * A capa, reta, sem inclinação: é imagem da música, não objeto de cena.
  * Pulsa com o nível da música quando é ela que está tocando. Sem imagem,
  * o lugar dela é um vão honesto com o título.
+ *
+ * Com `glow`, a capa acende o papel em volta com a cor dela mesma: uma
+ * luz baixa e uma sombra da própria arte. É a capa trazendo a cor; o
+ * amarelo continua sendo só do traço.
  */
 export function Capa({
   cover,
@@ -194,6 +200,7 @@ export function Capa({
   className = "",
   eager = false,
   label = true,
+  glow = false,
 }: {
   cover: CoverData;
   playing?: boolean;
@@ -202,17 +209,36 @@ export function Capa({
   eager?: boolean;
   /** Sem imagem, escreve o título no vão; miniatura pequena demais fica só com o vão. */
   label?: boolean;
+  /** A capa do assunto da vez: acende o papel em volta com a cor dela. */
+  glow?: boolean;
 }) {
   const src = coverProxyUrl(cover.url);
   const [state, setState] = useState<"loading" | "loaded" | "failed">(src ? "loading" : "failed");
-  useEffect(() => setState(src ? "loading" : "failed"), [src]);
+  const [tint, setTint] = useState<Tint | null>(() => knownTint(cover.url) ?? null);
+  useEffect(() => {
+    setState(src ? "loading" : "failed");
+    setTint(knownTint(cover.url) ?? null);
+  }, [src, cover.url]);
+  /** Carregou: a capa aparece e, uma vez por capa, a cor dela é medida. */
+  const loaded = useCallback((image: HTMLImageElement) => {
+    setState("loaded");
+    if (!cover.url) return;
+    let value = knownTint(cover.url);
+    if (value === undefined) {
+      value = readTint(image);
+      rememberTint(cover.url, value);
+    }
+    setTint(value);
+  }, [cover.url]);
   // capa que já estava no cache termina de carregar antes do onLoad existir
   const probe = useCallback((image: HTMLImageElement | null) => {
-    if (image?.complete && image.naturalWidth > 0) setState("loaded");
-  }, []);
+    if (image?.complete && image.naturalWidth > 0) loaded(image);
+  }, [loaded]);
+  const lit = glow && state === "loaded" && tint !== null;
 
   return (
-    <div ref={innerRef} className={`${styles.cover} ${className}`} data-playing={playing}>
+    <div ref={innerRef} className={`${styles.cover} ${className}`} data-playing={playing} data-glow={lit || undefined}
+      style={tint ? ({ "--capa-luz": tint } as CSSProperties) : undefined}>
       {state === "failed" && label && <span className={styles.coverEmpty}>{cover.title}</span>}
       {/* miniatura pequena demais pro título: as iniciais do disco, pra a coluna não virar uma fila de quadrados vazios */}
       {state === "failed" && !label && <span className={styles.coverInitials} aria-hidden="true">{initials(cover.title)}</span>}
@@ -226,7 +252,7 @@ export function Capa({
           decoding="async"
           draggable={false}
           data-loaded={state === "loaded"}
-          onLoad={() => setState("loaded")}
+          onLoad={(event) => loaded(event.currentTarget)}
           onError={() => setState("failed")}
         />
       )}

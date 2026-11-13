@@ -232,10 +232,25 @@
   aspect-ratio: 1;
   overflow: hidden;
   background: #1a1917;
+  /* as duas últimas camadas são a luz da capa, apagadas até ela acender:
+     o mesmo número de camadas dos dois lados, pra transição não pular */
   box-shadow:
     0 24px 48px -28px rgb(0 0 0 / 0.9),
-    0 0 0 1px rgb(255 255 255 / 0.06);
+    0 0 0 1px rgb(255 255 255 / 0.06),
+    0 30px 70px -26px rgb(var(--capa-luz, 0 0 0) / 0),
+    0 0 0 0 rgb(var(--capa-luz, 0 0 0) / 0);
   scale: calc(1 + var(--level, 0) * 0.05 * var(--on, 0));
+  transition: box-shadow 700ms ease;
+}
+
+/* a capa do assunto da vez acende o papel com a cor dela: uma sombra da
+   própria arte e uma luz baixa em volta. Sombra não é cortada pela capa. */
+.cover[data-glow="true"] {
+  box-shadow:
+    0 24px 48px -28px rgb(0 0 0 / 0.9),
+    0 0 0 1px rgb(255 255 255 / 0.06),
+    0 30px 70px -26px rgb(var(--capa-luz) / 0.55),
+    0 0 clamp(120px, 16vw, 240px) clamp(10px, 2vw, 36px) rgb(var(--capa-luz) / 0.2);
 }
 
 .cover[data-playing="true"] {
