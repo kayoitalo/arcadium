@@ -12,9 +12,9 @@ Six screens, one narrator. The home screen is **the conversation**: the readings
 
 - **One narrator, one protagonist.** Every line is the friend talking, or mute data. His pen is the only moving thing: it highlights the part of the sentence the proof backs, rules the cited bar, measures the jump between two covers. With music playing, the pen becomes a string that vibrates with the real signal.
 - **The magic pen is the character.** Its travel, highlights and circles bring the friend to each screen. No literal face or mascot replaces it; gestures respond to content and respect reduced motion. See [the artist poster and photo limits](docs/magic-pen-artist-poster.md).
-- **One colour.** A dry track-lane yellow belongs to the pen alone; everything else is ink on paper. Covers bring the rest.
+- **One colour.** A dry track-lane yellow belongs to the pen alone; everything else is ink on paper. Covers bring the rest. The cover of the subject at hand lights the paper around it with its own colour, measured in the browser; album spines borrow it too. See [the light of the covers](docs/luz-das-capas-e-caneta.md).
 - **Copy is the friend, never the spec.** Coverage limits, provider scopes and data caveats live in `docs/`; on screen they become one short line in his voice, or silence. One header per screen, no side boxes repeating it, no links duplicating the navigation. See [the interface pass](docs/interface-voz-do-amigo.md).
-- **Screens:** conversa (home) · o que mudou (genre share shift, month or year) · teu retrato (the artist poster) · descobrir (four ways in, one track at a time; albums in order, saved tracks and past paths in tabs) · tudo que tocou (history by day, with the listening hours) · ajustes.
+- **Screens:** conversa (home; any subject can become a 4:5 card to send) · o que mudou (genre share shift, month or year, and the six-month race) · teu retrato (the artist poster) · descobrir (four ways in, one track at a time; albums as a shelf of spines, saved tracks and past paths in tabs) · tudo que tocou (history by day, with the listening hours and the month in covers) · ajustes. At the end of the conversation, **teu ano** tells the year in chapters.
 
 ---
 
@@ -55,7 +55,10 @@ Next.js 16 (Turbopack) · React 19 · TypeScript 7 · Tailwind CSS v4 · Prisma 
 | `/api/sync` | `GET` `POST` | Sync status; resumable incremental scrobble ingestion with deduplication |
 | `/api/conversation` | `GET` | The home conversation: stored readings with verified proof |
 | `/api/overview` | `GET` | Period metrics and taste shift (in share points) |
-| `/api/history` | `GET` | Paginated listening history |
+| `/api/history` | `GET` | Paginated listening history, optionally cut to one local day |
+| `/api/month-covers` | `GET` | The current month day by day: plays and the record of each day |
+| `/api/genre-race` | `GET` | Each genre's position month by month over the last six months |
+| `/api/year` | `GET` | The current year in chapters, each with its measured proof |
 | `/api/enrichment` | `GET` `POST` | Enrichment coverage; rate-limited metadata and catalog enrichment |
 | `/api/recommendations` | `GET` `POST` | Discovery sessions |
 | `/api/recommendations/[sessionId]/feedback` | `POST` | Feedback on a suggestion |
