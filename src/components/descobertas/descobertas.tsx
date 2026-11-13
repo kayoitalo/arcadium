@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Aviso } from "@/components/amigo/aviso";
 import { Capa, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
 import { Regua } from "@/components/amigo/regua";
+import { Visto } from "@/components/amigo/visto";
 import { band, frame } from "@/components/amigo/gestures";
 import { boxOf, textLines } from "@/components/amigo/measure";
 import type { TraceGesture, WaveSpec } from "@/components/amigo/trace";
@@ -125,6 +126,8 @@ export function Descobertas({ initialSessionId = null }: {
   const savingRef = useRef(false);
   const selection = useSelection();
   const kept = selection.items;
+  /** Quantas faixas você guardou nesta visita: cada uma ganha o visto dele, uma vez. */
+  const [savedHere, setSavedHere] = useState(0);
   const requestRef = useRef(0);
 
   const stageRef = useRef<HTMLDivElement>(null);
@@ -344,6 +347,7 @@ export function Descobertas({ initialSessionId = null }: {
         void selection.refresh(true);
         setQueue((previous) => previous?.map((item) => item.id === current.id ? { ...item, feedback: states } : item) ?? null);
         if (action !== "retract") setDecided((previous) => ({ ...previous, [current.id]: action }));
+        if (action === "saved") setSavedHere((count) => count + 1);
         if (payload.currentRank != null) setIndex(payload.currentRank - 1);
         if (payload.session) applySession(payload.session);
 
@@ -571,7 +575,7 @@ export function Descobertas({ initialSessionId = null }: {
           </div>}
           <p className={styles.feedback} role={feedbackError || sound.error ? "alert" : "status"}>
             {feedbackError || sound.error || (saving ? "Guardando tua resposta…" : kept.length > 0
-              ? <Link href="/discovery/collection">{kept.length === 1 ? "1 faixa separada" : `${kept.length} faixas separadas`} pra depois →</Link>
+              ? <Link href="/discovery/collection">{savedHere > 0 && <Visto key={savedHere} />}{kept.length === 1 ? "1 faixa separada" : `${kept.length} faixas separadas`} pra depois →</Link>
               : "O que você guardar fica pra depois, mesmo trocando de caminho.")}
           </p>
           <Resposta onClick={() => void decide("liked")} hint="↑" disabled={saving || !selection.ready} primary>
