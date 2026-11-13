@@ -10,7 +10,7 @@ import styles from "./descobertas.module.css";
  * por fora, num link.
  */
 export function DiscoveryTrack({ title, artist, reason, artwork, metadata, markRef, headlineRef, marked, sectionRef,
-  onPlay, canPlay, playing, loading, inAlbum = false, repertoire = false, context, listenElsewhere }: {
+  onPlay, canPlay, playing, loading, inAlbum = false, repertoire = false, context, listenElsewhere, ruler }: {
   title: string; artist: string; reason: string | null; artwork: ReactNode; metadata: ReactNode;
   markRef: RefObject<HTMLSpanElement | null>; headlineRef?: RefObject<HTMLHeadingElement | null>;
   marked: boolean; sectionRef: RefObject<HTMLElement | null>; onPlay: () => void; canPlay: boolean; playing: boolean; loading: boolean;
@@ -22,6 +22,8 @@ export function DiscoveryTrack({ title, artist, reason, artwork, metadata, markR
   context: ReactNode;
   /** Onde ouvir quando não há trecho por aqui. */
   listenElsewhere?: ReactNode;
+  /** Tocando: a régua do trecho entra no lugar da legenda. */
+  ruler?: ReactNode;
 }) {
   const shown = splitTrackTitle(title);
   return <section className={styles.listening} aria-label="Escuta da descoberta">
@@ -41,7 +43,8 @@ export function DiscoveryTrack({ title, artist, reason, artwork, metadata, markR
         <button className={styles.playButton} disabled={!canPlay} onClick={onPlay} aria-pressed={playing} aria-label={playing ? "Parar prévia" : "Ouvir prévia"}>
           <svg viewBox="0 0 24 24" aria-hidden="true">{playing ? <path d="M7 7h10v10H7z" /> : <path d="m9 5 11 7-11 7z" />}</svg>
         </button>
-        <div><strong>{loading ? "Abrindo a prévia…" : playing ? "Ouvindo agora" : "Dá o play"}</strong><span>{repertoire ? "um reencontro, em 30 segundos" : "um trecho, em 30 segundos"}</span></div>
+        <div className={styles.listenText}><strong>{loading ? "Abrindo a prévia…" : playing ? "Ouvindo agora" : "Dá o play"}</strong>
+          {playing && ruler ? ruler : <span>{repertoire ? "um reencontro, em 30 segundos" : "um trecho, em 30 segundos"}</span>}</div>
       </div> : <div className={styles.listenElsewhere}>
         <strong>Sem trecho por aqui.</strong>{listenElsewhere}
       </div>}

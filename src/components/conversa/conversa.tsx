@@ -9,6 +9,7 @@ import type { TraceGesture, WaveSpec } from "@/components/amigo/trace";
 import { usePen, type PenDrawing, type PenNote } from "@/components/amigo/use-pen";
 import { usePulse } from "@/components/amigo/use-pulse";
 import { useSound, type SoundStep } from "@/components/amigo/use-sound";
+import { useTabTitle } from "@/components/amigo/use-tab-title";
 import type { ConversationMoment, Evidence } from "@/modules/conversation/domain/conversation.types";
 import { decadeLabel, ProvaDecadas, ProvaLista, ProvaTransicao } from "./provas";
 import styles from "./conversa.module.css";
@@ -125,6 +126,18 @@ export function Conversa({ moments: all, epilogue }: { moments: ConversationMome
       ? "from"
       : "to"
     : null;
+
+  /** O que a prévia do assunto da vez está tocando, para o título da aba. */
+  const soundingLabel = useMemo(() => {
+    const evidence = moments[active]?.evidence;
+    if (!sound.playing || !evidence) return null;
+    if (evidence.kind === "transition") {
+      const side = playingSide === "from" ? evidence.from : evidence.to;
+      return `${side.track} · ${side.artist}`;
+    }
+    return evidence.kind === "ranking" ? evidence.previewTrack : null;
+  }, [active, moments, playingSide, sound.playing]);
+  useTabTitle(soundingLabel);
 
   // ---------- onde o traço vai ----------
 

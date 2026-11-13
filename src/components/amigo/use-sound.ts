@@ -151,6 +151,19 @@ export function useSound(onStarted?: (url: string) => void) {
     return { signal: buffer.current, level: Math.min(1, Math.sqrt(sum / buffer.current.length) * 2.2) };
   }, []);
 
+  /** Onde a prévia que soa está, em segundos, e quanto ela dura: é o que a régua mede. */
+  const position = useCallback((): { time: number; duration: number } | null => {
+    const audio = current ? elements.current.get(current) : undefined;
+    return audio ? { time: audio.currentTime, duration: audio.duration } : null;
+  }, [current]);
+
+  /** Pula pra outro ponto da prévia que está tocando. */
+  const seek = useCallback((seconds: number) => {
+    const audio = current ? elements.current.get(current) : undefined;
+    if (!audio || !Number.isFinite(audio.duration)) return;
+    audio.currentTime = Math.min(Math.max(0, seconds), Math.max(0, audio.duration - 0.2));
+  }, [current]);
+
   useEffect(
     () => () => {
       stop();
@@ -162,5 +175,5 @@ export function useSound(onStarted?: (url: string) => void) {
     [stop],
   );
 
-  return { playing, loading, error, step, current, play, stop, toggle, read };
+  return { playing, loading, error, step, current, play, stop, toggle, read, position, seek };
 }

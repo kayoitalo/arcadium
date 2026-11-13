@@ -234,6 +234,63 @@
   color: var(--tinta-3);
 }
 
+/* ---------- a régua da prévia ---------- */
+
+.ruler {
+  width: min(100%, 340px);
+  margin-top: 8px;
+}
+
+/* a área de toque é mais alta que a linha: 28px para o dedo, 2px para o olho */
+.rulerTrack {
+  position: relative;
+  height: 28px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.rulerLine {
+  position: absolute;
+  inset: 8px 0 auto;
+  height: 2px;
+  background: var(--fio-2);
+}
+
+.rulerFill {
+  display: block;
+  height: 100%;
+  background: var(--tinta);
+  transform-origin: left center;
+  scale: 0 1;
+}
+
+.rulerMark {
+  position: absolute;
+  top: 10px;
+  width: 1px;
+  height: 5px;
+  background: var(--tinta-3);
+}
+
+.rulerMark[data-major="true"] {
+  height: 10px;
+  background: var(--tinta-2);
+}
+
+/* a última marca fica dentro da régua, não um pixel pra fora */
+.rulerMark:last-of-type {
+  translate: -1px 0;
+}
+
+.rulerTime {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta-3);
+}
+
 /* ---------- capa ---------- */
 
 .cover {
