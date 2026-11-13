@@ -47,7 +47,7 @@ function ConversationBody() {
   }, [attempt]);
 
   if (state.status === "loading") {
-    return <Aviso headline="Peraí, tô ouvindo aqui." />;
+    return <Aviso waiting headline="Peraí, tô ouvindo aqui." />;
   }
 
   if (state.status === "error") {
@@ -81,6 +81,7 @@ function ConversationBody() {
   if (view.writing) {
     return (
       <Aviso
+        waiting
         headline="Tô escrevendo o que reparei."
         narrative="Li teu histórico inteiro. Dá um minuto que eu já volto com a primeira."
       />

@@ -91,7 +91,7 @@ export default function OQueMudouPage() {
   }
 
   if (state.status === "loading" || said === undefined) {
-    return <Aviso window={janela} headline="Peraí, tô comparando." />;
+    return <Aviso waiting window={janela} headline="Peraí, tô comparando." />;
   }
 
   const { shift, before } = state;
