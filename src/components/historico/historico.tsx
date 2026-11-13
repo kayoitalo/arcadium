@@ -7,7 +7,7 @@ import { ArrowUpRight, Pause, Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Aviso } from "@/components/amigo/aviso";
 import { Capa, Fala, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
-import { band } from "@/components/amigo/gestures";
+import { band, circle } from "@/components/amigo/gestures";
 import { boxOf, textLines } from "@/components/amigo/measure";
 import type { TraceGesture, WaveSpec } from "@/components/amigo/trace";
 import { usePen, type PenDrawing } from "@/components/amigo/use-pen";
@@ -15,6 +15,8 @@ import { usePulse } from "@/components/amigo/use-pulse";
 import { useSound } from "@/components/amigo/use-sound";
 import styles from "./historico.module.css";
 import { splitTrackTitle } from "@/lib/music/track-title";
+import type { MonthCovers } from "@/modules/statistics/domain/month-calendar";
+import { dayWords, MesEmCapas } from "./mes-em-capas";
 
 interface HistoryEvent {
   id: string;
@@ -70,6 +72,11 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [loadedQuery, setLoadedQuery] = useState("");
   const [loadedPage, setLoadedPage] = useState(1);
+  /** O mês em capas: prova à parte, que não segura a tela se demorar ou falhar. */
+  const [month, setMonth] = useState<MonthCovers | null>(null);
+  /** O dia do calendário que recorta o registro. */
+  const [day, setDay] = useState<string | null>(null);
+  const [loadedDay, setLoadedDay] = useState<string | null>(null);
 
   const stageRef = useRef<HTMLDivElement>(null);
   const markRef = useRef<HTMLSpanElement>(null);
@@ -103,6 +110,7 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
     setBusy(true);
     setFailed(false);
     const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE), search: query });
+    if (day) params.set("day", day);
     privateFetch(`/api/history?${params}`, { signal: controller.signal, cache: "no-store" })
       .then((response) => {
         if (!response.ok) throw new Error(`history ${response.status}`);
@@ -111,6 +119,7 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
       .then((payload) => {
         setData(payload);
         setLoadedQuery(query);
+        setLoadedDay(day);
         setLoadedPage(page);
         setFailed(false);
       })
@@ -121,12 +130,26 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
         if (!controller.signal.aborted) setBusy(false);
       });
     return () => controller.abort();
-  }, [page, query, attempt]);
+  }, [page, query, day, attempt]);
 
   // outra página, outra busca: a prévia que tocava some da tela, então para
   useEffect(() => {
     stop();
-  }, [page, query, stop]);
+  }, [page, query, day, stop]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    privateFetch("/api/month-covers", { signal: controller.signal, cache: "no-store" })
+      .then((response) => (response.ok ? (response.json() as Promise<MonthCovers>) : null))
+      .then((payload) => { if (payload && !controller.signal.aborted) setMonth(payload); })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
+
+  const pickDay = useCallback((next: string | null) => {
+    setDay(next);
+    setPage(1);
+  }, []);
 
   const format = useMemo(() => formatters(data?.timezone ?? "America/Sao_Paulo"), [data?.timezone]);
 
@@ -169,7 +192,15 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
   let headline: string;
   let narrative: string;
   let mark: string[] | undefined;
-  if (loadedQuery && found === 0) {
+  const dayEntry = loadedDay ? month?.days.find((entry) => entry.day === loadedDay) : undefined;
+  if (loadedDay && !loadedQuery) {
+    // "sábado, 7 de novembro" → a frase começa com o dia, do jeito que se fala
+    const words = dayWords(loadedDay);
+    const said = words.charAt(0).toUpperCase() + words.slice(1);
+    headline = found === 0 ? `${said} ficou em silêncio.` : `${said} teve ${plays(found)}.`;
+    narrative = dayEntry?.album ? `O disco do dia foi ${dayEntry.album}${dayEntry.artist ? `, de ${dayEntry.artist}` : ""}.` : "";
+    mark = [said];
+  } else if (loadedQuery && found === 0) {
     headline = `Nada com “${loadedQuery}”.`;
     narrative = "Tenta um pedaço do nome do artista, da faixa ou do disco.";
   } else if (loadedQuery) {
@@ -189,7 +220,9 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
 
   // ---------- onde o traço vai ----------
 
-  const peakId = `pico:${peak}:${query}`;
+  const peakId = `pico:${peak}:${query}:${loadedDay ?? ""}`;
+  const showMonth = Boolean(month && month.days.length > 0 && !loadedQuery && !query);
+  const fullestId = `dia-cheio:${month?.month ?? ""}`;
   const live = data?.events.find((event) => sounding(event)) ?? null;
 
   const draw = (origin: DOMRect): PenDrawing => {
@@ -202,6 +235,11 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
         const { strokes, width } = band(lines, size);
         gestures.push({ id: `grifo:${headline}`, layer: "under", strokes, width, cap: "butt" });
       }
+    }
+    const fullest = parts.current.get("dia-cheio");
+    if (fullest) {
+      // o dia mais cheio do mês: um círculo de cantos cheios, que abraça o quadrado sem cortar a capa
+      gestures.push({ id: fullestId, layer: "over", strokes: [circle(boxOf(fullest, origin), fullestId, 7, { exponent: 4 })], width: 2, cap: "round" });
     }
     const bar = parts.current.get("pico");
     if (bar) {
@@ -242,7 +280,7 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
     return { gestures, wave, notes: [] };
   };
 
-  const pose = `${headline}|${page}|${peak}|${live?.id ?? ""}|${data?.events[0]?.id ?? ""}`;
+  const pose = `${headline}|${page}|${peak}|${live?.id ?? ""}|${data?.events[0]?.id ?? ""}|${showMonth ? month?.days.length : ""}`;
   const pen = usePen(stageRef, draw, pose);
 
   // ---------- estados ----------
@@ -257,7 +295,7 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
 
   if (!data) return <Aviso waiting headline="Peraí, tô puxando teu histórico." />;
 
-  if (data.totalItems === 0 && !loadedQuery && !query) {
+  if (data.totalItems === 0 && !loadedQuery && !query && !loadedDay && !day) {
     return (
       <Aviso
         headline="Ainda não ouvi nada teu."
@@ -273,7 +311,7 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
       <div className={styles.top}>
         <Fala
           level={1}
-          window={loadedQuery ? "procurando no que tocou" : "tudo que tocou, da mais recente pra trás"}
+          window={loadedQuery ? "procurando no que tocou" : loadedDay ? "um dia do teu mês" : "tudo que tocou, da mais recente pra trás"}
           headline={headline}
           narrative={narrative || null}
           markRef={markRef}
@@ -322,6 +360,12 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
           </figure>
         )}
       </div>
+
+      {/* o mês em capas: some enquanto você procura por nome, que aí o assunto é outro */}
+      {showMonth && month && <MesEmCapas data={month} selected={day} onSelect={pickDay} registerPeak={register("dia-cheio")} lit={pen.done.has(fullestId)} />}
+      {day && <p className={styles.dayFilter}>
+        <button type="button" className={styles.clear} onClick={() => pickDay(null)}>voltar pra tudo que tocou ↑</button>
+      </p>}
 
       {/* a busca fica junto do registro que ela filtra: quem abre a tela é ele falando */}
       <label className={styles.search}>
