@@ -6,13 +6,46 @@ import { Fala, PenLayer, Capa } from "@/components/amigo/fala";
 import { band } from "@/components/amigo/gestures";
 import { textLines } from "@/components/amigo/measure";
 import { usePen } from "@/components/amigo/use-pen";
+import { seeded } from "@/components/amigo/gestures";
+import { useCoverTint } from "@/components/amigo/use-cover-tint";
+import { inkOn } from "@/lib/cover-tint";
 import { useReducedMotion } from "framer-motion";
+import type { CSSProperties } from "react";
 import type { AlbumSource, EditionSummary } from "@/modules/recommendations/domain/album-journey";
 import { CARTOLA_JOURNEY_HREF, findCuratedAlbum, type CurationCredit } from "@/modules/recommendations/domain/curated-albums";
 import { DiscoveryDisclosure } from "./discovery-disclosure";
 import styles from "./album-journeys.module.css";
 
-type AlbumReference = { source: AlbumSource; artistName: string; albumName: string; coverUrl?: string | null };
+type AlbumReference = { source: AlbumSource; artistName: string; albumName: string; coverUrl?: string | null; plays?: number };
+
+/** A partir de quantos discos a estante vira estante: com dois ou três, lombada sozinha não se sustenta. */
+const SHELF_FROM = 4;
+
+/**
+ * A grossura e a altura de uma lombada. A grossura diz quanto o disco
+ * tocou, em relação ao mais ouvido da estante; a altura varia um pouco de
+ * disco pra disco, sempre igual para o mesmo disco. Função pura.
+ */
+export function spineShape(album: { albumName: string; artistName: string; plays?: number }, max: number): { width: number; height: number } {
+  const share = max > 0 ? Math.min(1, Math.max(0, (album.plays ?? 0) / max)) : 0;
+  return { width: Math.round(28 + share * 26), height: Number((0.78 + seeded(`${album.artistName}|${album.albumName}`)() * 0.22).toFixed(3)) };
+}
+
+/**
+ * Um disco na estante, de lado: o título em pé, na cor que a capa
+ * empresta. Sem capa, a lombada é papel com borda — etiqueta honesta, sem
+ * fingir arte. Abrir a lombada é o mesmo "ouvir este disco" de antes.
+ */
+function Lombada({ album, max, disabled, onOpen }: { album: AlbumReference; max: number; disabled: boolean; onOpen: () => void }) {
+  const tint = useCoverTint(album.coverUrl);
+  const shape = spineShape(album, max);
+  return <button type="button" className={styles.spine} disabled={disabled} aria-expanded={false} onClick={onOpen}
+    aria-label={`ouvir este disco: ${album.albumName}, de ${album.artistName}`} title={`${album.albumName} · ${album.artistName}`}
+    data-bare={!tint || undefined} data-ink={tint ? inkOn(tint) : undefined}
+    style={{ "--lombada": tint ?? undefined, "--grossura": `${shape.width}px`, "--altura": shape.height } as CSSProperties}>
+    <span>{album.albumName}</span>
+  </button>;
+}
 export function EditionCredit({ album }: { album: EditionSummary }) {
   return <p className={styles.note}>Catálogo Apple · loja {album.storefront} · {album.trackCount} faixas
     {album.releaseDate && <> · {album.releaseDate.slice(0, 4)}</>}
@@ -40,9 +73,6 @@ export function AlbumProgress({ album, curation, tracks, index, disabled, onMove
     </DiscoveryDisclosure>
   </section>;
 }
-/** Duas fileiras da estante por vez; "mais discos" traz outras duas, até o limite já recebido. */
-const SHELF_STEP = 12;
-
 export function AlbumJourneys({ initialItem = null, initialCuration = null, onBegin = (id) => window.location.assign(`/discovery?session=${encodeURIComponent(id)}`) }: {
   initialItem?: string | null; initialCuration?: string | null; onBegin?: (id: string) => void;
 }) {
@@ -51,7 +81,7 @@ export function AlbumJourneys({ initialItem = null, initialCuration = null, onBe
   const [library, setLibrary] = useState<{ albums: AlbumReference[]; more: boolean } | null>(null);
   const [loading, setLoading] = useState(true); const [libraryError, setLibraryError] = useState(false);
   const [selected, setSelected] = useState<AlbumReference | null>(null); const [editions, setEditions] = useState<EditionSummary[] | null>(null);
-  const [visible, setVisible] = useState(SHELF_STEP); const [versionVisit, setVersionVisit] = useState(0);
+  const [versionVisit, setVersionVisit] = useState(0);
   const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
   const operation = useRef<AbortController | null>(null); const starting = useRef(false);
   const requestKey = useRef<{ signature: string; key: string } | null>(null);
@@ -71,7 +101,7 @@ export function AlbumJourneys({ initialItem = null, initialCuration = null, onBe
       setLoading(false);
       return;
     }
-    const controller = new AbortController(); setLoading(true); setLibraryError(false); setLibrary(null); setVisible(SHELF_STEP);
+    const controller = new AbortController(); setLoading(true); setLibraryError(false); setLibrary(null);
     const params = new URLSearchParams(initialItem ? { item: initialItem } : { q: query });
     void privateFetch(`/api/album-journeys?${params}`, { signal: controller.signal }).then(async (response) => {
       if (!response.ok) throw new Error(); const data = await response.json(); if (!controller.signal.aborted) setLibrary(data);
@@ -123,10 +153,14 @@ export function AlbumJourneys({ initialItem = null, initialCuration = null, onBe
     </form>}
     {loading && <p role="status">Abrindo a estante…</p>}
     {libraryError && <p role="alert">Não consegui abrir tua estante agora. <button onClick={() => setAttempt((n) => n + 1)}>tenta de novo</button></p>}
-    {library && <>{!curation && <p className={styles.note}>{initialItem ? "O disco dessa indicação." : query ? `O que achei pra “${query}”.` : "Os discos que você mais ouviu."}</p>}
+    {library && <>{!curation && <p className={styles.note}>{initialItem ? "O disco dessa indicação." : query ? `O que achei pra “${query}”.` : library.albums.length >= SHELF_FROM ? "Os discos que você mais ouviu. Os mais grossos são os que mais tocaram: puxa um." : "Os discos que você mais ouviu."}</p>}
       {!library.albums.length && <p>Não achei esse disco no que você ouviu. Tenta outro nome.</p>}
-      <ul className={styles.library}>{library.albums.slice(0,visible).map((album) => {
+      {/* de quatro discos em diante, a estante é de lombadas: a grossura diz quanto tocou. O disco aberto sai da fileira e deita. */}
+      <ul className={styles.library} data-shelf={library.albums.length >= SHELF_FROM || undefined}>{library.albums.map((album) => {
         const active = selected?.source.id === album.source.id && selected.source.kind === album.source.kind;
+        if (library.albums.length >= SHELF_FROM && !active) return <li key={JSON.stringify(album.source)} data-open={false}>
+          <Lombada album={album} max={Math.max(1, ...library.albums.map((row) => row.plays ?? 0))} disabled={busy} onOpen={() => void findEditions(album)} />
+        </li>;
         return <li key={JSON.stringify(album.source)} data-open={active}>
           <div className={styles.libraryRow}>
             {album.coverUrl
@@ -151,7 +185,6 @@ export function AlbumJourneys({ initialItem = null, initialCuration = null, onBe
           </section>}
         </li>;
       })}</ul>
-      {library.albums.length > visible && <button className={styles.showMore} onClick={() => setVisible((n)=>n+SHELF_STEP)}>mais discos ↓ <span>{Math.min(visible,library.albums.length)} de {library.albums.length}</span></button>}
       {library.more && <p className={styles.note}>Tem mais na estante. Procura pelo nome.</p>}</>}
     <PenLayer pen={pen} signal={signal} reduced={reduced} />
   </div>;
