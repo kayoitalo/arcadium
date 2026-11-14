@@ -29,6 +29,8 @@ export interface TraceGesture {
   join?: StrokeJoin;
   /** Já foi dito: continua na tela, mais apagado que o assunto da vez. */
   dim?: boolean;
+  /** Depois de desenhado, o traço fica pulsando de leve: é o que está acontecendo agora, não o que já foi dito. */
+  pulse?: boolean;
 }
 
 export interface WaveSpec {
@@ -66,6 +68,7 @@ interface Segment {
   cap?: StrokeCap;
   join?: StrokeJoin;
   dim?: boolean;
+  pulse?: boolean;
 }
 
 const ERASE_MS = 220;
@@ -187,7 +190,7 @@ export function Trace({
         // a corda que para de tocar assenta no traço de onde saiu: o arco
         // volta a ser arco com seta, sem a caneta refazer o caminho
         const settles = !instant && previousWave !== undefined && d.startsWith(previousWave.d);
-        const look = { cap: gesture.cap, join: gesture.join, dim: gesture.dim };
+        const look = { cap: gesture.cap, join: gesture.join, dim: gesture.dim, pulse: gesture.pulse };
         if (kept || settles) {
           queue.push({
             id: kept?.id ?? id,
@@ -341,6 +344,7 @@ export function Trace({
             }}
             data-kind={segment.kind}
             data-dim={segment.dim || undefined}
+            data-pulse={(segment.pulse && segment.kind === "ink") || undefined}
           />
         ))}
     </svg>

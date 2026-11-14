@@ -151,6 +151,102 @@
   clip-path: inset(0 0 0 0);
 }
 
+/* ---------- a pista ---------- */
+
+.race {
+  margin: 0;
+}
+
+.race svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.raceLane {
+  fill: rgb(242 239 231 / 0.035);
+}
+
+.raceNumber,
+.raceMonth {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  fill: var(--tinta-3);
+}
+
+.raceNumber {
+  font-variation-settings: "wdth" 70, "wght" 760;
+}
+
+.raceRunner path {
+  fill: none;
+  stroke: var(--fio-2);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.raceRunner circle {
+  fill: var(--tinta-3);
+}
+
+.raceRunner text {
+  font-size: 15px;
+  font-variation-settings: "wdth" 88, "wght" 620;
+  fill: var(--tinta-2);
+}
+
+/* a raia citada: o traço dele por cima; quando ele termina, o nome e o ponto acendem */
+.raceRunner[data-cited="true"] circle,
+.raceRunner[data-cited="true"] text {
+  transition: fill 300ms ease;
+}
+
+.raceRunner[data-lit="true"] circle,
+.raceRunner[data-lit="true"] text {
+  fill: var(--marca);
+}
+
+/* o anel do ponto de chegada: só aparece depois que o traço chegou lá */
+.raceRunner .racePing {
+  fill: none;
+  stroke: var(--marca);
+  stroke-width: 2;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.raceRunner[data-lit="true"] .racePing {
+  animation: racePing 2.6s ease-out 900ms infinite;
+}
+
+@keyframes racePing {
+  0% {
+    opacity: 0.9;
+    scale: 1;
+  }
+  70%,
+  100% {
+    opacity: 0;
+    scale: 3.2;
+  }
+}
+
+.numbers summary {
+  min-height: 44px;
+  padding: 12px 0;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--tinta-2);
+}
+
+.numbersBody {
+  display: grid;
+  gap: clamp(24px, 4vh, 36px);
+  padding-top: 12px;
+}
+
 .quiet {
   margin: 0;
   font-size: 12px;
@@ -168,5 +264,22 @@
     row-gap: 40px;
     min-height: auto;
     padding: 5vh 0 8vh;
+  }
+}
+
+/* no celular a pista encolhe inteira: a letra dentro dela cresce na mesma
+   proporção, pra continuar legível sem rolar de lado */
+@media (max-width: 760px) {
+  .raceRunner text {
+    font-size: 25px;
+  }
+
+  .raceNumber,
+  .raceMonth {
+    font-size: 22px;
+  }
+
+  .raceRunner path {
+    stroke-width: 3.5;
   }
 }

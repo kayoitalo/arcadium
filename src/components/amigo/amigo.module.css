@@ -142,6 +142,15 @@
   padding: 7vh 0 5vh;
 }
 
+/* o lugar do rascunho: três linhas que a caneta escreve enquanto ele busca,
+   na medida e no corpo do texto que vai chegar */
+.draft {
+  width: min(46ch, 100%);
+  height: 4.5em;
+  margin-top: clamp(20px, 3vh, 32px);
+  font-size: clamp(1rem, 0.9rem + 0.35vw, 1.2rem);
+}
+
 /* ---------- respostas ---------- */
 
 .reactions {
@@ -225,6 +234,89 @@
   color: var(--tinta-3);
 }
 
+/* o visto de quem guardou: desenhado uma vez, como a caneta escreveria */
+.visto {
+  display: inline-block;
+  flex-shrink: 0;
+  margin-right: 6px;
+  vertical-align: -4px;
+  overflow: visible;
+}
+
+.visto path {
+  fill: none;
+  stroke: var(--marca);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: vistoIn 420ms var(--glide) 80ms forwards;
+}
+
+@keyframes vistoIn {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ---------- a régua da prévia ---------- */
+
+.ruler {
+  width: min(100%, 340px);
+  margin-top: 8px;
+}
+
+/* a área de toque é mais alta que a linha: 28px para o dedo, 2px para o olho */
+.rulerTrack {
+  position: relative;
+  height: 28px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.rulerLine {
+  position: absolute;
+  inset: 8px 0 auto;
+  height: 2px;
+  background: var(--fio-2);
+}
+
+.rulerFill {
+  display: block;
+  height: 100%;
+  background: var(--tinta);
+  transform-origin: left center;
+  scale: 0 1;
+}
+
+.rulerMark {
+  position: absolute;
+  top: 10px;
+  width: 1px;
+  height: 5px;
+  background: var(--tinta-3);
+}
+
+.rulerMark[data-major="true"] {
+  height: 10px;
+  background: var(--tinta-2);
+}
+
+/* a última marca fica dentro da régua, não um pixel pra fora */
+.rulerMark:last-of-type {
+  translate: -1px 0;
+}
+
+.rulerTime {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta-3);
+}
+
 /* ---------- capa ---------- */
 
 .cover {
@@ -232,10 +324,25 @@
   aspect-ratio: 1;
   overflow: hidden;
   background: #1a1917;
+  /* as duas últimas camadas são a luz da capa, apagadas até ela acender:
+     o mesmo número de camadas dos dois lados, pra transição não pular */
   box-shadow:
     0 24px 48px -28px rgb(0 0 0 / 0.9),
-    0 0 0 1px rgb(255 255 255 / 0.06);
+    0 0 0 1px rgb(255 255 255 / 0.06),
+    0 30px 70px -26px rgb(var(--capa-luz, 0 0 0) / 0),
+    0 0 0 0 rgb(var(--capa-luz, 0 0 0) / 0);
   scale: calc(1 + var(--level, 0) * 0.05 * var(--on, 0));
+  transition: box-shadow 700ms ease;
+}
+
+/* a capa do assunto da vez acende o papel com a cor dela: uma sombra da
+   própria arte e uma luz baixa em volta. Sombra não é cortada pela capa. */
+.cover[data-glow="true"] {
+  box-shadow:
+    0 24px 48px -28px rgb(0 0 0 / 0.9),
+    0 0 0 1px rgb(255 255 255 / 0.06),
+    0 30px 70px -26px rgb(var(--capa-luz) / 0.55),
+    0 0 clamp(120px, 16vw, 240px) clamp(10px, 2vw, 36px) rgb(var(--capa-luz) / 0.2);
 }
 
 .cover[data-playing="true"] {
@@ -317,6 +424,27 @@
 
 .note[data-kind="dado"][data-align="center"] {
   translate: -50% 0;
+}
+
+/* os risquinhos de contagem: na cor dele, revelados da esquerda pra direita
+   quando o traço chega no dado, como as outras anotações da grade */
+.tally {
+  display: block;
+  flex-shrink: 0;
+  overflow: visible;
+  clip-path: inset(-4px 100% -4px -4px);
+  transition: clip-path 620ms var(--glide);
+}
+
+.tally[data-lit="true"] {
+  clip-path: inset(-4px -4px -4px -4px);
+}
+
+.tally path {
+  fill: none;
+  stroke: var(--marca);
+  stroke-width: 2.4;
+  stroke-linecap: round;
 }
 
 .note[data-dim="true"] {

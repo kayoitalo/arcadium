@@ -68,8 +68,9 @@
 .playButton:hover { background: var(--tinta); color: var(--papel); border-color: var(--tinta); }
 .playButton:disabled { opacity: .35; cursor: not-allowed; background: transparent; color: var(--tinta); }
 .playButton svg { width: 22px; height: 22px; fill: currentColor; }
+.listenText { flex: 1; min-width: 0; }
 .listenControl strong { display: block; font-size: 14px; font-weight: 500; }
-.listenControl span { display: block; margin-top: 4px; color: var(--tinta-3); font-size: 12px; }
+.listenText > span { display: block; margin-top: 4px; color: var(--tinta-3); font-size: 12px; }
 .meta { margin: 0; color: var(--tinta-3); font-size: 13px; line-height: 1.7; }
 .meta a { color: inherit; text-underline-offset: 4px; }
 .meta a:hover { color: var(--tinta); }
