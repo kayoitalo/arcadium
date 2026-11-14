@@ -18,8 +18,8 @@ As regras de [a voz do amigo](interface-voz-do-amigo.md) continuam valendo: pape
 | 04 | Todas | `Aviso waiting`: enquanto ele busca ou escreve, a caneta rascunha três linhas onde o texto vai chegar, apaga e recomeça. |
 | 05 | Descobrir | `Regua`: tocando, a legenda do play vira a régua do trecho, com marcas de 5 em 5 s; clicar, arrastar ou usar as setas pula de ponto. `useSound` passou a expor `position` e `seek`. |
 | 06 | Conversa, Teu ano | "virar cartão": o assunto vira uma imagem 1080×1350 desenhada num canvas (`cartao.ts`), com o grifo, as capas e o "PAM.". No celular abre a folha de compartilhar; onde ela não aceita arquivo, baixa o PNG. |
-| 07 | Descobrir › Álbuns | De quatro discos em diante, a estante é de lombadas: título em pé, cor emprestada da capa, grossura pelo quanto tocou (`plays` na resposta da estante). Sem capa, lombada de papel com borda. O disco aberto sai da fileira e deita, com as versões dentro dele, como antes. |
-| 08 | O que mudou | `Pista`: a posição de cada gênero mês a mês, nos últimos seis meses (`/api/genre-race`). Tudo em tinta; o traço percorre a raia do gênero citado. A lista da janela escolhida continua em "ver em números". |
+| 07 | Descobrir › Álbuns | De quatro discos em diante, a estante é de lombadas: título em pé, cor emprestada da capa, grossura pelo quanto tocou (`plays` na resposta da estante). Sem capa, lombada de papel com borda. O disco puxado sobe na fileira e a ficha dele abre **à direita** da estante, com a capa saindo dela e as versões embaixo; no celular, onde não cabe ao lado, a ficha fica embaixo. Abrir um disco não empurra a estante. |
+| 08 | O que mudou | `Pista`: a posição de cada gênero mês a mês, nos últimos seis meses (`/api/genre-race`). Tudo em tinta; o traço percorre a raia do gênero citado e, depois de desenhada, ela fica pulsando, com um anel se abrindo no ponto de chegada. A lista da janela escolhida continua em "ver em números". |
 | 09 | `/year` | Teu ano, em capítulos: uma tela por vez, cada capítulo com a prova medida no banco (`/api/year`). O link fica no fim da Conversa. |
 | 10 | Descobrir | `Visto`: o visto dele ao guardar uma faixa pra depois. |
 | 11 | Marca | `apple-icon.png`, `manifest.ts` (tela inicial e abertura do sistema), `opengraph-image.png` e o título da aba com a faixa que toca (`useTabTitle`). |
@@ -35,6 +35,11 @@ Três itens da proposta 10 já estavam no código e não foram refeitos: o "nada
 - **Capítulos do ano sem IA.** As frases saem dos números, na voz dele, e um capítulo sem prova não aparece. Cinco capítulos: o ano numa frase, quem chegou, a tua hora, o mês mais cheio, o disco do ano.
 - **A pista troca de lugar com a lista**, em vez de ficar ao lado: as duas juntas mostrariam o mesmo dado duas vezes.
 - **Ícone único.** O traço mais grosso nos tamanhos pequenos não entrou: o `icon.svg` atual já lê bem em 16 px.
+
+## Ajustes da validação (14/11)
+
+- **A raia citada pulsa.** Pedido do proprietário. É a única animação contínua do traço: `TraceGesture.pulse` deixa a tinta respirar depois de desenhada, sem mexer na geometria. As regras anteriores pediam o traço sem animação em loop; esta é uma exceção escolhida, restrita à pista. Com movimento reduzido, não pulsa.
+- **O disco abre à direita.** Na primeira versão o disco aberto ocupava uma fileira inteira e empurrava a estante pra baixo. Agora a estante tem o lugar da ficha reservado ao lado, e a capa entra vindo da estante.
 
 ## Limites
 
