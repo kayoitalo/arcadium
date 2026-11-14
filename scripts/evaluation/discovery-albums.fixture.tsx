@@ -103,7 +103,10 @@ async function runChecks() {
   spine()!.click(); await wait(() => document.querySelector('[role="alert"]'), "catalog error");
   button("tenta de novo").click(); await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "começar com esta versão →"), "editions retry");
   assert(bodyText().includes("Ao vivo") && bodyText().includes("loja BR"), "Edition version/storefront must be visible");
-  assert(document.querySelector("#album-versions")!.closest("li")?.querySelector("button[aria-expanded]"),"Versions must open inside the chosen album, not after all 20 results");
+  assert(document.querySelector('ul[data-shelf] button[aria-expanded="true"][aria-controls="album-versions"]'),"The pulled spine must own the versions panel");
+  assert(document.querySelector("#album-versions")!.closest("aside"),"Versions must open beside the shelf, not after all 20 results");
+  const shelfBox=document.querySelector("ul[data-shelf]")!.getBoundingClientRect(),panelBox=document.querySelector("#album-versions")!.closest("aside")!.getBoundingClientRect();
+  assert(innerWidth<900?panelBox.top>=shelfBox.bottom-1:panelBox.left>=shelfBox.right-1,"The pulled record opens to the right of the shelf on wide screens and below it on narrow ones");
   await wait(()=>{const box=document.querySelector("#album-versions h2")!.getBoundingClientRect();return box.top>=0&&box.top<innerHeight;},"inline version heading in viewport");
   passed.push("local owned references and explicit catalog lookup with recoverable error");
   button("começar com esta versão →").click(); button("começar com esta versão →").click();

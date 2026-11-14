@@ -34,12 +34,15 @@ export function spineShape(album: { albumName: string; artistName: string; plays
 /**
  * Um disco na estante, de lado: o título em pé, na cor que a capa
  * empresta. Sem capa, a lombada é papel com borda — etiqueta honesta, sem
- * fingir arte. Abrir a lombada é o mesmo "ouvir este disco" de antes.
+ * fingir arte. Abrir a lombada é o mesmo "ouvir este disco" de antes: o
+ * disco sai da fileira e a ficha dele abre à direita, com as versões.
  */
-function Lombada({ album, max, disabled, onOpen }: { album: AlbumReference; max: number; disabled: boolean; onOpen: () => void }) {
+function Lombada({ album, max, disabled, open, onOpen }: { album: AlbumReference; max: number; disabled: boolean;
+  /** Este é o disco puxado: fica um pouco fora da fileira, e a ficha dele abre ao lado. */
+  open: boolean; onOpen: () => void }) {
   const tint = useCoverTint(album.coverUrl);
   const shape = spineShape(album, max);
-  return <button type="button" className={styles.spine} disabled={disabled} aria-expanded={false} onClick={onOpen}
+  return <button type="button" className={styles.spine} disabled={disabled} aria-expanded={open} aria-controls={open ? "album-versions" : undefined} data-open={open || undefined} onClick={onOpen}
     aria-label={`ouvir este disco: ${album.albumName}, de ${album.artistName}`} title={`${album.albumName} · ${album.artistName}`}
     data-bare={!tint || undefined} data-ink={tint ? inkOn(tint) : undefined}
     style={{ "--lombada": tint ?? undefined, "--grossura": `${shape.width}px`, "--altura": shape.height } as CSSProperties}>
@@ -109,11 +112,20 @@ export function AlbumJourneys({ initialItem = null, initialCuration = null, onBe
     return () => controller.abort();
   }, [initialItem, curation, query, attempt]);
   useEffect(() => () => operation.current?.abort(), []);
+  const pulled = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!selected) return;
     heading.current?.focus({ preventScroll: true });
-    heading.current?.scrollIntoView({ behavior: reduced ? "instant" : "smooth", block: "start" });
+    const behavior = reduced ? "instant" : "smooth";
+    // na estante a ficha abre ao lado: só rola se ela não couber na tela (no celular ela fica embaixo, então sobe)
+    if (pulled.current) pulled.current.scrollIntoView({ behavior, block: window.matchMedia("(max-width: 899px)").matches ? "start" : "nearest" });
+    else heading.current?.scrollIntoView({ behavior, block: "start" });
   }, [selected, reduced]);
+  /** Fecha a ficha e devolve o foco ao disco de onde ela saiu. */
+  const close = (index: number) => {
+    setSelected(null);
+    requestAnimationFrame(() => stage.current?.querySelector<HTMLButtonElement>(`[data-album-index="${index}"] button[aria-expanded]`)?.focus());
+  };
   async function findEditions(album: AlbumReference) {
     if (starting.current) return; starting.current = true;
     operation.current?.abort(); const controller = new AbortController(); operation.current = controller;
@@ -155,36 +167,66 @@ export function AlbumJourneys({ initialItem = null, initialCuration = null, onBe
     {libraryError && <p role="alert">Não consegui abrir tua estante agora. <button onClick={() => setAttempt((n) => n + 1)}>tenta de novo</button></p>}
     {library && <>{!curation && <p className={styles.note}>{initialItem ? "O disco dessa indicação." : query ? `O que achei pra “${query}”.` : library.albums.length >= SHELF_FROM ? "Os discos que você mais ouviu. Os mais grossos são os que mais tocaram: puxa um." : "Os discos que você mais ouviu."}</p>}
       {!library.albums.length && <p>Não achei esse disco no que você ouviu. Tenta outro nome.</p>}
-      {/* de quatro discos em diante, a estante é de lombadas: a grossura diz quanto tocou. O disco aberto sai da fileira e deita. */}
-      <ul className={styles.library} data-shelf={library.albums.length >= SHELF_FROM || undefined}>{library.albums.map((album) => {
-        const active = selected?.source.id === album.source.id && selected.source.kind === album.source.kind;
-        if (library.albums.length >= SHELF_FROM && !active) return <li key={JSON.stringify(album.source)} data-open={false}>
-          <Lombada album={album} max={Math.max(1, ...library.albums.map((row) => row.plays ?? 0))} disabled={busy} onOpen={() => void findEditions(album)} />
-        </li>;
-        return <li key={JSON.stringify(album.source)} data-open={active}>
-          <div className={styles.libraryRow}>
-            {album.coverUrl
-              ? <Capa cover={{ url: album.coverUrl, title: album.albumName, artist: album.artistName }} className={styles.shelfCover} />
-              : <div className={styles.jacket} aria-hidden="true"><i /><b>{album.albumName}</b></div>}
-            {/* com ou sem capa, o mesmo desenho: o quadrado e, embaixo, disco e artista */}
-            <div className={styles.albumTitle}><h2>{album.albumName}</h2><p>{album.artistName}</p></div>
-            <button disabled={busy} aria-expanded={active} aria-controls={active ? "album-versions" : undefined} onClick={() => void findEditions(album)}>ouvir este disco →</button>
-          </div>
-          {active && <section id="album-versions" className={styles.editions} aria-label="Versões deste álbum" aria-busy={busy}>
-            <div className={styles.versionHeading}><h2 ref={heading} data-marked={pen.started.has(queryInk)} tabIndex={-1}>{curation ? "Confere a edição da jornada." : "Qual versão vai pro play?"}</h2><button disabled={busy} onClick={(event) => { const trigger = event.currentTarget.closest("li")?.querySelector<HTMLButtonElement>("[aria-expanded]"); setSelected(null); requestAnimationFrame(() => trigger?.focus()); }}>fechar ↑</button></div>
-            <p className={styles.note}>Estúdio, ao vivo, com faixas extras: escolhe a que você quer percorrer.</p>
-            {busy && <p className={styles.note} role="status">{editions ? "Conferindo a ordem das faixas…" : "Procurando as versões desse disco…"}</p>}
-            {error && <p role="alert">{error}{!editions && <> <button disabled={busy} onClick={() => void findEditions(album)}>tenta de novo</button></>}</p>}
-            {editions?.length === 0 && <p className={styles.note}>{curation ? "Essa edição saiu do catálogo por enquanto." : "Não achei uma versão desse disco no catálogo. Tenta outro."}
-              {curation && <> <button disabled={busy} onClick={() => void findEditions(album)}>conferir de novo</button></>}</p>}
-            <ul className={styles.editionList}>{editions?.map((version) => <li key={version.collectionId}>
-              {version.artworkUrl && <Capa cover={{ url: version.artworkUrl, title: version.albumName, artist: version.artistName }} className={styles.editionCover} />}
-              <div><h3>{version.albumName}</h3><p>{version.artistName}</p><EditionCredit album={version} />
-                <button disabled={busy} onClick={() => void begin(version)}>começar com esta versão →</button></div>
+      {(() => {
+        const shelf = library.albums.length >= SHELF_FROM;
+        const isActive = (album: AlbumReference) => selected?.source.id === album.source.id && selected.source.kind === album.source.kind;
+        const max = Math.max(1, ...library.albums.map((row) => row.plays ?? 0));
+        /* as versões do disco escolhido: o mesmo bloco na estante (ao lado) e nos cartões (dentro do disco) */
+        const versions = (album: AlbumReference, index: number) => <section id="album-versions" className={styles.editions} aria-label="Versões deste álbum" aria-busy={busy}>
+          <div className={styles.versionHeading}><h2 ref={heading} data-marked={pen.started.has(queryInk)} tabIndex={-1}>{curation ? "Confere a edição da jornada." : "Qual versão vai pro play?"}</h2><button disabled={busy} onClick={() => close(index)}>fechar ↑</button></div>
+          <p className={styles.note}>Estúdio, ao vivo, com faixas extras: escolhe a que você quer percorrer.</p>
+          {busy && <p className={styles.note} role="status">{editions ? "Conferindo a ordem das faixas…" : "Procurando as versões desse disco…"}</p>}
+          {error && <p role="alert">{error}{!editions && <> <button disabled={busy} onClick={() => void findEditions(album)}>tenta de novo</button></>}</p>}
+          {editions?.length === 0 && <p className={styles.note}>{curation ? "Essa edição saiu do catálogo por enquanto." : "Não achei uma versão desse disco no catálogo. Tenta outro."}
+            {curation && <> <button disabled={busy} onClick={() => void findEditions(album)}>conferir de novo</button></>}</p>}
+          <ul className={styles.editionList}>{editions?.map((version) => <li key={version.collectionId}>
+            {version.artworkUrl && <Capa cover={{ url: version.artworkUrl, title: version.albumName, artist: version.artistName }} className={styles.editionCover} />}
+            <div><h3>{version.albumName}</h3><p>{version.artistName}</p><EditionCredit album={version} />
+              <button disabled={busy} onClick={() => void begin(version)}>começar com esta versão →</button></div>
+          </li>)}</ul>
+        </section>;
+
+        /* de quatro discos em diante, a estante é de lombadas: a grossura diz quanto tocou.
+           O disco puxado sobe um pouco na fileira e a ficha dele abre à direita, sem empurrar a estante pra baixo. */
+        if (shelf) {
+          const at = library.albums.findIndex(isActive);
+          const album = at >= 0 ? library.albums[at] : null;
+          return <div className={styles.shelfLayout}>
+            <ul className={styles.library} data-shelf="true">{library.albums.map((row, index) => <li key={JSON.stringify(row.source)} data-album-index={index} data-open={index === at}>
+              <Lombada album={row} max={max} disabled={busy} open={index === at} onOpen={() => (index === at && !error ? close(index) : void findEditions(row))} />
             </li>)}</ul>
-          </section>}
-        </li>;
-      })}</ul>
+            <aside ref={pulled} className={styles.pulled} data-empty={!album || undefined} aria-label={album ? `${album.albumName}, de ${album.artistName}` : undefined}>
+              {album
+                // a chave troca a cada disco puxado: a capa sai da estante de novo
+                ? <div key={JSON.stringify(album.source)} className={styles.pulledBody}>
+                  <div className={styles.pulledRecord}>
+                    {album.coverUrl
+                      ? <Capa cover={{ url: album.coverUrl, title: album.albumName, artist: album.artistName }} className={styles.pulledCover} glow eager />
+                      : <div className={`${styles.jacket} ${styles.pulledCover}`} aria-hidden="true"><i /><b>{album.albumName}</b></div>}
+                  </div>
+                  <div className={styles.pulledTitle}><h2>{album.albumName}</h2><p>{album.artistName}</p></div>
+                  {versions(album, at)}
+                </div>
+                : <p className={styles.pulledHint} aria-hidden="true"><span />puxa um disco.<br />ele abre aqui.</p>}
+            </aside>
+          </div>;
+        }
+
+        return <ul className={styles.library}>{library.albums.map((album, index) => {
+          const active = isActive(album);
+          return <li key={JSON.stringify(album.source)} data-album-index={index} data-open={active}>
+            <div className={styles.libraryRow}>
+              {album.coverUrl
+                ? <Capa cover={{ url: album.coverUrl, title: album.albumName, artist: album.artistName }} className={styles.shelfCover} />
+                : <div className={styles.jacket} aria-hidden="true"><i /><b>{album.albumName}</b></div>}
+              {/* com ou sem capa, o mesmo desenho: o quadrado e, embaixo, disco e artista */}
+              <div className={styles.albumTitle}><h2>{album.albumName}</h2><p>{album.artistName}</p></div>
+              <button disabled={busy} aria-expanded={active} aria-controls={active ? "album-versions" : undefined} onClick={() => void findEditions(album)}>ouvir este disco →</button>
+            </div>
+            {active && versions(album, index)}
+          </li>;
+        })}</ul>;
+      })()}
       {library.more && <p className={styles.note}>Tem mais na estante. Procura pelo nome.</p>}</>}
     <PenLayer pen={pen} signal={signal} reduced={reduced} />
   </div>;
