@@ -92,6 +92,8 @@ export function Pista({ race, cited, svgRef, lit }: {
             <g key={lane.genre} data-cited={isCited || undefined} data-lit={(isCited && lit) || undefined} className={styles.raceRunner}>
               {/* a raia citada fica por baixo em tinta fraca: quem pinta ela é o traço dele */}
               {laneStrokes(lane.places).map((stroke, index) => <path key={index} d={pathOf(stroke)} />)}
+              {/* onde ele está agora: um anel que se abre a partir do ponto, no mesmo ritmo da raia */}
+              {end !== null && isCited && <circle className={styles.racePing} cx={xAt(last, race.months.length)} cy={yAt(end)} r={6} />}
               {end !== null && <circle cx={xAt(last, race.months.length)} cy={yAt(end)} r={isCited ? 6 : 4} />}
               {end !== null && <text x={RACE_VIEW.width - RACE_VIEW.right + 20} y={yAt(end) + 5}>{genreLabel(lane.genre)}</text>}
             </g>

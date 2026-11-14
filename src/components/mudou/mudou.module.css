@@ -207,6 +207,32 @@
   fill: var(--marca);
 }
 
+/* o anel do ponto de chegada: só aparece depois que o traço chegou lá */
+.raceRunner .racePing {
+  fill: none;
+  stroke: var(--marca);
+  stroke-width: 2;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.raceRunner[data-lit="true"] .racePing {
+  animation: racePing 2.6s ease-out 900ms infinite;
+}
+
+@keyframes racePing {
+  0% {
+    opacity: 0.9;
+    scale: 1;
+  }
+  70%,
+  100% {
+    opacity: 0;
+    scale: 3.2;
+  }
+}
+
 .numbers summary {
   min-height: 44px;
   padding: 12px 0;
