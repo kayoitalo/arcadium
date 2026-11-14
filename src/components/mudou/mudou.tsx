@@ -145,7 +145,8 @@ export function Mudou({
       const box = boxOf(svg, origin);
       const scale = box.width / RACE_VIEW.width;
       const strokes = laneStrokes(racer.places).map((stroke) => stroke.map((point) => ({ x: box.left + point.x * scale, y: box.top + point.y * scale })));
-      if (strokes.length > 0) gestures.push({ id: racerId, layer: "over", strokes, width: 4, cap: "round", join: "round" });
+      // a raia dele pulsa depois de desenhada: é a corrida que ainda está acontecendo
+      if (strokes.length > 0) gestures.push({ id: racerId, layer: "over", strokes, width: 4, cap: "round", join: "round", pulse: true });
     }
     return { gestures, wave: null, notes: [] };
   };

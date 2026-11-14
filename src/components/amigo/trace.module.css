@@ -30,6 +30,24 @@
   stroke-linecap: butt;
 }
 
+/* o traço que pulsa: respira devagar depois de desenhado, sem sair do lugar.
+   Só a tinta muda de força; a geometria é a mesma, então nada treme. */
+.trace path[data-pulse="true"] {
+  animation: pulso 2.6s ease-in-out 900ms infinite;
+}
+
+@keyframes pulso {
+  0%,
+  100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 0 rgb(243 211 27 / 0));
+  }
+  50% {
+    opacity: 0.62;
+    filter: drop-shadow(0 0 7px rgb(243 211 27 / 0.55));
+  }
+}
+
 /* o que ele já disse continua na tela, mais apagado que o assunto da vez */
 .trace path[data-dim="true"] {
   opacity: 0.3;
