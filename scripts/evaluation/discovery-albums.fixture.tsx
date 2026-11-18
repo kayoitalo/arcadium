@@ -93,17 +93,20 @@ const ready = (n: number) => document.querySelector('[data-discovery-scene="read
 const bodyText = () => document.body.textContent ?? "";
 async function runChecks() {
   const passed: string[] = [];
-  await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "ouvir este disco →"), "library");
+  const spine = () => document.querySelector<HTMLButtonElement>('button[aria-label^="ouvir este disco:"]');
+  await wait(spine, "library shelf");
   assert(!qa.requests.some((r) => r.body.action), "Local library must not query the music provider");
   assert(document.documentElement.scrollWidth <= innerWidth, "Album library must fit mobile");
   const libraryCalls=qa.requests.length;
-  [...document.querySelectorAll<HTMLButtonElement>("button")].find((node)=>node.textContent?.includes("mais discos"))!.click();
-  await wait(()=>document.querySelectorAll("button[aria-expanded]").length===20,"more local albums (two shelf rows at a time, up to the 20 received)");
-  assert(qa.requests.length===libraryCalls,"Showing more albums must not query any provider");
-  button("ouvir este disco →").click(); await wait(() => document.querySelector('[role="alert"]'), "catalog error");
+  assert(document.querySelectorAll("button[aria-expanded]").length===20,"The shelf shows all 20 received albums as spines, without a second page");
+  assert(qa.requests.length===libraryCalls,"Drawing the shelf must not query any provider");
+  spine()!.click(); await wait(() => document.querySelector('[role="alert"]'), "catalog error");
   button("tenta de novo").click(); await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "começar com esta versão →"), "editions retry");
   assert(bodyText().includes("Ao vivo") && bodyText().includes("loja BR"), "Edition version/storefront must be visible");
-  assert(document.querySelector("#album-versions")!.closest("li")?.querySelector("button[aria-expanded]"),"Versions must open inside the chosen album, not after all 20 results");
+  assert(document.querySelector('ul[data-shelf] button[aria-expanded="true"][aria-controls="album-versions"]'),"The pulled spine must own the versions panel");
+  assert(document.querySelector("#album-versions")!.closest("aside"),"Versions must open beside the shelf, not after all 20 results");
+  const shelfBox=document.querySelector("ul[data-shelf]")!.getBoundingClientRect(),panelBox=document.querySelector("#album-versions")!.closest("aside")!.getBoundingClientRect();
+  assert(innerWidth<900?panelBox.top>=shelfBox.bottom-1:panelBox.left>=shelfBox.right-1,"The pulled record opens to the right of the shelf on wide screens and below it on narrow ones");
   await wait(()=>{const box=document.querySelector("#album-versions h2")!.getBoundingClientRect();return box.top>=0&&box.top<innerHeight;},"inline version heading in viewport");
   passed.push("local owned references and explicit catalog lookup with recoverable error");
   button("começar com esta versão →").click(); button("começar com esta versão →").click();
@@ -170,8 +173,8 @@ async function runChecks() {
 async function prepareAlbumEntryCapture() {
   qa.curated = false;
   root.render(<><DiscoveryNavigation pathname="/discovery/albums"/><AlbumJourneys onBegin={() => undefined} /></>);
-  await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "ouvir este disco →"), "capture library");
-  button("ouvir este disco →").click();
+  await wait(() => document.querySelector('button[aria-label^="ouvir este disco:"]'), "capture library");
+  document.querySelector<HTMLButtonElement>('button[aria-label^="ouvir este disco:"]')!.click();
   await wait(() => [...document.querySelectorAll("button")].some((node) => node.textContent === "começar com esta versão →"), "capture editions");
   await new Promise((resolve) => setTimeout(resolve, 600));
 }

@@ -20,8 +20,10 @@ export class AlbumJourneyService {
     const rows = ids.length ? await prisma.album.findMany({ where: { id: { in: ids }, listeningEvents: { some: { userId } } },
       select: { id: true, name: true, coverUrl: true, artist: { select: { name: true } } } }) : [];
     const byId = new Map(rows.map((row) => [row.id, row]));
+    // quanto cada disco tocou nesta conta: é o que dá a grossura da lombada na estante
+    const playsById = new Map(ranked.map((row) => [row.albumId, row._count.albumId]));
     const albums = ids.flatMap((id) => byId.get(id) ?? []);
-    return { albums: albums.slice(0, 20).map((row) => ({ source: { kind: "library" as const, id: row.id }, artistName: row.artist.name, albumName: row.name, coverUrl: row.coverUrl })),
+    return { albums: albums.slice(0, 20).map((row) => ({ source: { kind: "library" as const, id: row.id }, artistName: row.artist.name, albumName: row.name, coverUrl: row.coverUrl, plays: playsById.get(row.id) ?? 0 })),
       more: ranked.length > 20 };
   }
 

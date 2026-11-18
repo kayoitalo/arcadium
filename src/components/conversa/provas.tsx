@@ -25,11 +25,14 @@ export function ProvaTransicao({
   evidence,
   expanded,
   playingSide,
+  glow = false,
   register,
 }: {
   evidence: Extract<Evidence, { kind: "transition" }>;
   expanded: boolean;
   playingSide: "from" | "to" | null;
+  /** É o assunto da vez: as capas acendem o papel com a cor delas. */
+  glow?: boolean;
   register: Register;
 }) {
   const sequence = [
@@ -45,7 +48,7 @@ export function ProvaTransicao({
           const entry = evidence[side];
           return (
             <figure className={styles.side} data-side={side} key={side}>
-              <Capa cover={entry.cover} playing={playingSide === side} innerRef={register(side)} />
+              <Capa cover={entry.cover} playing={playingSide === side} innerRef={register(side)} glow={glow} />
               <figcaption className={styles.caption}>
                 <span className={styles.when}>{entry.when}</span>
                 <span className={styles.track}>{splitTrackTitle(entry.track).title}</span>
@@ -91,12 +94,15 @@ export function ProvaLista({
   expanded,
   playing,
   lit,
+  glow = false,
   register,
 }: {
   evidence: Extract<Evidence, { kind: "ranking" }>;
   expanded: boolean;
   playing: boolean;
   lit: boolean;
+  /** É o assunto da vez: a capa acende o papel com a cor dela. */
+  glow?: boolean;
   register: Register;
 }) {
   const visible = expanded ? evidence.rows.length : Math.max(5, evidence.focusIndex + 1);
@@ -104,7 +110,7 @@ export function ProvaLista({
   return (
     <div className={styles.proof}>
       <div className={styles.solo}>
-        <Capa cover={evidence.cover} playing={playing} className={styles.soloCover} />
+        <Capa cover={evidence.cover} playing={playing} className={styles.soloCover} glow={glow} />
         <ol className={styles.rows}>
           {evidence.rows.slice(0, visible).map((row, index) => {
             const focus = index === evidence.focusIndex;

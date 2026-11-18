@@ -68,8 +68,64 @@
 @media(max-width:640px) { .library { gap: 22px 16px; } .jacket { aspect-ratio: 1; padding: 12px; gap: 12px; } .jacket b { font-size: 22px; } .jacket small { display: none; } .library > li[data-open="true"] .libraryRow { grid-template-columns: 72px minmax(0,1fr); gap: 16px; } .library > li[data-open="true"] .shelfCover { width: 72px; } .library > li[data-open="true"] .jacket b { font-size: 15px; } .library > li[data-open="true"] .libraryRow > button { grid-column: 2; } .versionHeading { flex-wrap: wrap; gap: 8px; } .editionCover { width: 72px; } }
 @media(prefers-reduced-motion:reduce) { .editions { animation: none; } }
 
-.showMore { display: flex; flex-wrap: wrap; gap: 10px 24px; border-bottom: 1px solid var(--fio-2) !important; margin-bottom: 28px; }
-.showMore span { color:var(--tinta-3); font-size: 12px; }
+/* A estante de lombadas: os discos de lado, o título em pé, a cor que a capa empresta.
+   A fileira quebra sozinha; cada lombada traz o seu pedaço de prateleira, sem vão entre elas. */
+.library[data-shelf="true"] { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 28px 0; --estante: clamp(200px, 32vh, 310px); }
+.library[data-shelf="true"] > li { padding: 0 2px; border-bottom: 3px solid var(--fio-2); }
+.library[data-shelf="true"] > li[data-open="true"] { grid-column: auto; border-top: 0; padding-top: 0; }
+.albums .spine { display: flex; align-items: flex-start; justify-content: center; width: var(--grossura, 34px); height: calc(var(--estante) * var(--altura, 1)); min-height: 0;
+  padding: 12px 0; border: 0; border-radius: 2px 2px 0 0; background: color-mix(in srgb, rgb(var(--lombada)) 84%, var(--papel)); color: rgb(11 11 10 / .9); overflow: hidden;
+  box-shadow: inset -3px 0 0 rgb(0 0 0 / .16), inset 1px 0 0 rgb(255 255 255 / .1); transition: translate 260ms var(--glide), box-shadow 260ms ease; }
+.albums .spine[data-ink="light"] { color: rgb(242 239 231 / .94); }
+/* sem capa: lombada de papel, com borda. É etiqueta, não arte fingida. */
+.albums .spine[data-bare="true"] { background: var(--papel); color: var(--tinta-2); box-shadow: inset 0 0 0 1px var(--fio-2); }
+.albums .spine span { writing-mode: vertical-rl; rotate: 180deg; max-height: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 13px; line-height: 1; letter-spacing: .03em; text-transform: uppercase; font-variation-settings: "wdth" 64, "wght" 760; }
+.albums .spine:hover:not(:disabled), .albums .spine:focus-visible { translate: 0 -10px; box-shadow: inset -3px 0 0 rgb(0 0 0 / .16), inset 1px 0 0 rgb(255 255 255 / .1), 0 18px 30px -16px rgb(var(--lombada, 0 0 0) / .8); }
+/* o disco puxado: sobe na fileira e fica, com um fio de tinta em volta (o amarelo é do traço) */
+.albums .spine[data-open="true"] { translate: 0 -22px; outline: 1.5px solid var(--tinta); outline-offset: 2px;
+  box-shadow: inset -3px 0 0 rgb(0 0 0 / .16), inset 1px 0 0 rgb(255 255 255 / .1), 0 26px 34px -18px rgb(var(--lombada, 0 0 0) / .85); }
+.albums .spine:disabled { opacity: .6; }
+.albums .spine[data-open="true"]:disabled { opacity: 1; }
+
+/* a estante à esquerda e, à direita, o disco que saiu dela: abrir um disco não empurra a fileira pra baixo */
+.shelfLayout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 400px); column-gap: clamp(28px, 5vw, 80px); align-items: start; margin-block: 36px; }
+.shelfLayout > .library { margin: 0; padding-top: 22px; }
+/* acima da faixa do grifo (camada 2) e abaixo do traço de cima (camada 4): a entrada cria um contexto de empilhamento */
+.pulled { position: relative; z-index: 3; min-width: 0; scroll-margin-top: calc(var(--bar-h, 90px) + 20px); }
+.pulledBody { display: grid; gap: 18px; }
+.pulledRecord { width: min(100%, 240px); }
+.pulledCover { width: 100%; aspect-ratio: 1; }
+/* a capa sai da estante: vem da esquerda, passa um pouco do lugar e assenta */
+.pulledRecord { animation: pullOut 560ms var(--glide) both; }
+.pulledTitle { animation: quietRise 420ms ease-out 140ms both; }
+.pulledTitle h2 { margin: 0; font-size: clamp(28px, 2.8vw, 40px); line-height: .96; letter-spacing: -.02em; text-transform: uppercase; font-variation-settings: "wdth" 64, "wght" 800; overflow-wrap: anywhere; }
+.pulledTitle p { margin: 8px 0 0; font-size: 13px; color: var(--tinta-3); }
+.pulled .editions { margin: 0; padding: 18px 0 4px; border-top: 1px solid var(--fio-2); border-bottom: 0; animation: quietRise 420ms ease-out 220ms both; }
+.pulled .editionList { margin: 12px 0 0; }
+.pulled .editionList > li { gap: 16px; padding: 18px 0; }
+.pulled .editionCover { width: 72px; }
+.pulled .editionList h3 { font-size: 20px; }
+/* nenhum disco puxado ainda: o lugar dele, em fio, pra estante não mudar de largura depois */
+.pulledHint { display: grid; gap: 14px; margin: 22px 0 0; color: var(--tinta-3); font-size: 13px; line-height: 1.6; }
+.pulledHint span { display: block; width: min(100%, 200px); aspect-ratio: 1; border: 1px dashed var(--fio-2); }
+@keyframes pullOut {
+  0% { opacity: 0; translate: -72px 0; rotate: -5deg; }
+  62% { opacity: 1; translate: 8px 0; rotate: .8deg; }
+  100% { opacity: 1; translate: 0 0; rotate: 0deg; }
+}
+/* o texto só acende: quem mede o título pra grifar precisa dele parado */
+@keyframes quietRise { from { opacity: 0; } }
+@media (max-width: 899px) {
+  .shelfLayout { grid-template-columns: minmax(0, 1fr); row-gap: 32px; }
+  .pulled[data-empty="true"] { display: none; }
+  .pulledBody { grid-template-columns: 96px minmax(0, 1fr); column-gap: 16px; align-items: center; }
+  .pulledRecord { width: 96px; }
+  .pulledBody > .editions { grid-column: 1 / -1; }
+  @keyframes pullOut { 0% { opacity: 0; translate: 0 -40px; rotate: -4deg; } 62% { opacity: 1; translate: 0 4px; rotate: .6deg; } 100% { opacity: 1; translate: 0 0; rotate: 0deg; } }
+}
+@media (prefers-reduced-motion: reduce) { .pulledRecord, .pulledTitle, .pulled .editions { animation: none; } }
+@media(max-width:640px) { .library[data-shelf="true"] { --estante: 190px; gap: 22px 0; } }
 
 .versionHeading h2 {position:relative;z-index:3;}
 .versionHeading h2[data-marked="true"] {color:var(--sobre-marca);}

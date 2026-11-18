@@ -7,12 +7,15 @@ import { AnimatePresence, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Aviso } from "@/components/amigo/aviso";
 import { Capa, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
+import { Regua } from "@/components/amigo/regua";
+import { Visto } from "@/components/amigo/visto";
 import { band, frame } from "@/components/amigo/gestures";
 import { boxOf, textLines } from "@/components/amigo/measure";
 import type { TraceGesture, WaveSpec } from "@/components/amigo/trace";
 import { usePen, type PenDrawing } from "@/components/amigo/use-pen";
 import { usePulse } from "@/components/amigo/use-pulse";
 import { useSound } from "@/components/amigo/use-sound";
+import { useTabTitle } from "@/components/amigo/use-tab-title";
 import { genreLabel } from "@/lib/format/genre";
 import { Mapa, type MapDot } from "./mapa";
 import { useSelection } from "./selection-provider";
@@ -123,6 +126,8 @@ export function Descobertas({ initialSessionId = null }: {
   const savingRef = useRef(false);
   const selection = useSelection();
   const kept = selection.items;
+  /** Quantas faixas você guardou nesta visita: cada uma ganha o visto dele, uma vez. */
+  const [savedHere, setSavedHere] = useState(0);
   const requestRef = useRef(0);
 
   const stageRef = useRef<HTMLDivElement>(null);
@@ -342,6 +347,7 @@ export function Descobertas({ initialSessionId = null }: {
         void selection.refresh(true);
         setQueue((previous) => previous?.map((item) => item.id === current.id ? { ...item, feedback: states } : item) ?? null);
         if (action !== "retract") setDecided((previous) => ({ ...previous, [current.id]: action }));
+        if (action === "saved") setSavedHere((count) => count + 1);
         if (payload.currentRank != null) setIndex(payload.currentRank - 1);
         if (payload.session) applySession(payload.session);
 
@@ -354,6 +360,8 @@ export function Descobertas({ initialSessionId = null }: {
     },
     [current, sessionId, stop, busy, selection, note, aspects, applySession, scene.ready],
   );
+
+  useTabTitle(sound.playing && current ? `${current.trackName} · ${current.artistName}` : null);
 
   const toggleSound = useCallback(() => {
     if (scene.ready && current?.previewUrl) toggle(current.previewUrl);
@@ -459,7 +467,7 @@ export function Descobertas({ initialSessionId = null }: {
       </Aviso>
     );
   } else if (!queue || busy) {
-    top = <Aviso window="seguindo as tuas pistas" headline="Peraí. Tua próxima descoberta está a caminho." narrative="Tô cruzando tuas referências. Já volto com a primeira." />;
+    top = <Aviso waiting window="seguindo as tuas pistas" headline="Peraí. Tua próxima descoberta está a caminho." narrative="Tô cruzando tuas referências. Já volto com a primeira." />;
   } else if (failed) {
     top = (
       <Aviso headline="Me perdi procurando." narrative={loadError ?? "Não consegui buscar nesse canto."}>
@@ -527,12 +535,13 @@ export function Descobertas({ initialSessionId = null }: {
             <RumoMenu items={rumo} note={anchorNote} />
           </>}
           onPlay={toggleSound} canPlay={Boolean(current.previewUrl)} playing={sound.playing} loading={sound.loading || mediaState === "loading"}
+          ruler={<Regua read={sound.position} onSeek={sound.seek} />}
           listenElsewhere={<>
             <a className={styles.textButton} href={elsewhere} target="_blank" rel="noreferrer">ouvir no Spotify ↗</a>
             {current.appleMusicUrl && <a className={styles.textButton} href={current.appleMusicUrl} target="_blank" rel="noreferrer">no Apple Music ↗</a>}
             {mediaState === "error" && <button className={styles.textButton} onClick={() => setMediaAttempt((value) => value + 1)}>procurar o trecho de novo</button>}
           </>}
-          artwork={<Capa cover={{ url: current.coverUrl, title: current.albumName ?? current.trackName, artist: current.artistName }} playing={sound.playing} innerRef={coverRef} className={styles.cover} eager />}
+          artwork={<Capa cover={{ url: current.coverUrl, title: current.albumName ?? current.trackName, artist: current.artistName }} playing={sound.playing} innerRef={coverRef} className={styles.cover} eager glow />}
           metadata={<>{current.albumName && <span>{current.albumName} · </span>}{current.genre && <span>{genreLabel(current.genre)}</span>}
             {current.previewUrl && current.appleMusicUrl && <> · <a href={current.appleMusicUrl} target="_blank" rel="noreferrer">Apple Music ↗</a></>}
             {current.sourceUrl && <> · <a href={current.sourceUrl} target="_blank" rel="noreferrer">referência no Last.fm ↗</a></>}
@@ -566,7 +575,7 @@ export function Descobertas({ initialSessionId = null }: {
           </div>}
           <p className={styles.feedback} role={feedbackError || sound.error ? "alert" : "status"}>
             {feedbackError || sound.error || (saving ? "Guardando tua resposta…" : kept.length > 0
-              ? <Link href="/discovery/collection">{kept.length === 1 ? "1 faixa separada" : `${kept.length} faixas separadas`} pra depois →</Link>
+              ? <Link href="/discovery/collection">{savedHere > 0 && <Visto key={savedHere} />}{kept.length === 1 ? "1 faixa separada" : `${kept.length} faixas separadas`} pra depois →</Link>
               : "O que você guardar fica pra depois, mesmo trocando de caminho.")}
           </p>
           <Resposta onClick={() => void decide("liked")} hint="↑" disabled={saving || !selection.ready} primary>

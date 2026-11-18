@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { previewPath } from "@/lib/music/preview-path";
+import { localDayBounds } from "@/modules/statistics/domain/month-calendar";
 
 export const dynamic = "force-dynamic";
 
@@ -11,17 +12,18 @@ export const dynamic = "force-dynamic";
  * mesmo filtro da listagem, e no fuso do usuário — em UTC a madrugada
  * de quem ouve à noite apareceria no lugar errado.
  */
-async function hourHistogram(userId: string, timezone: string, search: string): Promise<number[]> {
+async function hourHistogram(userId: string, timezone: string, search: string, day: { start: Date; end: Date } | null): Promise<number[]> {
   const term = `%${search.trim()}%`;
   const filter = search.trim()
     ? Prisma.sql`AND ("rawArtistName" ILIKE ${term} OR "rawTrackName" ILIKE ${term} OR "rawAlbumName" ILIKE ${term})`
     : Prisma.empty;
+  const within = day ? Prisma.sql`AND "playedAt" >= ${day.start} AND "playedAt" < ${day.end}` : Prisma.empty;
 
   const rows = await prisma.$queryRaw<Array<{ hour: number; plays: number }>>`
     SELECT EXTRACT(HOUR FROM "playedAt" AT TIME ZONE ${timezone})::int AS hour,
            COUNT(*)::int AS plays
     FROM "ListeningEvent"
-    WHERE "userId" = ${userId} ${filter}
+    WHERE "userId" = ${userId} ${filter} ${within}
     GROUP BY 1
   `;
 
@@ -45,7 +47,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ events: [], totalPages: 0, totalItems: 0, page, hourHistogram: [], since: null });
     }
 
+    // um dia do calendário de capas: o registro e as horas ficam só com ele, no fuso de quem ouve
+    const day = localDayBounds(searchParams.get("day") ?? "", user.timezone);
     const where: Prisma.ListeningEventWhereInput = { userId: user.id };
+    if (day) where.playedAt = { gte: day.start, lt: day.end };
     if (search.trim()) {
       where.OR = [
         { rawArtistName: { contains: search, mode: "insensitive" } },
@@ -74,7 +79,7 @@ export async function GET(request: Request) {
           track: { select: { id: true, previewUrl: true, appleMusicUrl: true } },
         },
       }),
-      hourHistogram(user.id, user.timezone, search),
+      hourHistogram(user.id, user.timezone, search, day),
       // desde quando ele te conhece: a primeira audição que o histórico tem
       prisma.listeningEvent.findFirst({ where: { userId: user.id }, orderBy: { playedAt: "asc" }, select: { playedAt: true } }),
     ]);

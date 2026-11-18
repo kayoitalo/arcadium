@@ -291,6 +291,74 @@ export function dimension(
   };
 }
 
+/** Quanto de cada linha do rascunho ele preenche: a última é sempre mais curta. */
+export const DRAFT_LINES = [1, 0.84, 0.52];
+
+/**
+ * As linhas que ele rascunha enquanto espera: retas, da esquerda pra
+ * direita, no lugar reservado para o texto que vai chegar. `written` diz
+ * quantas já estão no papel.
+ */
+export function draft(box: Box, written: number): Point[][] {
+  const gap = box.height / DRAFT_LINES.length;
+  return DRAFT_LINES.slice(0, Math.max(0, written)).map((share, index) => {
+    const y = box.top + gap * (index + 0.5);
+    return [
+      { x: box.left, y },
+      { x: box.left + box.width * share, y },
+    ];
+  });
+}
+
+/**
+ * O visto de quem guardou alguma coisa: desce curto e sobe longo, sem
+ * tirar a caneta do papel, à esquerda do que foi guardado.
+ */
+export function check(box: Box, gap = 10): Point[] {
+  const size = clamp(box.height * 0.9, 10, 22);
+  const right = box.left - gap;
+  const mid = box.top + box.height / 2;
+  return [
+    { x: right - size, y: mid },
+    { x: right - size * 0.62, y: mid + size * 0.38 },
+    { x: right, y: mid - size * 0.5 },
+  ];
+}
+
+/**
+ * Risquinhos de contagem, como em caderno: quatro em pé e o quinto
+ * atravessado. Devolve um traço por risco, a partir do canto de cima à
+ * esquerda, e a largura total que ocupam.
+ */
+export function tally(count: number, height: number): { strokes: Point[][]; width: number } {
+  const step = height * 0.3;
+  const groupGap = height * 0.55;
+  const strokes: Point[][] = [];
+  let x = step * 0.5;
+  const total = Math.max(0, Math.floor(count));
+  for (let done = 0; done < total; done += 5) {
+    const inGroup = Math.min(5, total - done);
+    const start = x;
+    for (let bar = 0; bar < Math.min(4, inGroup); bar += 1) {
+      // o mesmo desalinho de mão em toda contagem: o risco não muda de um render pro outro
+      const lean = ((bar % 2) - 0.5) * height * 0.05;
+      strokes.push([
+        { x: x + lean, y: 0 },
+        { x: x - lean, y: height },
+      ]);
+      x += step;
+    }
+    if (inGroup === 5) {
+      strokes.push([
+        { x: start - step * 0.55, y: height * 0.8 },
+        { x: x - step * 0.45, y: height * 0.2 },
+      ]);
+    }
+    x += groupGap;
+  }
+  return { strokes, width: total === 0 ? 0 : x - groupGap + step * 0.1 };
+}
+
 /** Quantas amostras do quadro a corda percorre: só o começo, onde cabe meio ciclo de grave. */
 const WAVE_WINDOW = 0.5;
 /** Raio da média móvel: o que sobra depois dela é ondulação, não chiado. */

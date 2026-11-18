@@ -89,6 +89,126 @@
   color: var(--tinta-3);
 }
 
+/* ---------- o mês em capas ---------- */
+
+/* um calendário de capas: a cor é toda delas. Cabe na medida de uma prova,
+   à direita, como as horas do dia logo acima */
+.month {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 620px);
+  margin: 0 0 6vh auto;
+}
+
+.weekdays,
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: clamp(4px, 0.8vw, 10px);
+}
+
+.weekdays {
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--tinta-3);
+}
+
+.days {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.day {
+  position: relative;
+  aspect-ratio: 1;
+  min-width: 0;
+}
+
+.day button {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: translate 240ms var(--glide);
+}
+
+.day button:hover {
+  translate: 0 -3px;
+}
+
+/* o dia escolhido: contorno de tinta, sem cor (o amarelo é do traço) */
+.day[data-on="true"] button {
+  outline: 2px solid var(--tinta);
+  outline-offset: 2px;
+}
+
+.day[data-empty="true"] {
+  border: 1px solid var(--fio);
+}
+
+.day[data-future="true"] {
+  border-style: dashed;
+  opacity: 0.55;
+}
+
+.dayNumber {
+  position: absolute;
+  top: 5px;
+  left: 6px;
+  z-index: 2;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-variation-settings: "wdth" 88, "wght" 720;
+  line-height: 1;
+  color: var(--tinta);
+  /* número em cima de capa clara ou escura: uma sombra curta resolve os dois */
+  text-shadow: 0 0 4px rgb(11 11 10 / 0.9), 0 1px 2px rgb(11 11 10 / 0.9);
+}
+
+.day[data-empty="true"] .dayNumber {
+  color: var(--tinta-3);
+  text-shadow: none;
+}
+
+.monthCaption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 16px;
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--tinta-3);
+}
+
+/* a anotação dele sobre o dia mais cheio: na letra das anotações, depois do círculo */
+.monthNote {
+  font-variation-settings: "wdth" 82, "wght" 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--marca);
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 380ms var(--glide);
+}
+
+.monthNote[data-lit="true"] {
+  clip-path: inset(0 0 0 0);
+}
+
+.dayFilter {
+  position: relative;
+  z-index: 3;
+  margin: 0 0 8px;
+}
+
 /* ---------- a busca ---------- */
 
 .search {

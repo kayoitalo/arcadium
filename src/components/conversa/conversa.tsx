@@ -9,11 +9,13 @@ import type { TraceGesture, WaveSpec } from "@/components/amigo/trace";
 import { usePen, type PenDrawing, type PenNote } from "@/components/amigo/use-pen";
 import { usePulse } from "@/components/amigo/use-pulse";
 import { useSound, type SoundStep } from "@/components/amigo/use-sound";
+import { useTabTitle } from "@/components/amigo/use-tab-title";
 import type { ConversationMoment, Evidence } from "@/modules/conversation/domain/conversation.types";
 import { decadeLabel, ProvaDecadas, ProvaLista, ProvaTransicao } from "./provas";
 import { ProvaEstreia, ProvaLoop, ProvaMadrugada, ProvaMaratona, ProvaSurpresa, ProvaVolta } from "./provas-raras";
 import styles from "./conversa.module.css";
 import { privateFetch } from "@/lib/http/private-fetch";
+import { cardFromMoment, deliverCard, renderCard } from "./cartao";
 
 /*
  * A conversa: a tela inicial. Um fio que se rola e se revisita — o
@@ -105,6 +107,8 @@ export function Conversa({
   const [dismissed, setDismissed] = useState<number[]>([]);
   const [expanded, setExpanded] = useState<number[]>([]);
   const [cut, setCut] = useState(0);
+  /** O cartão do assunto da vez: montando, entregue ou com erro. */
+  const [card, setCard] = useState<"idle" | "busy" | "saved" | "failed">("idle");
 
   const stageRef = useRef<HTMLDivElement>(null);
   const parts = useRef(new Map<string, HTMLElement>());
@@ -143,6 +147,18 @@ export function Conversa({
       ? "from"
       : "to"
     : null;
+
+  /** O que a prévia do assunto da vez está tocando, para o título da aba. */
+  const soundingLabel = useMemo(() => {
+    const evidence = moments[active]?.evidence;
+    if (!sound.playing || !evidence) return null;
+    if (evidence.kind === "transition") {
+      const side = playingSide === "from" ? evidence.from : evidence.to;
+      return `${side.track} · ${side.artist}`;
+    }
+    return evidence.kind === "ranking" ? evidence.previewTrack : null;
+  }, [active, moments, playingSide, sound.playing]);
+  useTabTitle(soundingLabel);
 
   // ---------- onde o traço vai ----------
 
@@ -367,6 +383,23 @@ export function Conversa({
 
   useEffect(() => () => window.clearTimeout(dismissTimer.current), []);
 
+  // outro assunto, outro cartão
+  useEffect(() => { setCard("idle"); }, [active]);
+
+  /** O assunto da vez vira um cartão 4:5, com o grifo e as capas, pra mandar pra alguém. */
+  const makeCard = useCallback(async () => {
+    const moment = moments[active];
+    if (!moment || card === "busy") return;
+    setCard("busy");
+    try {
+      const file = await renderCard(cardFromMoment(moment), getComputedStyle(document.body).fontFamily);
+      const outcome = await deliverCard(file);
+      setCard(outcome === "saved" ? "saved" : "idle");
+    } catch {
+      setCard("failed");
+    }
+  }, [active, card, moments]);
+
   return (
     <div ref={stageRef} className={styles.stage}>
       {[...moments, null].map((moment, index) => {
@@ -409,6 +442,7 @@ export function Conversa({
                 evidence={evidence}
                 expanded={isExpanded}
                 playingSide={isActive ? playingSide : null}
+                glow={isActive && !isDismissed}
                 register={refs}
               />
             )}
@@ -418,6 +452,7 @@ export function Conversa({
                 expanded={isExpanded}
                 playing={isActive && sound.playing}
                 lit={!isDismissed && pen.done.has(`${index}:regua`)}
+                glow={isActive && !isDismissed}
                 register={refs}
               />
             )}
@@ -450,6 +485,9 @@ export function Conversa({
             {atEnd ? "Fim da conversa" : `Assunto ${active + 1} de ${moments.length} · ${moments[active]?.window ?? ""}`}
             {!atEnd && (steps.length > 0 ? " · prévia de 30s" : " · sem prévia neste assunto")}
           </p>
+          {!atEnd && !activeDismissed && <button type="button" className={styles.cardButton} onClick={() => void makeCard()} disabled={card === "busy"}>
+            {card === "busy" ? "montando o cartão…" : card === "saved" ? "cartão salvo ✓" : card === "failed" ? "não deu. tenta de novo" : "virar cartão ↓"}
+          </button>}
           <div className={styles.ticks} role="group" aria-label="Assuntos da conversa">
             {moments.map((moment, index) => <button key={moment.key} type="button" aria-label={`Ir ao assunto ${index + 1}`} aria-pressed={index === active}
               data-dismissed={dismissed.includes(index) || undefined} onClick={() => go(index)}><i /></button>)}
@@ -461,6 +499,8 @@ export function Conversa({
               de novo
             </Resposta>
             {endReplies ?? <Resposta href="/discovery">seguir descobrindo</Resposta>}
+            {/* a retrospectiva mora no fim do fio: é ele contando o ano, depois de contar a semana */}
+            <Resposta href="/year">teu ano, em capítulos</Resposta>
             <Resposta href="/taste-evolution">o que mudou</Resposta>
           </>
         ) : (
