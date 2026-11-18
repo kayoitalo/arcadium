@@ -145,8 +145,38 @@ export function observedGap(
   return active / months.length >= minShare;
 }
 
-const PERIOD_ORDER: PeriodKey[] = ["7d", "30d", "1y", "all"];
-const KIND_ORDER: EvidenceKind[] = ["transition", "ranking", "decades"];
+const PERIOD_ORDER: PeriodKey[] = ["1d", "7d", "30d", "1y", "all"];
+/** O que só acontece de vez em quando vem antes do que sempre existe (o topo, as épocas). */
+const KIND_ORDER: EvidenceKind[] = ["night", "binge", "loop", "debut", "comeback", "outlier", "transition", "ranking", "decades"];
+
+/** "22 out 2023": o dia de uma audição antiga, com o ano — numa volta, é o ano que conta. */
+export function formatDay(date: Date, timeZone = "America/Sao_Paulo"): string {
+  const parts = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "short", year: "numeric", timeZone }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((entry) => entry.type === type)?.value ?? "";
+  return `${part("day")} ${part("month").replace(".", "")} ${part("year")}`;
+}
+
+/**
+ * A maior sequência da mesma faixa, com a posição de onde ela começa: a
+ * prova do loop mostra a hora de cada uma das vezes. Abaixo de `minTimes`
+ * é só uma música de que a pessoa gosta.
+ */
+export function loopRun(
+  events: Array<{ artist: string; track: string }>,
+  minTimes = 4,
+): { start: number; times: number } | null {
+  let best: { start: number; times: number } | null = null;
+  let start = 0;
+  for (let index = 1; index <= events.length; index += 1) {
+    const same =
+      index < events.length && events[index].artist === events[start].artist && events[index].track === events[start].track;
+    if (same) continue;
+    const times = index - start;
+    if (times >= minTimes && (!best || times > best.times)) best = { start, times };
+    start = index;
+  }
+  return best;
+}
 
 /**
  * O que o amigo conta, e em que ordem: do mais recente para o mais antigo,
@@ -178,6 +208,7 @@ export function selectMoments<T extends { period: PeriodKey; kind: EvidenceKind 
 
 /** A janela dita pelo amigo, em vez do nome técnico do período. */
 export function windowLabel(period: PeriodKey, firstPlay: Date | null, timeZone = "America/Sao_Paulo"): string {
+  if (period === "1d") return "de ontem pra cá";
   if (period === "7d") return "essa semana";
   if (period === "30d") return "nesse último mês";
   if (period === "1y") return "de um ano pra cá";

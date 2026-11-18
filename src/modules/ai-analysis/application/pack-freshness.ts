@@ -12,14 +12,24 @@ import {
  * (máximo) ser refeito. A semana muda rápido; "tudo" quase não muda.
  */
 export const PACK_CADENCE: Record<PeriodKey, { minHours: number; maxHours: number }> = {
-  "7d": { minHours: 6, maxHours: 24 },
-  "30d": { minHours: 12, maxHours: 72 },
-  "1y": { minHours: 24, maxHours: 24 * 7 },
-  all: { minHours: 72, maxHours: 24 * 14 },
+  // o cron gera um pacote por execução e roda poucas vezes por dia: o dia
+  // é refeito no máximo duas vezes, para sobrar vez para a semana e o mês
+  "1d": { minHours: 12, maxHours: 24 },
+  "7d": { minHours: 12, maxHours: 48 },
+  "30d": { minHours: 24, maxHours: 96 },
+  // o durável é escrito uma vez por mês: um dia a mais de escuta não muda a
+  // história de um ano, e cada pacote desses tirava a vez da semana na cota
+  "1y": { minHours: 24 * 28, maxHours: 24 * 31 },
+  all: { minHours: 24 * 28, maxHours: 24 * 31 },
 };
 
-/** A ordem em que o cron olha os períodos: o que mais aparece na tela vem primeiro. */
-export const REFRESH_PRIORITY: PeriodKey[] = ["30d", "7d", "1y", "all"];
+/**
+ * A ordem em que o cron olha os períodos: o dia e a semana primeiro,
+ * porque são os que mudam de um dia para o outro e os que a conversa da
+ * tela inicial mais precisa novos; o durável fica por último e quase
+ * sempre é pulado.
+ */
+export const REFRESH_PRIORITY: PeriodKey[] = ["1d", "7d", "30d", "1y", "all"];
 
 /**
  * A impressão digital de uma escuta: só o que muda a HISTÓRIA que os textos
@@ -39,6 +49,9 @@ export function packFingerprint(profile: MusicProfileInput): string {
     loop: profile.loop?.track ?? null,
     era: profile.eras?.[0]?.decade ?? null,
     rack: (profile.rackAlbums ?? []).map((album) => album.album),
+    debuts: (profile.debuts ?? []).map((artist) => artist.name),
+    night: profile.lateNight ? [profile.lateNight.from, profile.lateNight.to] : null,
+    binge: profile.binge ? [profile.binge.artist, profile.binge.day] : null,
   };
   return crypto.createHash("sha256").update(JSON.stringify(signals)).digest("hex").slice(0, 16);
 }

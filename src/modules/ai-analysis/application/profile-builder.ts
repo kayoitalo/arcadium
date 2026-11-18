@@ -3,7 +3,16 @@ import { loadArtistGenres } from "@/modules/statistics/application/artist-genres
 import { decadeDistribution } from "@/modules/statistics/application/decades";
 import { getPeriodRanges, RACK_SIZE, type PeriodKey } from "@/modules/statistics/application/overview-service";
 import type { MusicProfileInput } from "../domain/ai-analysis.types";
-import { findComebacks, findOutliers, findUnlikelyTransition, longestLoop, topTrackByArtist } from "./listening-signals";
+import {
+  findBinge,
+  findComebacks,
+  findDebuts,
+  findLateNight,
+  findOutliers,
+  findUnlikelyTransition,
+  longestLoop,
+  topTrackByArtist,
+} from "./listening-signals";
 
 /** Abaixo disso o retrato das décadas é parcial demais para virar piada. */
 const MIN_ERA_COVERAGE = 20;
@@ -14,6 +23,16 @@ const DOMINANT_GENRES = 5;
 /** Sumido há pelo menos isso, e com a pessoa ouvindo música nesse intervalo. */
 const COMEBACK_GAP_DAYS = 90;
 const MIN_PLAYS_BEFORE_COMEBACK = 30;
+
+/** Madrugada e "um dia tomado por um artista" são assunto de dia e de semana; num mês viram ruído. */
+const DAILY_SIGNALS: PeriodKey[] = ["1d", "7d"];
+
+/** "8 nov": o dia de uma maratona, dito do jeito que se fala. */
+function dayLabel(day: string): string {
+  const parts = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "short", timeZone: "UTC" }).formatToParts(new Date(`${day}T12:00:00Z`));
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((entry) => entry.type === type)?.value ?? "";
+  return `${part("day")} ${part("month").replace(".", "")}`;
+}
 
 export class ProfileBuilder {
 
@@ -113,11 +132,13 @@ export class ProfileBuilder {
 
     let newArtists = 0;
     let newArtistPlays = 0;
+    const firstEver = new Map<string, Date>();
     if (period !== "all") {
       const firstListens = await prisma.listeningEvent.groupBy({
         by: ["rawArtistName"], where: { userId }, _min: { playedAt: true }, _count: { id: true },
       });
       for (const firstListen of firstListens) {
+        if (firstListen._min.playedAt) firstEver.set(firstListen.rawArtistName, firstListen._min.playedAt);
         if (firstListen._min.playedAt && firstListen._min.playedAt >= current.start && firstListen._min.playedAt <= current.end) {
           newArtists++;
           const currentArtist = topArtistsGrouped.find((item: any) => item.rawArtistName === firstListen.rawArtistName);
@@ -155,14 +176,15 @@ export class ProfileBuilder {
       take: RACK_SIZE,
     });
     const [topAlbum] = albumRows;
-    const rackAlbums = (albumRows as any[])
+    // um dia não tem prateleira: pedir dois comentários por disco só engordaria a resposta
+    const rackAlbums = (period === "1d" ? [] : (albumRows as any[]))
       .filter((row) => row.rawAlbumName)
       .map((row) => ({ album: row.rawAlbumName as string, artist: row.rawArtistName as string, plays: row._count.id as number }));
 
     // em ordem cronológica: serve às décadas e à faixa que tocou em sequência
     const periodEvents = await prisma.listeningEvent.findMany({
       where: currentWhere,
-      select: { rawArtistName: true, rawTrackName: true, album: { select: { releaseYear: true } } },
+      select: { rawArtistName: true, rawTrackName: true, playedAt: true, album: { select: { releaseYear: true } } },
       orderBy: { playedAt: "asc" },
     });
 
@@ -181,6 +203,35 @@ export class ProfileBuilder {
       genresByArtist,
       new Map((artistPlays as any[]).map((item) => [item.rawArtistName, item._count.id])),
     );
+
+    // os sinais do dia a dia: quem estreou, a madrugada e o dia de um artista só
+    const debuts = period === "all"
+      ? []
+      : findDebuts(
+          (artistPlays as any[]).map((item) => ({ name: item.rawArtistName, plays: item._count.id })),
+          firstEver,
+          current.start,
+        );
+    let lateNight: MusicProfileInput["lateNight"] = null;
+    let binge: MusicProfileInput["binge"] = null;
+    if (DAILY_SIGNALS.includes(period)) {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { timezone: true } });
+      const timeZone = user?.timezone ?? "America/Sao_Paulo";
+      const timed = periodEvents
+        .filter((event) => event.rawArtistName && event.rawTrackName)
+        .map((event) => ({ artist: event.rawArtistName, track: event.rawTrackName, playedAt: event.playedAt }));
+      const session = findLateNight(timed, timeZone);
+      if (session) {
+        lateNight = {
+          plays: session.plays,
+          from: session.from,
+          to: session.to,
+          tracks: timed.slice(session.start, session.start + 3).map(({ artist, track }) => ({ artist, track })),
+        };
+      }
+      const day = findBinge(timed, timeZone);
+      if (day) binge = { artist: day.artist, plays: day.plays, dayTotal: day.dayTotal, day: dayLabel(day.day) };
+    }
 
     // o "padrão" do período vem de todos os artistas, pesados pelas audições —
     // medido só pelo topo, o gênero principal de quem ouve muitos artistas
@@ -268,6 +319,9 @@ export class ProfileBuilder {
       comebacks,
       loop,
       transition,
+      debuts,
+      lateNight,
+      binge,
       rackAlbums,
       // só dos artistas que aparecem acima: a referência parte do que tocou de fato
       topTracks: Object.fromEntries(
@@ -276,6 +330,8 @@ export class ProfileBuilder {
           ...risingArtists.map((artist) => artist.name),
           ...outliers.map((artist) => artist.name),
           ...(comebacks ?? []).map((artist) => artist.name),
+          ...debuts.map((artist) => artist.name),
+          ...(binge ? [binge.artist] : []),
         ])].flatMap((name) => (topTrackOf.has(name) ? [[name, topTrackOf.get(name)!]] : [])),
       ),
     };

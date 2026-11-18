@@ -49,6 +49,12 @@ export interface MusicProfileInput {
     from: { artist: string; track: string; genre: string };
     to: { artist: string; track: string; genre: string };
   } | null;
+  /** Artistas que tocaram pela primeira vez na vida dentro do período. */
+  debuts?: Array<{ name: string; plays: number }>;
+  /** A maior sessão de madrugada (entre 0h e 5h): quantas audições, de que hora a que hora, e como começou. */
+  lateNight?: { plays: number; from: string; to: string; tracks: Array<{ artist: string; track: string }> } | null;
+  /** Um dia tomado por um artista só: quantas das audições daquele dia foram dele. */
+  binge?: { artist: string; plays: number; dayTotal: number; day: string } | null;
   /** A faixa mais tocada, no período, de cada artista citado acima. */
   topTracks?: Record<string, string>;
   /** Curiosidades vindas de fonte (wiki do Last.fm): as únicas que o texto pode contar. */
@@ -75,7 +81,11 @@ export interface FactsProvider {
 }
 
 /** Por onde cada leitura começa; sorteado para os textos não virarem a mesma piada. */
-export const NARRATIVE_ANGLES = ["surpresa", "transicao", "mais-ouvido", "mudanca", "epoca", "volta", "loop", "numeros"] as const;
+export const NARRATIVE_ANGLES = [
+  "surpresa", "transicao", "mais-ouvido", "mudanca", "epoca", "volta", "loop", "numeros",
+  // os do dia a dia: só existem nas janelas curtas
+  "estreia", "madrugada", "maratona",
+] as const;
 export type NarrativeAngle = (typeof NARRATIVE_ANGLES)[number];
 
 /** Como a piada é construída; sorteada à parte do ângulo, para a estrutura não virar fórmula. */
@@ -85,7 +95,7 @@ export type NarrativeForm = (typeof NARRATIVE_FORMS)[number];
 export const EVIDENCE_KEYS = [
   "totalPlays", "uniqueArtists", "uniqueTracks", "topArtists", "topGenres",
   "risingArtists", "discovery", "concentration", "eras", "mostPlayed", "outliers", "comebacks", "loop",
-  "transition", "topTracks", "facts",
+  "transition", "topTracks", "facts", "debuts", "lateNight", "binge",
 ] as const;
 
 export const profileNarrativeSchema = z.object({
@@ -95,7 +105,7 @@ export const profileNarrativeSchema = z.object({
   insight: z.string().max(220),
   playfulClosing: z.string().max(160).nullable().default(null),
   tone: z.enum(["EDITORIAL", "RELAXED", "PLAYFUL", "NOSTALGIC", "ANALYTICAL"]).default("RELAXED"),
-  referencedEvidence: z.array(z.enum(EVIDENCE_KEYS)).max(13).default([]),
+  referencedEvidence: z.array(z.enum(EVIDENCE_KEYS)).max(EVIDENCE_KEYS.length).default([]),
   tasteKeywords: z.array(z.string()).max(5).optional(),
   /** Gravados pelo serviço, não pelo modelo: a próxima leitura sorteia outros. */
   angle: z.enum(NARRATIVE_ANGLES).optional(),

@@ -28,11 +28,6 @@
 .responses time { color: var(--tinta-3); font-size: 12px; }
 .responses blockquote { margin: 12px 0; padding-left: 16px; border-left: 1px solid var(--fio-2); white-space: pre-wrap; overflow-wrap: anywhere; }
 .pagination { justify-content: space-between; margin-top: 28px; }
-.recall { margin: 24px 0; padding: 20px 0; border-block: 1px solid var(--fio-2); color: var(--tinta-2); font-size: 14px; line-height: 1.65; }
-.recall p { margin: 0 0 10px; overflow-wrap: anywhere; }
-.recall nav { display: flex; flex-wrap: wrap; gap: 12px 24px; }
-.recall a { min-height: 44px; display: inline-flex; align-items: center; color: inherit; text-underline-offset: 4px; }
-.recall button { min-height: 44px; padding: 8px 0; background: transparent; border: 0; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
 .tools { margin-top: 40px; border-top: 1px solid var(--fio-2); padding-top: 24px; }
 .tools p { max-width: 80ch; color: var(--tinta-3); font-size: 13px; line-height: 1.75; }
 .tools label { display: grid; gap: 8px; margin: 20px 0; font-size: 13px; }
@@ -58,10 +53,4 @@
 .responses > li { padding-left: 20px; position: relative; }
 .responses > li::before { content: ""; width: 5px; height: 5px; border-radius: 50%; position: absolute; top: 28px; left: -3px; background: var(--tinta-3); }
 .responses blockquote { font-size: 15px; color: var(--tinta); border: 0; padding-left: 0; }
-.recall { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 20px; padding: 24px 0; margin: 12px 0 28px; }
-.recall > svg { width: 60px; height: 66px; }
-.recall strong { color: var(--tinta); font-weight: 560; }
-.recallCount { font-size: 52px; font-variation-settings: "wdth" 76, "wght" 500; line-height: 1; text-align: right; }
-.recallCount small { display: block; color: var(--tinta-3); font-size: 12px; margin-top: 10px; font-weight: 400; }
-.recall nav { gap: 8px 24px; }
-@media(max-width:700px) { .session { grid-template-columns: 38px minmax(0,1fr); gap: 14px; } .chapter > strong { font-size: 34px; } .chapter > span { font-size: 8px; } .tracks > li { padding-left: 28px; } .recall { grid-template-columns: minmax(0,1fr); gap: 14px; } .recall > svg { width: 46px; } .recallCount { display: none; } }
+@media(max-width:700px) { .session { grid-template-columns: 38px minmax(0,1fr); gap: 14px; } .chapter > strong { font-size: 34px; } .chapter > span { font-size: 8px; } .tracks > li { padding-left: 28px; } }

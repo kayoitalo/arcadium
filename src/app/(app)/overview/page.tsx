@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { Aviso } from "@/components/amigo/aviso";
 import { Resposta } from "@/components/amigo/fala";
 import { Conversa } from "@/components/conversa/conversa";
-import { DiscoveryRecall } from "@/components/descobertas/discovery-recall";
+import { DiscoveryRecall, useDiscoveryRecall } from "@/components/descobertas/discovery-recall";
 import type { ConversationView } from "@/modules/conversation/domain/conversation.types";
 
 /** Enquanto ele escreve a primeira leitura, a tela pergunta de novo nesse ritmo. */
@@ -22,6 +22,8 @@ type State = { status: "loading" } | { status: "error" } | { status: "ready"; vi
 function ConversationBody() {
   const [state, setState] = useState<State>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
+  // a retomada e as respostas do fim leem o mesmo estado da descoberta
+  const recall = useDiscoveryRecall();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -98,7 +100,18 @@ function ConversationBody() {
     );
   }
 
-  return <Conversa moments={view.moments} epilogue={<DiscoveryRecall />} />;
+  return (
+    <Conversa
+      moments={view.moments}
+      epilogue={<DiscoveryRecall recall={recall} />}
+      endReplies={
+        <>
+          <Resposta href={recall.resumeHref ?? "/discovery"}>{recall.resumeHref ? "retomar a busca" : "seguir descobrindo"}</Resposta>
+          {recall.saved.length > 0 && <Resposta href="/discovery/collection">o que ficou pra depois</Resposta>}
+        </>
+      }
+    />
+  );
 }
 
 export default function ConversaPage() { return <ConversationBody />; }

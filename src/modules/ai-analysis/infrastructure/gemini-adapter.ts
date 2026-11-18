@@ -68,7 +68,7 @@ no nome da música ou do álbum:
 Quando duas músicas aparecem na mesma frase, costuma render mais dizer o nome de uma e
 continuar com um trecho da letra da outra.
 
-Parta das músicas que a pessoa ouviu ("topTracks", "mostPlayed", "transition", "loop"). Se
+Parta das músicas que a pessoa ouviu ("topTracks", "mostPlayed", "transition", "loop", "lateNight"). Se
 não der piada com elas, vale uma música famosa do artista.
 
 (Os artistas citados nesta seção e nos exemplos estão fora da escuta da pessoa: servem pra
@@ -79,7 +79,8 @@ const GROUNDING = `
 ## O que você sabe
 
 - Os totais do período. Pode contar a escuta como algo acontecendo, mas sem inventar dia,
-  horário ou número. Sequência real só existe em "transition" e "loop".
+  horário ou número. Sequência real só existe em "transition" e "loop"; horário real, só em
+  "lateNight"; dia real, só em "binge".
 - Uma audição é uma vez que uma música tocou: 16 audições de um artista não são 16 músicas.
 - Números e nomes vêm dos dados, com a grafia exata. Números em algarismos.
 - Datas, números e história de artista ou disco só a partir de "facts". Referência famosa —
@@ -105,6 +106,9 @@ const ANGLES: Record<NarrativeAngle, string> = {
   epoca: 'de que décadas vêm os discos ("eras")',
   volta: 'quem reapareceu depois de muito tempo ("comebacks"; "awayFor" já diz quanto tempo, em palavras)',
   loop: 'a música que tocou várias vezes seguidas ("loop"; "times" é quantas)',
+  estreia: 'quem tocou pela primeira vez na vida neste período ("debuts")',
+  madrugada: 'a sessão de madrugada ("lateNight": "plays" audições de "from" a "to", começando pelas músicas em "tracks")',
+  maratona: 'o dia tomado por um artista só ("binge": "plays" das "dayTotal" audições do dia "day" foram dele)',
   numeros: 'um número que surpreende: as estreias ("discovery"), o quanto os cinco primeiros concentram, ou um artista muito à frente',
 };
 

@@ -177,6 +177,125 @@ export function topTrackByArtist(rows: Array<{ artist: string; track: string; pl
   return new Map([...best.entries()].map(([artist, entry]) => [artist, entry.track]));
 }
 
+/* ---------- os sinais do dia a dia: só fazem sentido nas janelas curtas ---------- */
+
+export interface TimedPlay {
+  artist: string;
+  track: string;
+  playedAt: Date;
+}
+
+/** O dia e a hora de uma audição no fuso de quem ouviu: madrugada e "num dia só" são do relógio dela. */
+export function localClock(date: Date, timeZone: string): { day: string; hour: number; time: string } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((entry) => entry.type === type)?.value ?? "";
+  return { day: `${part("year")}-${part("month")}-${part("day")}`, hour: Number(part("hour")), time: `${part("hour")}:${part("minute")}` };
+}
+
+/** Até que hora ainda é madrugada: das 0h às 4h59. */
+const NIGHT_ENDS = 5;
+
+export interface LateNightSession {
+  /** Posição da primeira audição da sessão, na lista recebida. */
+  start: number;
+  plays: number;
+  from: string;
+  to: string;
+}
+
+/**
+ * A maior sessão de madrugada: audições seguidas entre 0h e 5h, na mesma
+ * noite. Recebe as audições em ordem cronológica. Abaixo de `minPlays` é
+ * só uma música antes de dormir.
+ */
+export function findLateNight(events: TimedPlay[], timeZone: string, minPlays = 4): LateNightSession | null {
+  let best: LateNightSession | null = null;
+  let start = -1;
+  let night = "";
+  const close = (end: number) => {
+    if (start >= 0 && end - start >= minPlays && (!best || end - start >= best.plays)) {
+      best = {
+        start,
+        plays: end - start,
+        from: localClock(events[start].playedAt, timeZone).time,
+        to: localClock(events[end - 1].playedAt, timeZone).time,
+      };
+    }
+    start = -1;
+  };
+  events.forEach((event, index) => {
+    const clock = localClock(event.playedAt, timeZone);
+    const late = clock.hour < NIGHT_ENDS;
+    if (late && start >= 0 && clock.day === night) return;
+    close(index);
+    if (late) {
+      start = index;
+      night = clock.day;
+    }
+  });
+  close(events.length);
+  return best;
+}
+
+export interface BingeDay {
+  artist: string;
+  plays: number;
+  dayTotal: number;
+  /** O dia no fuso de quem ouviu: "2026-11-08". */
+  day: string;
+}
+
+/**
+ * O dia tomado por um artista só: pelo menos `minPlays` audições dele e
+ * `minShare` de tudo que tocou naquele dia. Entre vários, o de mais
+ * audições — o mais recente, no empate.
+ */
+export function findBinge(
+  events: TimedPlay[],
+  timeZone: string,
+  { minPlays = 8, minShare = 0.6 }: { minPlays?: number; minShare?: number } = {},
+): BingeDay | null {
+  const days = new Map<string, Map<string, number>>();
+  for (const event of events) {
+    const { day } = localClock(event.playedAt, timeZone);
+    const artists = days.get(day) ?? new Map<string, number>();
+    artists.set(event.artist, (artists.get(event.artist) ?? 0) + 1);
+    days.set(day, artists);
+  }
+  let best: BingeDay | null = null;
+  for (const [day, artists] of days) {
+    const dayTotal = [...artists.values()].reduce((sum, plays) => sum + plays, 0);
+    const [artist, plays] = [...artists.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (plays < minPlays || plays / dayTotal < minShare) continue;
+    if (!best || plays >= best.plays) best = { artist, plays, dayTotal, day };
+  }
+  return best;
+}
+
+/**
+ * As estreias: artistas cuja primeira audição da vida caiu dentro do
+ * período. Uma audição só é esbarrão, não estreia — pede `minPlays`.
+ */
+export function findDebuts(
+  current: Array<{ name: string; plays: number }>,
+  firstEver: Map<string, Date>,
+  periodStart: Date,
+  { minPlays = 2, limit = 3 }: { minPlays?: number; limit?: number } = {},
+): Array<{ name: string; plays: number }> {
+  return current
+    .filter((artist) => artist.plays >= minPlays && (firstEver.get(artist.name)?.getTime() ?? 0) >= periodStart.getTime())
+    .sort((a, b) => b.plays - a.plays)
+    .slice(0, limit);
+}
+
 /** Os ângulos que o perfil sustenta: sem dado, o ângulo não entra no sorteio. */
 export function availableAngles(profile: MusicProfileInput): NarrativeAngle[] {
   const angles: NarrativeAngle[] = ["numeros"];
@@ -187,6 +306,9 @@ export function availableAngles(profile: MusicProfileInput): NarrativeAngle[] {
   if (profile.eras?.length) angles.push("epoca");
   if (profile.comebacks?.length) angles.push("volta");
   if (profile.loop) angles.push("loop");
+  if (profile.debuts?.length) angles.push("estreia");
+  if (profile.lateNight) angles.push("madrugada");
+  if (profile.binge) angles.push("maratona");
   return angles;
 }
 
