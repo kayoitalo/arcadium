@@ -1,16 +1,19 @@
+/** Siglas de gênero: sobem inteiras, senão "mpb" vira "Mpb". */
+const ACRONYMS = new Set(["mpb", "edm", "idm", "ebm", "r&b", "rnb", "uk", "nwobhm", "dnb", "ost"]);
+
 /**
- * Gêneros chegam em caixa baixa das fontes. Capitalizar direto transforma
- * sigla em nome próprio ("mpb" vira "Mpb"), então o que é curto e sem
- * espaço sobe inteiro para caixa alta e o resto vira Título.
+ * O gênero como rótulo de lista: o mesmo nome da frase (`genreLabel`), com
+ * a primeira letra maiúscula e as siglas inteiras. As fontes misturam caixa
+ * ("ROCK", "Alternative Rock", "hip hop"); na tela, todos falam igual:
+ * "Rock", "Rock alternativo", "Hip hop", "MPB".
  */
 export function formatGenre(genre: string): string {
-  const trimmed = genre.trim();
-  if (!trimmed) return trimmed;
-  if (trimmed.length <= 4 && !trimmed.includes(" ")) return trimmed.toUpperCase();
-  return trimmed.replace(
-    /(^|[\s-])(\p{L})/gu,
-    (_, prefix: string, letter: string) => prefix + letter.toUpperCase(),
-  );
+  const label = genreLabel(genre);
+  if (!label) return label;
+  return label
+    .split(" ")
+    .map((word, index) => (ACRONYMS.has(word) ? word.toUpperCase() : index === 0 ? word.charAt(0).toUpperCase() + word.slice(1) : word))
+    .join(" ");
 }
 
 /** O adjetivo que vem antes em inglês e depois em português: "alternative rock" → "rock alternativo". */

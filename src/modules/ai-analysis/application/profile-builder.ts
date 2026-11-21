@@ -113,9 +113,12 @@ export class ProfileBuilder {
     // todos os artistas do período, porque a surpresa mora fora do topo
     const genresByArtist = await loadArtistGenres(artistPlays.map((item: any) => item.rawArtistName));
 
+    // o mesmo peso que a prova da conversa usa: todos os artistas da janela, e
+    // "ROCK" e "rock" são o mesmo gênero. Contando só o topo, ele chamava de
+    // "gênero número um" um que a prova ao lado nem mostrava.
     const genrePlays = new Map<string, number>();
-    for (const item of topArtistsGrouped as any[]) {
-      const tags = genresByArtist.get(item.rawArtistName) ?? [];
+    for (const item of artistPlays as any[]) {
+      const tags = [...new Set((genresByArtist.get(item.rawArtistName) ?? []).map((tag) => tag.trim().toLowerCase()).filter(Boolean))];
       const weight = tags.length ? item._count.id / tags.length : 0;
       for (const tag of tags) {
         genrePlays.set(tag, (genrePlays.get(tag) || 0) + weight);

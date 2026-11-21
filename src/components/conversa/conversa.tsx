@@ -2,8 +2,8 @@
 
 import { useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Fala, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
-import { band, dimension, strike, type Point } from "@/components/amigo/gestures";
+import { Fala, PenLayer, Resposta, Respostas, type Claim } from "@/components/amigo/fala";
+import { asterisk, band, bracket, check, dimension, strike, type Point } from "@/components/amigo/gestures";
 import { boxOf, textLines } from "@/components/amigo/measure";
 import type { TraceGesture, WaveSpec } from "@/components/amigo/trace";
 import { usePen, type PenDrawing, type PenNote } from "@/components/amigo/use-pen";
@@ -16,6 +16,8 @@ import { ProvaEstreia, ProvaLoop, ProvaMadrugada, ProvaMaratona, ProvaSurpresa, 
 import styles from "./conversa.module.css";
 import { privateFetch } from "@/lib/http/private-fetch";
 import { cardFromMoment, deliverCard, renderCard } from "./cartao";
+import { cleanTitle } from "@/lib/music/track-title";
+import { coverProxyUrl } from "@/lib/cover";
 
 /*
  * A conversa: a tela inicial. Um fio que se rola e se revisita — o
@@ -66,6 +68,41 @@ function marksOf(evidence: Evidence | null | undefined): string[] | undefined {
   return evidence.focus.flatMap((decade) => [decadeLabel(decade), `${decade}s`]);
 }
 
+/** Os trechos da fala que apontam pra uma peça da prova: o nome na frase e a peça na tela. */
+function claimsOf(evidence: Evidence | null | undefined): Array<Claim & { target: string }> {
+  if (!evidence) return [];
+  if (evidence.kind === "transition") {
+    return [
+      { id: "to:track", text: cleanTitle(evidence.to.track), target: "to" },
+      { id: "to:artist", text: evidence.to.artist, target: "to" },
+      { id: "from:track", text: cleanTitle(evidence.from.track), target: "from" },
+      { id: "from:artist", text: evidence.from.artist, target: "from" },
+    ];
+  }
+  if (evidence.kind === "ranking") {
+    const row = evidence.rows[evidence.focusIndex];
+    return [
+      { id: "row:label", text: cleanTitle(row.label), target: "bar" },
+      ...(row.sub ? [{ id: "row:sub", text: row.sub, target: "bar" }] : []),
+    ];
+  }
+  if (evidence.kind === "decades") {
+    return evidence.focus.flatMap((decade) => [
+      { id: `decada:${decade}`, text: decadeLabel(decade), target: `bar:${decade}` },
+      { id: `decada-s:${decade}`, text: `${decade}s`, target: `bar:${decade}` },
+    ]);
+  }
+  return [];
+}
+
+/** A capa que representa o assunto no índice: a de chegada numa transição; décadas não têm capa. */
+function coverOf(evidence: Evidence | null | undefined): string | null {
+  if (!evidence) return null;
+  if (evidence.kind === "transition") return evidence.to.cover.url ?? evidence.from.cover.url;
+  if (evidence.kind === "decades") return null;
+  return "cover" in evidence ? evidence.cover.url : null;
+}
+
 /** A régua dele em cima de uma barra do dado: a própria barra, na cor dele. */
 function ruler(bar: HTMLElement, origin: DOMRect): { base: Point[]; box: ReturnType<typeof boxOf> } {
   const box = boxOf(bar, origin);
@@ -87,9 +124,12 @@ export function Conversa({
   moments: all,
   epilogue,
   endReplies,
+  masthead,
   ending = FIM,
 }: {
   moments: ConversationMoment[];
+  /** Antes do fio: o dia de hoje, com o que tocou. A caneta sublinha a data. */
+  masthead?: ReactNode;
   epilogue?: ReactNode;
   endReplies?: ReactNode;
   /** A fala que fecha o fio; a do retrato fala de mês, não de dias. */
@@ -107,6 +147,8 @@ export function Conversa({
   const [dismissed, setDismissed] = useState<number[]>([]);
   const [expanded, setExpanded] = useState<number[]>([]);
   const [cut, setCut] = useState(0);
+  /** O trecho da fala que você apontou: a caneta liga ele à peça da prova. */
+  const [pointing, setPointing] = useState<{ index: number; id: string } | null>(null);
   /** O cartão do assunto da vez: montando, entregue ou com erro. */
   const [card, setCard] = useState<"idle" | "busy" | "saved" | "failed">("idle");
 
@@ -162,13 +204,38 @@ export function Conversa({
 
   // ---------- onde o traço vai ----------
 
-  const pose = `${seen.join(",")}|${active}|${dismissed.join(",")}|${expanded.join(",")}|${sound.playing ? "som" : ""}`;
+  const pose = `${seen.join(",")}|${active}|${dismissed.join(",")}|${expanded.join(",")}|${sound.playing ? "som" : ""}|${pointing ? `${pointing.index}:${pointing.id}` : ""}|${masthead ? "dia" : ""}`;
 
   const draw = (origin: DOMRect): PenDrawing => {
     const thin = Math.max(1.5, Math.min(2.5, origin.width / 600));
     const gestures: TraceGesture[] = [];
     const notes: PenNote[] = [];
     let wave: WaveSpec | null = null;
+
+    // a data do cabeçalho: sublinhada uma vez, como quem abre a página do caderno
+    const dia = stageRef.current?.querySelector<HTMLElement>("[data-dia]");
+    if (dia) {
+      const { lines, size } = textLines(dia, origin);
+      const line = lines[lines.length - 1];
+      if (line) {
+        const y = line.baseline + size * 0.16;
+        gestures.push({ id: "dia", layer: "over", strokes: [[{ x: line.left - 2, y }, { x: line.left + (line.right - line.left) * 0.55, y: y - 0.8 }, { x: line.right + 4, y: y - 2.4 }]], width: thin, dim: active !== 0 });
+      }
+    }
+
+    // o fio de hoje, conferido: visto no que você viu, risco no que dispensou
+    if (seen.includes(moments.length)) {
+      moments.forEach((_, index) => {
+        const item = parts.current.get(`${moments.length}:fio:${index}`);
+        if (!item) return;
+        if (dismissed.includes(index)) {
+          const { lines, size } = textLines(item, origin);
+          gestures.push({ id: `fio:${index}:risco`, layer: "over", strokes: strike(lines, size), width: Math.max(1.6, size * 0.08), cap: "butt", dim: active !== moments.length });
+        } else if (seen.includes(index)) {
+          gestures.push({ id: `fio:${index}:visto`, layer: "over", strokes: [check(boxOf(item, origin), 14)], width: Math.max(1.8, thin), dim: active !== moments.length });
+        }
+      });
+    }
 
     for (const index of seen) {
       const dim = index !== active;
@@ -254,6 +321,20 @@ export function Conversa({
         } else {
           gestures.push({ id: `${index}:regua`, layer: "over", strokes: [base], width: box.height + 1, cap: "butt", dim });
         }
+        // o colchete junta o pelotão da frente, do lado do número
+        const first = part("podio:a");
+        const third = part("podio:b");
+        if (first && third) {
+          const a = boxOf(first, origin);
+          const c = boxOf(third, origin);
+          gestures.push({
+            id: `${index}:colchete`,
+            layer: "over",
+            strokes: [bracket({ left: a.left, top: a.top + 6, width: a.width, height: c.top + c.height - a.top - 12 }, "left", 12, 7)],
+            width: thin,
+            dim,
+          });
+        }
       } else if (evidence?.kind === "decades") {
         for (const decade of evidence.focus) {
           const bar = part(`bar:${decade}`);
@@ -261,6 +342,45 @@ export function Conversa({
           const { base, box } = ruler(bar, origin);
           gestures.push({ id: `${index}:regua:${decade}`, layer: "over", strokes: [base], width: box.height + 1, cap: "butt", dim });
         }
+        // o asterisco no número e o mesmo na nota de rodapé: a ressalva fica ligada ao dado que ela ressalva
+        for (const name of ["aster:valor", "aster:pe"]) {
+          const slot = part(name);
+          if (!slot) continue;
+          const at = boxOf(slot, origin);
+          gestures.push({
+            id: `${index}:${name}`,
+            layer: "over",
+            strokes: asterisk({ x: at.left + at.width / 2, y: at.top + at.height * 0.42 }, name === "aster:pe" ? 8 : 9),
+            width: Math.max(1.3, thin * 0.8),
+            dim,
+          });
+        }
+      }
+    }
+
+    // a frase apontada: uma cota de desenho técnico do fim do trecho até a peça que ele cita
+    if (pointing && pointing.index === active && !dismissed.includes(active)) {
+      const claim = claimsOf(moments[active]?.evidence).find((entry) => entry.id === pointing.id);
+      const from = parts.current.get(`${active}:claim:${pointing.id}`);
+      const to = claim ? parts.current.get(`${active}:${claim.target}`) : undefined;
+      if (from && to) {
+        const rects = from.getClientRects();
+        const last = rects[rects.length - 1] ?? from.getBoundingClientRect();
+        const under = last.bottom - origin.top + 2;
+        const underline = [{ x: last.left - origin.left, y: under }, { x: last.right - origin.left, y: under - 1 }];
+        const column = (from.closest("p") ?? from).getBoundingClientRect();
+        const exit = { x: column.right - origin.left + 14, y: last.top - origin.top + last.height * 0.55 };
+        const box = boxOf(to, origin);
+        const b = { x: box.left - 10, y: box.top + box.height / 2 };
+        // do lado de fora da coluna: a linha não passa por cima das palavras que vêm depois do trecho
+        // a capa da direita numa transição tem a outra capa no caminho: a cota entra por cima dela
+        const fromAbove = claim?.target === "to";
+        const cota = fromAbove
+          ? [exit, { x: exit.x, y: box.top - 14 }, { x: box.left + box.width / 2, y: box.top - 14 }, { x: box.left + box.width / 2, y: box.top - 3 }]
+          : b.x > exit.x + 24
+          ? [exit, { x: (exit.x + b.x) / 2, y: exit.y }, { x: (exit.x + b.x) / 2, y: b.y }, b]
+          : [{ x: (underline[0].x + underline[1].x) / 2, y: under }, { x: (underline[0].x + underline[1].x) / 2, y: box.top - 18 }, { x: box.left + box.width / 2, y: box.top - 18 }, { x: box.left + box.width / 2, y: box.top - 6 }];
+        gestures.push({ id: `${active}:aponta:${pointing.id}`, layer: "over", strokes: [underline, cota], width: thin, join: "round" });
       }
     }
 
@@ -293,6 +413,9 @@ export function Conversa({
     }
     return () => observer.disconnect();
   }, [total]);
+
+  // mudou de assunto, o trecho apontado no anterior deixa de ser apontado
+  useEffect(() => { setPointing(null); }, [active]);
 
   // mudou de assunto, a música daquele assunto para
   useEffect(() => {
@@ -402,6 +525,7 @@ export function Conversa({
 
   return (
     <div ref={stageRef} className={styles.stage}>
+      {masthead}
       {[...moments, null].map((moment, index) => {
         const isActive = index === active;
         const isDismissed = dismissed.includes(index);
@@ -434,6 +558,10 @@ export function Conversa({
               headlineRef={refs("headline")}
               markRef={refs("mark")}
               mark={marksOf(evidence)}
+              claims={isActive && !isDismissed ? claimsOf(evidence) : undefined}
+              claimRef={(id) => refs(`claim:${id}`)}
+              onClaim={(id) => setPointing(id ? { index, id } : null)}
+              claimOn={pointing?.index === index ? pointing.id : null}
             />
 
             {/* riscado o assunto, a prova continua ali, apagada: o dado não deixou de ser verdade */}
@@ -469,6 +597,21 @@ export function Conversa({
             {evidence?.kind === "debut" && <ProvaEstreia evidence={evidence} playing={isActive && sound.playing} />}
             {evidence?.kind === "night" && <ProvaMadrugada evidence={evidence} playing={isActive && sound.playing} />}
             {evidence?.kind === "binge" && <ProvaMaratona evidence={evidence} playing={isActive && sound.playing} />}
+            {/* o fio conferido: a lista do que ele contou hoje, com o que você fez com cada assunto */}
+            {!moment && moments.length > 1 && (
+              <div className={styles.fio}>
+                <p className={styles.fioTitle}>o fio de hoje</p>
+                <ol>
+                  {moments.map((item, position) => (
+                    <li key={item.key} data-gone={dismissed.includes(position) || undefined}>
+                      <button type="button" onClick={() => go(position)}>
+                        <span ref={register(moments.length)(`fio:${position}`)}>{item.headline}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
             {!moment && epilogue}
           </section>
         );
@@ -482,15 +625,27 @@ export function Conversa({
         {/* onde estou no fio: o texto e as marcas dos assuntos, que também levam até eles */}
         <div className={styles.thread}>
           <p className={styles.position} aria-live="polite" aria-atomic="true">
-            {atEnd ? "Fim da conversa" : `Assunto ${active + 1} de ${moments.length} · ${moments[active]?.window ?? ""}`}
-            {!atEnd && (steps.length > 0 ? " · prévia de 30s" : " · sem prévia neste assunto")}
+            {atEnd ? "Fim da conversa" : `p. ${active + 1} de ${moments.length}`}
+            {/* a janela já está no alto do assunto, e o "toca aí" já diz que há prévia: no celular, some */}
+            {!atEnd && <span className={styles.positionExtra}>{` · ${moments[active]?.window ?? ""}${steps.length > 0 ? " · prévia de 30s" : " · sem prévia neste assunto"}`}</span>}
           </p>
           {!atEnd && !activeDismissed && <button type="button" className={styles.cardButton} onClick={() => void makeCard()} disabled={card === "busy"}>
             {card === "busy" ? "montando o cartão…" : card === "saved" ? "cartão salvo ✓" : card === "failed" ? "não deu. tenta de novo" : "virar cartão ↓"}
           </button>}
+          {/* o índice em mini-capas: a da vez acesa, as vistas apagadas, as dispensadas riscadas */}
           <div className={styles.ticks} role="group" aria-label="Assuntos da conversa">
-            {moments.map((moment, index) => <button key={moment.key} type="button" aria-label={`Ir ao assunto ${index + 1}`} aria-pressed={index === active}
-              data-dismissed={dismissed.includes(index) || undefined} onClick={() => go(index)}><i /></button>)}
+            {moments.map((moment, index) => {
+              const cover = coverOf(moment.evidence);
+              return (
+                <button key={moment.key} type="button" aria-label={`Ir ao assunto ${index + 1}: ${moment.headline}`} aria-pressed={index === active}
+                  data-seen={seen.includes(index) || undefined} data-dismissed={dismissed.includes(index) || undefined} onClick={() => go(index)}>
+                  {cover
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={coverProxyUrl(cover) ?? undefined} alt="" loading="lazy" />
+                    : <i>{moment.evidence?.kind === "decades" ? "’" + String(moment.evidence.focus[0] ?? moment.evidence.bars[0]?.decade ?? "").slice(2, 4) : index + 1}</i>}
+                </button>
+              );
+            })}
           </div>
         </div>
         {atEnd ? (

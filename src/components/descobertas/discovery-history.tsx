@@ -6,6 +6,7 @@ import type { DiscoveryContext, DiscoveryIntent } from "@/modules/recommendation
 import { intentionLabel } from "./discovery-view";
 import { DiscoveryDisclosure } from "./discovery-disclosure";
 import styles from "./descobertas.module.css";
+import { Esperando } from "@/components/amigo/esperando";
 
 export interface JourneySession {
   sessionId: string; createdAt: string; currentRank: number | null; total: number;
@@ -76,7 +77,7 @@ export function DiscoveryHistory({ currentSessionId, currentRank, busy, onResume
   return <DiscoveryDisclosure className={styles.collection} bodyClassName={styles.disclosureContent} open={open} onOpenChange={setOpen}
     summary={<><span>Caminhos anteriores</span><span aria-hidden="true">↓</span></>}>
       <p className={styles.mapNote}>As vinte buscas mais recentes, reunidas por caminho. Retomar mantém teu lugar e tuas respostas.</p>
-      {loading && <p role="status" className={styles.quiet}>Recuperando os caminhos…</p>}
+      {loading && <Esperando className={styles.quiet}>Recuperando os caminhos…</Esperando>}
       {error && <p role="alert">Não consegui atualizar os caminhos. <button className={styles.textButton} onClick={() => setAttempt((value) => value + 1)}>tentar novamente</button></p>}
       {!loading && !error && !sessions.length && <p className={styles.quiet}>Teus caminhos aparecem aqui depois da primeira busca.</p>}
       {sessions.length > 0 && <DiscoveryJourneyList sessions={sessions} currentSessionId={currentSessionId} currentRank={currentRank}

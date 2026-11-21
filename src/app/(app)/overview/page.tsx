@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { Aviso } from "@/components/amigo/aviso";
 import { Resposta } from "@/components/amigo/fala";
 import { Conversa } from "@/components/conversa/conversa";
+import { useFita } from "@/components/amigo/use-fita";
+import { DiaDeHoje } from "@/components/conversa/dia";
 import { DiscoveryRecall, useDiscoveryRecall } from "@/components/descobertas/discovery-recall";
 import type { ConversationView } from "@/modules/conversation/domain/conversation.types";
 
@@ -24,6 +26,9 @@ function ConversationBody() {
   const [attempt, setAttempt] = useState(0);
   // a retomada e as respostas do fim leem o mesmo estado da descoberta
   const recall = useDiscoveryRecall();
+  // enquanto a conversa chega, ele folheia o que tocou por último
+  // e o mesmo histórico recente vira o cabeçalho do dia, em cima do fio
+  const { fita, later, dia } = useFita();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -47,7 +52,7 @@ function ConversationBody() {
   }, [attempt]);
 
   if (state.status === "loading") {
-    return <Aviso waiting headline="Peraí, tô ouvindo aqui." />;
+    return <Aviso waiting planta="conversa" fita={fita} later={later ?? undefined} headline="Peraí, tô ouvindo aqui." />;
   }
 
   if (state.status === "error") {
@@ -104,13 +109,11 @@ function ConversationBody() {
   return (
     <Conversa
       moments={view.moments}
+      masthead={dia ? <DiaDeHoje dia={dia} /> : null}
       epilogue={<DiscoveryRecall recall={recall} />}
-      endReplies={
-        <>
-          <Resposta href={recall.resumeHref ?? "/discovery"}>{recall.resumeHref ? "retomar a busca" : "seguir descobrindo"}</Resposta>
-          {recall.saved.length > 0 && <Resposta href="/discovery/collection">o que ficou pra depois</Resposta>}
-        </>
-      }
+      // a retomada logo acima já tem "retomar esse caminho" e "ver o que ficou pra depois":
+      // no pé, só o caminho genérico quando ela não tem nada a mostrar
+      endReplies={recall.status === "ready" && !recall.empty ? <></> : <Resposta href="/discovery">seguir descobrindo</Resposta>}
     />
   );
 }

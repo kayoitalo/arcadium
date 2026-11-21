@@ -16,6 +16,7 @@ import { MemoryTools } from "./memory-tools";
 import { EditionCredit, EditorialCredit } from "./album-journeys";
 import { ContextExcerpt } from "./track-context";
 import { ListeningCueExcerpt } from "./listening-cues";
+import { Esperando } from "@/components/amigo/esperando";
 
 const when = (value: string) => new Date(value).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
 const aspects: Record<string, string> = { VOCALS: "vocal", INSTRUMENTAL: "instrumental", LYRICS: "letra", RHYTHM: "ritmo", ATMOSPHERE: "atmosfera", OTHER: "outro" };
@@ -68,7 +69,7 @@ export function DiscoveryMemory() {
       <label className={styles.check}><input type="checkbox" checked={onlyResponses} onChange={(event) => { focusResults.current = false; setOnlyResponses(event.target.checked); setCursors([]); }} /> só os caminhos em que você respondeu</label>
     </form>
     <h2 ref={heading} tabIndex={-1} className={styles.resultTitle}>{query ? `Caminhos com “${query}”` : "Teus caminhos"}</h2>
-    {loading && <p role="status">Abrindo teus caminhos…</p>}
+    {loading && <Esperando>Abrindo teus caminhos…</Esperando>}
     {error && <p role="alert">Não consegui abrir essa página. <button onClick={() => setAttempt((value) => value + 1)}>tenta de novo</button></p>}
     {page && <>
       {!page.sessions.length && <p>Nenhum caminho por aqui. Tenta outro nome.</p>}

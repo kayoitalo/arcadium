@@ -10,6 +10,7 @@ import { Aviso } from "@/components/amigo/aviso";
 import { Fala, Resposta, Respostas } from "@/components/amigo/fala";
 import styles from "./ajustes.module.css";
 import { DiscoveryHealth } from "./discovery-health";
+import { FichaDoCaderno } from "./ficha";
 
 interface SyncForm {
   username: string;
@@ -334,6 +335,9 @@ export function Ajustes() {
       </div>
 
       {tab === "conta" && <div role="tabpanel" id="painel-conta" aria-labelledby="aba-conta" className={styles.panel}>
+        <Secao title="a ficha do caderno">
+          <FichaDoCaderno sync={syncStatus ? { username: syncStatus.connection?.username ?? null, lastSyncedAt: syncStatus.connection?.lastSyncedAt ?? null, failed: Boolean(syncStatus.latestRun?.errorMessage) } : null} />
+        </Secao>
         <Secao title="como eu falo contigo">
           <p className={styles.hint}>Escolhe como eu te chamo. Vale a partir da próxima leitura que eu escrever.</p>
           <ul className={styles.choices} role="group" aria-label="Como ele te chama">

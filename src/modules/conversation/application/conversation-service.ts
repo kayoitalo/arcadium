@@ -400,16 +400,18 @@ async function bingeEvidence(data: PeriodData, reading: ProfileNarrative, timeZo
 /** O ponto fora da curva: um artista cujo gênero não conversa com nenhum dos que dominam a janela. */
 async function outlierEvidence(data: PeriodData, reading: ProfileNarrative): Promise<Evidence | null> {
   const artists = await data.artists();
-  const genres = await loadArtistGenres(artists.map((artist) => artist.name));
+  const loaded = await loadArtistGenres(artists.map((artist) => artist.name));
+  // "ROCK" e "rock" são o mesmo gênero, e a conta é a mesma dos fatos que ele recebe
+  const genresOf = (name: string) => [...new Set((loaded.get(name) ?? []).map((tag) => tag.trim().toLowerCase()).filter(Boolean))];
   const weight = new Map<string, number>();
   for (const artist of artists) {
-    const own = genres.get(artist.name) ?? [];
+    const own = genresOf(artist.name);
     for (const genre of own) weight.set(genre, (weight.get(genre) ?? 0) + artist.plays / own.length);
   }
   const ranked = [...weight.entries()].sort((a, b) => b[1] - a[1]);
   const dominant = ranked.slice(0, DOMINANT_GENRES);
   const outliers = findOutliers(
-    artists.map((artist) => ({ ...artist, genres: genres.get(artist.name) ?? [] })),
+    artists.map((artist) => ({ ...artist, genres: genresOf(artist.name) })),
     dominant.map(([genre]) => genre),
     { exclude: new Set(artists.slice(0, TOP_ARTISTS).map((artist) => artist.name)), limit: 50 },
   );

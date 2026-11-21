@@ -473,17 +473,19 @@
 }
 
 @media (max-width: 760px) {
+  /* no celular o pé é fixo: fileira solta, do tamanho de cada resposta, pra não comer um terço da tela */
   .reactions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    padding: 16px 0 max(14px, env(safe-area-inset-bottom));
-    background: linear-gradient(to top, var(--papel) 78%, transparent);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--papel) 80%, transparent);
   }
 
   .reaction {
+    flex: 1 1 auto;
     justify-content: center;
-    min-height: 44px;
+    min-height: 40px;
     height: auto;
     padding: 0 12px;
     font-size: 14px;
@@ -492,4 +494,194 @@
   .key {
     display: none;
   }
+}
+
+/* o trecho da fala que a prova sustenta: pontilhado quieto; apontado, a caneta liga ele ao dado */
+.claim {
+  text-decoration: underline dotted rgb(242 239 231 / 0.32);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  cursor: help;
+  border-radius: 2px;
+  transition: color 160ms, text-decoration-color 160ms;
+}
+
+.claim:hover,
+.claim:focus-visible,
+.claim[data-on="true"] {
+  color: var(--tinta);
+  text-decoration-color: transparent;
+  outline: none;
+}
+
+/* ---------- a espera com a cara do app ---------- */
+
+/* a manchete de espera chega condensada e vai abrindo, como letra sendo escrita */
+.aviso[data-waiting="true"] .headline {
+  animation: letraAbre 1.1s var(--glide) both;
+}
+
+@keyframes letraAbre {
+  from {
+    opacity: 0.2;
+    font-variation-settings: "wdth" 125, "wght" 220;
+    letter-spacing: 0.01em;
+  }
+}
+
+.aviso[data-waiting="true"] .narrative {
+  animation: quietIn 600ms ease both;
+}
+
+/* a fita: as últimas capas que tocaram, que ele folheia enquanto lê */
+.fita {
+  display: grid;
+  gap: 10px;
+  margin-bottom: clamp(24px, 4vh, 44px);
+}
+
+.fitaCapas {
+  display: flex;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.fitaCapas img {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  opacity: 0.5;
+  transition: opacity 300ms ease;
+}
+
+.fitaCapas img[data-on] {
+  opacity: 1;
+}
+
+.fitaLegenda {
+  margin: 0;
+  min-height: 1.4em;
+  font-size: 12px;
+  color: var(--tinta-3);
+}
+
+/* a planta: o lugar de cada peça da tela que vem, onde a caneta desenha */
+.planta {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: clamp(28px, 6vw, 112px);
+  margin-top: clamp(24px, 4vh, 40px);
+  max-width: 1100px;
+}
+
+.plantaFala,
+.plantaProva {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.planta i {
+  display: block;
+  height: 1.35em;
+}
+
+.planta i[data-peca="capa"] {
+  width: clamp(96px, 12vw, 140px);
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.planta i[data-peca="barra"] {
+  height: 10px;
+}
+
+.planta i[data-peca="grade"] {
+  height: clamp(140px, 20vw, 220px);
+}
+
+.planta[data-planta="ano"] i[data-peca="capa"],
+.planta[data-planta="retrato"] i[data-peca="capa"] {
+  width: clamp(150px, 20vw, 240px);
+}
+
+@media (max-width: 760px) {
+  .planta {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+}
+
+/* a espera curta: o texto e um risco que a caneta escreve e apaga embaixo dele */
+.esperando {
+  display: inline-grid;
+  gap: 4px;
+  margin: 0;
+  color: var(--tinta-2);
+}
+
+.esperandoRisco {
+  width: min(100%, 9em);
+  height: 6px;
+  overflow: visible;
+}
+
+.esperandoRisco path {
+  fill: none;
+  stroke: var(--marca);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+  animation: esperandoRisco 1.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes esperandoRisco {
+  0% { stroke-dashoffset: 1; }
+  55% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .esperandoRisco path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* na tela larga, a janela da fala sai pra margem, à esquerda da linha */
+@media (min-width: 1600px) {
+  .fala > .window[data-margin] {
+    position: absolute;
+    top: 0.35em;
+    right: calc(100% + 56px);
+    width: max-content;
+    max-width: calc(var(--gutter) - 72px);
+    margin: 0;
+    text-align: right;
+  }
+}
+
+/* a foto do artista no lugar de uma capa que não existe */
+.fotoArtista {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+
+.fotoArtista > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 22%;
+  opacity: 0;
+  transition: opacity 360ms ease;
+}
+
+.fotoArtista > img[data-loaded] {
+  opacity: 1;
 }

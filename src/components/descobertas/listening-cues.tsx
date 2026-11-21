@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { privateFetch } from "@/lib/http/private-fetch";
 import { listeningCuesSchema, type ListeningCues as Cues } from "@/modules/recommendations/domain/listening-cues";
 import styles from "./album-journeys.module.css";
+import { Esperando } from "@/components/amigo/esperando";
 export function ListeningCueExcerpt({ value }: { value: Cues }) {
   return <>
     {value.status === "INSUFFICIENT_EVIDENCE" && <p>Não tenho uma pista confiável pra essa versão. Ouve e me conta o que percebeu.</p>}
@@ -25,7 +26,7 @@ export function ListeningCues({ itemId, mediaReady }: { itemId: string; mediaRea
     return () => controller.abort();
   }, [itemId, mediaReady, attempt]);
   return <div className={styles.contextDisclosure}>
-    {!value && !error && <p role="status">Conferindo os créditos dessa versão…</p>}
+    {!value && !error && <Esperando>Conferindo os créditos dessa versão…</Esperando>}
     {error && <p role="alert">Não consegui conferir agora. <button onClick={() => setAttempt((n) => n + 1)}>tenta de novo</button></p>}
     {value && <ListeningCueExcerpt value={value} />}
   </div>;

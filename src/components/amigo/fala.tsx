@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, type CSSProperties, type ReactNode, type Ref, type RefObject } from "react";
+import { useCallback, useEffect, useState, ViewTransition, type CSSProperties, type ReactNode, type Ref, type RefObject } from "react";
 import { coverProxyUrl } from "@/lib/cover";
 import { readTint, type Tint } from "@/lib/cover-tint";
 import { knownTint, rememberTint } from "./use-cover-tint";
 import { markPieces } from "./measure";
+import { Selo } from "./selo";
 import { Trace } from "./trace";
 import type { Pen } from "./use-pen";
 import styles from "./amigo.module.css";
@@ -15,6 +16,38 @@ import styles from "./amigo.module.css";
  * manchete com o trecho que ele grifa, narrativa, o detalhe), as respostas,
  * a capa e a camada do traço com o que ele escreve.
  */
+
+/** Um trecho da fala que a prova sustenta: passando por ele, a caneta liga a frase ao dado. */
+export interface Claim {
+  id: string;
+  /** Como o trecho aparece no texto ("anos 2010", "Smooth Criminal"). */
+  text: string;
+}
+
+/** Corta o texto nos trechos citados, cada um uma vez só, sem sobrepor. */
+export function claimPieces(text: string, claims: Claim[], used: Set<string>): Array<string | Claim> {
+  const lower = text.toLocaleLowerCase("pt-BR");
+  const found: Array<{ at: number; end: number; claim: Claim }> = [];
+  for (const claim of claims) {
+    if (used.has(claim.id) || claim.text.trim().length < 2) continue;
+    const at = lower.indexOf(claim.text.toLocaleLowerCase("pt-BR"));
+    if (at < 0) continue;
+    const end = at + claim.text.length;
+    if (found.some((other) => at < other.end && end > other.at)) continue;
+    found.push({ at, end, claim });
+    used.add(claim.id);
+  }
+  found.sort((a, b) => a.at - b.at);
+  const pieces: Array<string | Claim> = [];
+  let cursor = 0;
+  for (const { at, end, claim } of found) {
+    if (at > cursor) pieces.push(text.slice(cursor, at));
+    pieces.push({ id: claim.id, text: text.slice(at, end) });
+    cursor = end;
+  }
+  if (cursor < text.length) pieces.push(text.slice(cursor));
+  return pieces;
+}
 
 export function Fala({
   window: when,
@@ -31,6 +64,10 @@ export function Fala({
   mark,
   level = 2,
   className = "",
+  claims,
+  claimRef,
+  onClaim,
+  claimOn = null,
 }: {
   /** A janela de tempo, dita por ele; pode trazer a escolha de outra janela. */
   window?: ReactNode;
@@ -50,12 +87,43 @@ export function Fala({
   mark?: string[];
   level?: 1 | 2;
   className?: string;
+  /** Os trechos da narrativa que a prova sustenta. */
+  claims?: Claim[];
+  claimRef?: (id: string) => Ref<HTMLSpanElement>;
+  /** Passou, focou ou tocou num trecho; `null` quando saiu. */
+  onClaim?: (id: string | null) => void;
+  claimOn?: string | null;
 }) {
   const pieces = markPieces(headline, mark);
+  const used = new Set<string>();
+  const say = (text: string) =>
+    !claims?.length || !onClaim
+      ? text
+      : claimPieces(text, claims, used).map((piece, index) =>
+          typeof piece === "string" ? (
+            piece
+          ) : (
+            <span
+              key={`${piece.id}:${index}`}
+              ref={claimRef?.(piece.id)}
+              className={styles.claim}
+              data-on={claimOn === piece.id || undefined}
+              tabIndex={0}
+              onMouseEnter={() => onClaim(piece.id)}
+              onMouseLeave={() => onClaim(null)}
+              onFocus={() => onClaim(piece.id)}
+              onBlur={() => onClaim(null)}
+              onClick={() => onClaim(claimOn === piece.id ? null : piece.id)}
+            >
+              {piece.text}
+            </span>
+          ),
+        );
   const Heading = level === 1 ? "h1" : "h2";
   return (
     <div className={`${styles.fala} ${className}`} data-active={active} data-dismissed={dismissed}>
-      {when && <p className={styles.window}>{when}</p>}
+      {/* janela que é só texto pode sair pra margem na tela larga; escolha de janela fica junto da fala */}
+      {when && <p className={styles.window} data-margin={typeof when === "string" || undefined}>{when}</p>}
       <Heading ref={headlineRef} className={styles.headline}>
         {pieces.before}
         <span ref={markRef} className={styles.mark} data-marked={marked}
@@ -67,11 +135,11 @@ export function Fala({
       {dismissed && reply ? (
         <p className={styles.reply}>{reply}</p>
       ) : (
-        narrative && <p className={styles.narrative}>{narrative}</p>
+        narrative && <p className={styles.narrative}>{say(narrative)}</p>
       )}
       {!dismissed && (insight || closing) && (
         <div className={styles.aside}>
-          {insight && <p className={styles.insight}>{insight}</p>}
+          {insight && <p className={styles.insight}>{say(insight)}</p>}
           {closing && <p className={styles.closing}>{closing}</p>}
         </div>
       )}
@@ -193,6 +261,13 @@ export interface CoverData {
  * luz baixa e uma sombra da própria arte. É a capa trazendo a cor; o
  * amarelo continua sendo só do traço.
  */
+/** Um nome que serve de view-transition-name: a mesma faixa dá o mesmo nome em qualquer tela. */
+export function shareName(...parts: string[]): string {
+  let hash = 0;
+  for (const char of parts.join("|").toLocaleLowerCase("pt-BR")) hash = (Math.imul(hash, 31) + char.charCodeAt(0)) | 0;
+  return `capa-${(hash >>> 0).toString(36)}`;
+}
+
 export function Capa({
   cover,
   playing = false,
@@ -201,6 +276,7 @@ export function Capa({
   eager = false,
   label = true,
   glow = false,
+  share,
 }: {
   cover: CoverData;
   playing?: boolean;
@@ -211,6 +287,8 @@ export function Capa({
   label?: boolean;
   /** A capa do assunto da vez: acende o papel em volta com a cor dela. */
   glow?: boolean;
+  /** A mesma capa em outra tela: com o mesmo nome dos dois lados, ela viaja de uma pra outra. */
+  share?: string;
 }) {
   const src = coverProxyUrl(cover.url);
   const [state, setState] = useState<"loading" | "loaded" | "failed">(src ? "loading" : "failed");
@@ -236,12 +314,11 @@ export function Capa({
   }, [loaded]);
   const lit = glow && state === "loaded" && tint !== null;
 
-  return (
+  const node = (
     <div ref={innerRef} className={`${styles.cover} ${className}`} data-playing={playing} data-glow={lit || undefined}
       style={tint ? ({ "--capa-luz": tint } as CSSProperties) : undefined}>
-      {state === "failed" && label && <span className={styles.coverEmpty}>{cover.title}</span>}
-      {/* miniatura pequena demais pro título: as iniciais do disco, pra a coluna não virar uma fila de quadrados vazios */}
-      {state === "failed" && !label && <span className={styles.coverInitials} aria-hidden="true">{initials(cover.title)}</span>}
+      {/* sem capa, o selo do disco: o nome em volta do centro; em miniatura, só a inicial */}
+      {state === "failed" && <Selo title={cover.title} artist={cover.artist} small={!label} />}
       {src && state !== "failed" && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -258,6 +335,7 @@ export function Capa({
       )}
     </div>
   );
+  return share ? <ViewTransition name={share}>{node}</ViewTransition> : node;
 }
 
 /** A camada do traço de uma tela e o que ele escreve fora da grade. */

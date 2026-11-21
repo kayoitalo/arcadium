@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useReducedMotion } from "framer-motion";
 import { privateFetch } from "@/lib/http/private-fetch";
 import { Capa, Fala, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
+import { FotoArtista } from "@/components/amigo/foto-artista";
 import { band } from "@/components/amigo/gestures";
 import { textLines } from "@/components/amigo/measure";
 import { usePen } from "@/components/amigo/use-pen";
@@ -12,6 +13,7 @@ import { WEEKLY_TITLES, type WeeklyView } from "@/modules/recommendations/domain
 import { EditionCredit } from "./album-journeys";
 import { DiscoveryDisclosure } from "./discovery-disclosure";
 import styles from "./weekly-discovery.module.css";
+import { Esperando } from "@/components/amigo/esperando";
 
 type Report = { current: WeeklyView | null; previous: WeeklyView | null; canPrepare: boolean };
 type Entry = WeeklyView["entries"][number];
@@ -134,7 +136,7 @@ export function WeeklyDiscovery({ journeyId, allowNarrative, onStart = (id) => w
         mark={week ? [doors] : ["semana"]} markRef={mark} marked={pen.started.has("semana")}
         narrative={narrative?.opening ?? "Abre uma de cada vez. Teu lugar em cada uma fica guardado."} />
     </header>
-    {waiting && <p role="status">Conferindo as portas desta semana…</p>}
+    {waiting && <Esperando>Conferindo as portas desta semana…</Esperando>}
     {error && <p role="alert">{error} <button type="button" onClick={() => setReload((value) => value + 1)}>consultar novamente</button></p>}
     {!waiting && currentStatus === "FAILED" && <p>A consulta ficou interrompida. <button type="button" onClick={() => setReload((value) => value + 1)}>conferir novamente</button></p>}
     {!waiting && currentStatus === "PREPARING" && <p>A semana ainda está sendo preparada. <button type="button" onClick={() => setReload((value) => value + 1)}>ver se ficou pronta</button></p>}
@@ -145,7 +147,10 @@ export function WeeklyDiscovery({ journeyId, allowNarrative, onStart = (id) => w
       <ol className={styles.doors}>{week.entries.map((entry) => {
         const name = entry.album?.albumName ?? entry.artistName;
         return <li key={entry.id}><WeeklyDoor entry={entry}>
-          <Capa cover={{ url: entry.album?.artworkUrl, title: name, artist: entry.artistName }} className={styles.doorCover} />
+          {/* sem a arte do disco, a porta mostra a foto do artista; sem foto, o selo */}
+          {entry.album?.artworkUrl
+            ? <Capa cover={{ url: entry.album.artworkUrl, title: name, artist: entry.artistName }} className={styles.doorCover} />
+            : <FotoArtista name={entry.artistName} className={styles.doorCover} fallback={<Capa cover={{ url: null, title: name, artist: entry.artistName }} />} />}
           <div className={styles.doorText}>
             <p className={styles.eyebrow}>{WEEKLY_TITLES[entry.role]} · {entry.kind === "ALBUM" ? "álbum em ordem" : "faixas do artista"}</p>
             <h2>{name}</h2>
@@ -191,7 +196,7 @@ export function WeeklyHistory() {
   return <DiscoveryDisclosure className={styles.history} summary="semanas anteriores" open={open} onOpenChange={(value) => {
     setOpen(value); if (value && weeks === null) void load();
   }}>
-    {busy && <p role="status">Abrindo as semanas…</p>}
+    {busy && <Esperando>Abrindo as semanas…</Esperando>}
     {error && <p role="alert">Não consegui carregar as semanas. <button onClick={() => void load(weeks ? cursor ?? undefined : undefined)}>tentar novamente</button></p>}
     {weeks?.length === 0 && <p>As jornadas que você abrir vão aparecer aqui.</p>}
     <ol>{weeks?.map((week) => <li key={week.id}><Link href={`/discovery/week?semana=${encodeURIComponent(week.id)}`}>{period(week)} · {week.entries.length} {week.entries.length === 1 ? "porta" : "portas"} →</Link></li>)}</ol>

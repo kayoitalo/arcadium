@@ -5,6 +5,8 @@ import { useCallback, useRef, type ReactNode } from "react";
 import { DiscoveryDisclosure } from "@/components/descobertas/discovery-disclosure";
 import { biggestClimb, type GenreRace } from "@/modules/statistics/domain/genre-race";
 import { laneStrokes, Pista, RACE_VIEW } from "./pista";
+import { QuemPuxou } from "./quem-puxou";
+import type { GenreMovers } from "@/modules/statistics/application/genre-movers";
 import { Fala, PenLayer } from "@/components/amigo/fala";
 import { band } from "@/components/amigo/gestures";
 import { boxOf, textLines } from "@/components/amigo/measure";
@@ -69,10 +71,13 @@ export function Mudou({
   cited,
   window: when,
   race = null,
+  movers = null,
 }: {
   shift: { rising: TasteShiftItem[]; declining: TasteShiftItem[] };
   /** A pista dos últimos seis meses; sem ela (ou com poucos gêneros), a prova é só a lista. */
   race?: GenreRace | null;
+  /** Os discos que puxaram a mudança: chegam depois, e a tela não espera por eles. */
+  movers?: GenreMovers | null;
   headline: string;
   /** Os gêneros que a fala cita, na ordem em que ele fala deles. */
   cited: string[];
@@ -101,10 +106,12 @@ export function Mudou({
   // uma escala só para os dois lados, senão as distâncias mentem
   const scale = Math.max(1, ...items.flatMap((item) => [item.previousShare, item.currentShare]));
 
-  // na pista, ele percorre o gênero que cita; se ele não citar nenhum que corre ali, o que mais subiu
+  // na pista, ele percorre o gênero que cita — o que subiu primeiro, que é o que o grifo acende;
+  // se ele não citar nenhum que corre ali, o que mais subiu
   const showRace = Boolean(race && race.months.length >= 3 && race.lanes.length >= 3);
+  const byClimb = [...citedItems].sort((a, b) => b.delta - a.delta);
   const racer = !race || !showRace ? null
-    : race.lanes.find((lane) => citedItems.some((item) => item.genre === lane.genre)) ?? biggestClimb(race)?.lane ?? null;
+    : byClimb.map((item) => race.lanes.find((lane) => lane.genre === item.genre)).find(Boolean) ?? biggestClimb(race)?.lane ?? null;
   const racerId = `pista:${racer?.genre ?? ""}`;
 
   const draw = (origin: DOMRect): PenDrawing => {
@@ -199,6 +206,7 @@ export function Mudou({
             {group("ganhou espaço", shift.rising)}
             {group("perdeu espaço", shift.declining)}
           </>}
+          {movers && <QuemPuxou movers={movers} />}
         </div>
       </div>
       <PenLayer pen={pen} signal={silence} reduced={reduced} />

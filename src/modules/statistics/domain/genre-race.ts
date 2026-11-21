@@ -41,8 +41,12 @@ export function monthShares(
  * A pista: os gêneros que estiveram entre os primeiros em algum mês e
  * ainda estão no último, ou que o último mês mais ouviu. Cada um com a
  * posição de cada mês. Mês sem gênero conhecido não entra na corrida.
+ *
+ * `must` são os gêneros que a frase dele cita: correm sempre que tiverem
+ * audição em algum mês, mesmo fora do pelotão, senão a caneta não tem a
+ * raia do que ele falou e acaba traçando outra.
  */
-export function buildRace(monthsInOrder: string[], shares: Map<string, Map<string, number>>, lanes = RACE_LANES): GenreRace {
+export function buildRace(monthsInOrder: string[], shares: Map<string, Map<string, number>>, lanes = RACE_LANES, must: string[] = []): GenreRace {
   const months = monthsInOrder.filter((month) => shares.has(month));
   if (months.length < 2) return { months, lanes: [] };
   const rankings = months.map((month) => {
@@ -60,7 +64,9 @@ export function buildRace(monthsInOrder: string[], shares: Map<string, Map<strin
     if (chosen.length >= lanes + 2) break;
     if (!chosen.includes(genre)) chosen.push(genre);
   }
-  const kept = chosen.sort((a, b) => weight(b) - weight(a)).slice(0, lanes);
+  const required = [...new Set(must.map((genre) => genre.trim().toLowerCase()))].filter((genre) => weight(genre) > 0).slice(0, lanes);
+  const others = chosen.filter((genre) => !required.includes(genre)).sort((a, b) => weight(b) - weight(a)).slice(0, lanes - required.length);
+  const kept = [...required, ...others].sort((a, b) => weight(b) - weight(a));
   return {
     months,
     lanes: kept.map((genre) => ({

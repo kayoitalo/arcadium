@@ -6,7 +6,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { SECTIONS, sectionFor } from "@/components/layout/sections";
 import styles from "./app-shell.module.css";
 import { LogoutButton } from "./logout-button";
-import { motion, useReducedMotion } from "framer-motion";
+import { useReducedMotion } from "framer-motion";
+import { NavPen } from "./nav-pen";
+import { useMenuNotes } from "./use-menu-notes";
 
 /**
  * O cabeçalho do app: o nome e as telas, em texto. A tela atual é a que
@@ -23,6 +25,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const shellRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const notes = useMenuNotes(open);
 
   useEffect(() => {
     const bar = barRef.current;
@@ -59,18 +63,20 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Link href="/overview" className={styles.wordmark} aria-label="Arcadium, voltar para a conversa">
           arcadium
         </Link>
-        <nav className={styles.nav} aria-label="Telas">
+        <nav ref={navRef} className={styles.nav} aria-label="Telas">
           {SECTIONS.map((section) => (
             <Link
               key={section.href}
               href={section.href}
+              data-href={section.href}
               className={styles.link}
               aria-current={section.href === current.href ? "page" : undefined}
             >
               {section.label}
-              {section.href === current.href && <motion.span className={styles.activeLine} layoutId="main-navigation-line" transition={{ duration: reduced ? 0 : .24, ease: "easeOut" }} />}
             </Link>
           ))}
+          {/* o sublinhado é a caneta, em tinta: viaja da tela de antes até a nova */}
+          <NavPen nav={navRef} current={current.href} reduced={reduced} />
         </nav>
         <div className={styles.logout}><LogoutButton /></div>
         <button ref={toggleRef} type="button" className={styles.menuToggle} aria-expanded={open} aria-controls="arcadium-caderno"
@@ -80,11 +86,13 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
       {open && (
         <nav ref={menuRef} id="arcadium-caderno" className={styles.caderno} aria-label="Telas">
+          {/* o sumário do caderno: cada tela com uma linha do que ela guarda agora */}
           <ul>
-            {SECTIONS.map((section) => (
-              <li key={section.href}>
+            {SECTIONS.map((section, index) => (
+              <li key={section.href} style={{ animationDelay: `${index * 45}ms` }}>
                 <Link href={section.href} aria-current={section.href === current.href ? "page" : undefined} onClick={() => setOpen(false)}>
-                  {section.label}
+                  <span className={styles.cadernoNome}>{section.label}</span>
+                  {notes[section.href] && <span className={styles.cadernoNota}>{notes[section.href]}</span>}
                 </Link>
               </li>
             ))}

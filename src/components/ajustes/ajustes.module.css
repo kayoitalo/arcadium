@@ -326,3 +326,11 @@
   font-size: clamp(28px, 2.6vw, 42px);
   color: var(--tinta);
 }
+
+/* a ficha do caderno: três linhas, em tinta; o que falhou leva o risco */
+.ficha { display: grid; gap: 0; margin: 0; }
+.ficha > div { display: grid; grid-template-columns: minmax(120px, 200px) minmax(0, 1fr); gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--fio); }
+.ficha dt { color: var(--tinta-3); font-size: 13px; }
+.ficha dd { margin: 0; font-size: 15px; color: var(--tinta); }
+.ficha dd[data-failed] { text-decoration: line-through; text-decoration-color: var(--marca); text-decoration-thickness: 2px; }
+@media (max-width: 560px) { .ficha > div { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
