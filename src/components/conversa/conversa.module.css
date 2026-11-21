@@ -315,3 +315,16 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* o lugar do asterisco que a caneta escreve: no número e na nota de rodapé */
+.asterSlot {
+  display: inline-block;
+  width: 14px;
+  height: 1em;
+  margin-left: 3px;
+  vertical-align: top;
+}
+
+.quiet .asterSlot {
+  margin: 0 4px 0 0;
+}

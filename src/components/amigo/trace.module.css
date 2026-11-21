@@ -52,3 +52,24 @@
 .trace path[data-dim="true"] {
   opacity: 0.3;
 }
+
+/* a tinta de mão: o contorno afinado, preenchido, que a máscara do traço revela */
+.trace path[data-fill] {
+  fill: var(--marca);
+  stroke: none;
+}
+
+.trace g[data-dim="true"] path[data-fill],
+.trace g[data-dim="true"] circle {
+  opacity: 0.3;
+}
+
+/* o pingo onde a ponta pousa, e a própria ponta enquanto anda */
+.trace circle[data-drop],
+.trace circle[data-nib] {
+  fill: var(--marca);
+}
+
+.trace circle[data-nib] {
+  transition: opacity 220ms ease;
+}

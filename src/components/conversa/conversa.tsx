@@ -3,7 +3,7 @@
 import { useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Fala, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
-import { band, dimension, strike, type Point } from "@/components/amigo/gestures";
+import { asterisk, band, bracket, dimension, strike, type Point } from "@/components/amigo/gestures";
 import { boxOf, textLines } from "@/components/amigo/measure";
 import type { TraceGesture, WaveSpec } from "@/components/amigo/trace";
 import { usePen, type PenDrawing, type PenNote } from "@/components/amigo/use-pen";
@@ -254,12 +254,39 @@ export function Conversa({
         } else {
           gestures.push({ id: `${index}:regua`, layer: "over", strokes: [base], width: box.height + 1, cap: "butt", dim });
         }
+        // o colchete junta o pelotão da frente, do lado do número
+        const first = part("podio:a");
+        const third = part("podio:b");
+        if (first && third) {
+          const a = boxOf(first, origin);
+          const c = boxOf(third, origin);
+          gestures.push({
+            id: `${index}:colchete`,
+            layer: "over",
+            strokes: [bracket({ left: a.left, top: a.top + 6, width: a.width, height: c.top + c.height - a.top - 12 }, "left", 12, 7)],
+            width: thin,
+            dim,
+          });
+        }
       } else if (evidence?.kind === "decades") {
         for (const decade of evidence.focus) {
           const bar = part(`bar:${decade}`);
           if (!bar) continue;
           const { base, box } = ruler(bar, origin);
           gestures.push({ id: `${index}:regua:${decade}`, layer: "over", strokes: [base], width: box.height + 1, cap: "butt", dim });
+        }
+        // o asterisco no número e o mesmo na nota de rodapé: a ressalva fica ligada ao dado que ela ressalva
+        for (const name of ["aster:valor", "aster:pe"]) {
+          const slot = part(name);
+          if (!slot) continue;
+          const at = boxOf(slot, origin);
+          gestures.push({
+            id: `${index}:${name}`,
+            layer: "over",
+            strokes: asterisk({ x: at.left + at.width / 2, y: at.top + at.height * 0.42 }, name === "aster:pe" ? 8 : 9),
+            width: Math.max(1.3, thin * 0.8),
+            dim,
+          });
         }
       }
     }

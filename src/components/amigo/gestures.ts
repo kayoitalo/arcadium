@@ -429,3 +429,96 @@ export function wave(
     return { x: point.x + normal.x * offset, y: point.y + normal.y * offset };
   });
 }
+
+/*
+ * A mão da caneta (caderno vivo). A geometria continua exata; o que muda é
+ * a tinta: o traço sai fino, encorpa no meio e assenta no fim, onde a ponta
+ * pousa. Ninguém risca com a mesma pressão do começo ao fim.
+ */
+
+/** Pontos a cada `step` px ao longo da polilinha, com a distância acumulada de cada um. */
+export function resample(points: Point[], step = 2): { points: Point[]; reach: number[]; length: number } {
+  if (points.length === 0) return { points: [], reach: [], length: 0 };
+  const out = [points[0]];
+  const reach = [0];
+  let total = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const a = points[index - 1];
+    const b = points[index];
+    const length = Math.hypot(b.x - a.x, b.y - a.y);
+    const steps = Math.max(1, Math.ceil(length / step));
+    for (let k = 1; k <= steps; k += 1) {
+      out.push({ x: a.x + ((b.x - a.x) * k) / steps, y: a.y + ((b.y - a.y) * k) / steps });
+      total += length / steps;
+      reach.push(total);
+    }
+  }
+  return { points: out, reach, length: total };
+}
+
+/** A espessura da tinta em cada ponto do traço: fina na saída, cheia no meio, assentada no pouso. */
+export function inkWidth(t: number, width: number): number {
+  const rise = Math.pow(Math.sin(Math.PI * clamp(t * 0.94 + 0.03, 0, 1)), 0.45);
+  return width * (0.34 + 0.66 * rise) * (t > 0.82 ? 1 + (t - 0.82) * 0.35 : 1);
+}
+
+/**
+ * O contorno do traço com a espessura de mão, como um caminho fechado pra
+ * preencher. A máscara que desenha o traço anda por cima dele, então o
+ * desenho na tela continua saindo na velocidade da mão.
+ */
+export function taperOutline(points: Point[], width: number): string {
+  const { points: dense, reach, length } = resample(points, 2);
+  if (dense.length < 2 || length === 0) return "";
+  const left: Point[] = [];
+  const right: Point[] = [];
+  for (let index = 0; index < dense.length; index += 1) {
+    const a = dense[Math.max(0, index - 1)];
+    const b = dense[Math.min(dense.length - 1, index + 1)];
+    const span = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const nx = -(b.y - a.y) / span;
+    const ny = (b.x - a.x) / span;
+    const half = inkWidth(reach[index] / length, width) / 2;
+    left.push({ x: dense[index].x + nx * half, y: dense[index].y + ny * half });
+    right.push({ x: dense[index].x - nx * half, y: dense[index].y - ny * half });
+  }
+  return `${toPath([...left, ...right.reverse()])}Z`;
+}
+
+/**
+ * O colchete de quem agrupa: uma reta ao lado das linhas, com as pontas
+ * dobradas pra dentro. Junta o pelotão da frente de uma lista sem circular
+ * cada um.
+ */
+export function bracket(box: Box, side: "left" | "right" = "right", gap = 10, hook = 8): Point[] {
+  const x = side === "right" ? box.left + box.width + gap : box.left - gap;
+  const inward = side === "right" ? -hook : hook;
+  return [
+    { x: x + inward, y: box.top },
+    { x, y: box.top },
+    { x, y: box.top + box.height },
+    { x: x + inward, y: box.top + box.height },
+  ];
+}
+
+/** O asterisco escrito: três retas cruzadas, do tamanho de uma letra, que levam a uma nota de rodapé. */
+export function asterisk(center: Point, size = 9): Point[][] {
+  const r = size / 2;
+  return [0, 60, 120].map((degrees) => {
+    const a = (degrees * Math.PI) / 180;
+    return [
+      { x: center.x - Math.cos(a) * r, y: center.y - Math.sin(a) * r },
+      { x: center.x + Math.cos(a) * r, y: center.y + Math.sin(a) * r },
+    ];
+  });
+}
+
+/**
+ * A seta de cota: da nota até a coisa, em ângulo reto como num desenho
+ * técnico, com a ponta desenhada sem tirar a caneta do papel.
+ */
+export function dimensionArrow(from: Point, to: Point, head = 6): Point[] {
+  const corner = { x: to.x, y: from.y };
+  const down = Math.sign(to.y - corner.y) || 1;
+  return [from, corner, { x: to.x, y: to.y - down * 1 }, { x: to.x - head * 0.7, y: to.y - down * head }, { x: to.x, y: to.y }, { x: to.x + head * 0.7, y: to.y - down * head }];
+}
