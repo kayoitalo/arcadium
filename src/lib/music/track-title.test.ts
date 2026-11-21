@@ -17,6 +17,12 @@ describe("splitTrackTitle", () => {
     expect(splitTrackTitle("Hit 'Em Up - Single Version")).toEqual({ title: "Hit 'Em Up", edition: "versão do single" });
     expect(splitTrackTitle("Music Sounds Better With You - Radio Edit")).toEqual({ title: "Music Sounds Better With You", edition: "edição pra rádio" });
   });
+  it("drops the featuring credit only where the line is tight", async () => {
+    const { withoutFeat } = await import("./track-title");
+    expect(withoutFeat("Flower In A Hurricane (feat. Tame Impala, SZA)")).toBe("Flower In A Hurricane");
+    expect(withoutFeat("Mood Swings [ft. Lil Tjay]")).toBe("Mood Swings");
+    expect(withoutFeat("Hurt (Live)")).toBe("Hurt (Live)");
+  });
   it("keeps bracketed versions that change the music", () => {
     for (const title of ["Hurt (Live)", "Teardrop (Remix Edition)", "A Beautiful Lie (Brazilian Version)", "Clocks (Acoustic Version)", "(Deluxe Edition)"]) {
       expect(splitTrackTitle(title)).toEqual({ title, edition: null });

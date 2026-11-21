@@ -14,6 +14,7 @@ import { usePen, type PenDrawing } from "@/components/amigo/use-pen";
 import { usePulse } from "@/components/amigo/use-pulse";
 import { useSound } from "@/components/amigo/use-sound";
 import { useTabTitle } from "@/components/amigo/use-tab-title";
+import { useScrollMemory } from "@/components/amigo/use-scroll-memory";
 import styles from "./historico.module.css";
 import { cleanTitle, splitTrackTitle } from "@/lib/music/track-title";
 import type { MonthCovers } from "@/modules/statistics/domain/month-calendar";
@@ -67,6 +68,8 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
   const [query, setQuery] = useState(initialSearch);
   const [page, setPage] = useState(1);
   const [data, setData] = useState<HistoryPayload | null>(null);
+  // voltando pelo navegador, a lista desce até onde você estava
+  useScrollMemory("historico", data !== null);
   const [busy, setBusy] = useState(true);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);

@@ -3,7 +3,7 @@
 import { Capa } from "@/components/amigo/fala";
 import { shorten } from "@/components/amigo/measure";
 import type { Evidence } from "@/modules/conversation/domain/conversation.types";
-import { cleanTitle, splitTrackTitle } from "@/lib/music/track-title";
+import { cleanTitle, splitTrackTitle, withoutFeat } from "@/lib/music/track-title";
 import styles from "./conversa.module.css";
 
 /*
@@ -108,7 +108,9 @@ export function ProvaLista({
   const visible = expanded ? evidence.rows.length : Math.max(5, evidence.focusIndex + 1);
   const max = evidence.rows[0]?.plays || 1;
   // o pelotão da frente ganha o colchete dele quando quem lidera é o assunto
-  const podium = evidence.focusIndex === 0 && Math.min(visible, evidence.rows.length) >= 3;
+  // e só quando os três da frente se destacam do quarto: empate na terceira posição não é pódio
+  const podium = evidence.focusIndex === 0 && Math.min(visible, evidence.rows.length) >= 3
+    && evidence.rows[2].plays > (evidence.rows[3]?.plays ?? -1);
   return (
     <div className={styles.proof}>
       <div className={styles.solo}>
@@ -121,7 +123,7 @@ export function ProvaLista({
                 ref={podium && index === 0 ? register("podio:a") : podium && index === 2 ? register("podio:b") : undefined}>
                 <span className={styles.rowRank}>{index + 1}</span>
                 <span className={styles.rowText}>
-                  <span className={styles.rowLabel}>{splitTrackTitle(row.label).title}</span>
+                  <span className={styles.rowLabel}>{withoutFeat(splitTrackTitle(row.label).title)}</span>
                   {row.sub && <span className={styles.rowSub}>{row.sub}</span>}
                 </span>
                 <span className={styles.rowValue}>{row.plays}</span>

@@ -64,6 +64,8 @@ const NIGHT_STEPS = 6;
 /** Os mesmos limites de quem escreve (profile-builder): a prova mede o que a leitura viu. */
 const COMEBACK_GAP_DAYS = 90;
 const DOMINANT_GENRES = 5;
+/** Menos que isso, o primeiro de uma lista não é prova de nada. */
+const MIN_RANKING_PLAYS = 3;
 const TOP_ARTISTS = 10;
 /** Linhas de lista na prova; a tela mostra 5 e "me mostra mais" abre o resto. */
 const ROWS = 10;
@@ -485,6 +487,8 @@ async function rankingEvidence(data: PeriodData, reading: ProfileNarrative): Pro
   if (!focus) return null;
   const rows = lists.find((list) => list.unit === focus.unit)!.rows;
   const chosen = rows[focus.index];
+  // duas audições não "dominam" nada: abaixo de três, a lista não prova o que a frase diz
+  if (chosen.plays < MIN_RANKING_PLAYS) return null;
   const artist = focus.unit === "artist" ? chosen.label : chosen.sub;
 
   // todo "N vezes" e todo "N%" da frase precisam bater com algum número de verdade

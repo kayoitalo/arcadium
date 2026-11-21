@@ -336,7 +336,12 @@ export function Ajustes() {
 
       {tab === "conta" && <div role="tabpanel" id="painel-conta" aria-labelledby="aba-conta" className={styles.panel}>
         <Secao title="a ficha do caderno">
-          <FichaDoCaderno sync={syncStatus ? { username: syncStatus.connection?.username ?? null, lastSyncedAt: syncStatus.connection?.lastSyncedAt ?? null, failed: Boolean(syncStatus.latestRun?.errorMessage) } : null} />
+          <FichaDoCaderno sync={syncStatus ? {
+            username: syncStatus.connection?.username ?? null,
+            // a busca de verdade é a última rodada; lastSyncedAt é a hora da última música trazida
+            lastSyncedAt: syncStatus.latestRun?.finishedAt ?? syncStatus.latestRun?.startedAt ?? null,
+            failed: Boolean(syncStatus.latestRun?.errorMessage) || syncStatus.latestRun?.status === "FAILED",
+          } : null} />
         </Secao>
         <Secao title="como eu falo contigo">
           <p className={styles.hint}>Escolhe como eu te chamo. Vale a partir da próxima leitura que eu escrever.</p>
@@ -375,7 +380,8 @@ export function Ajustes() {
           {connected && (
             <Numeros
               items={[
-                ["última busca", connected.lastSyncedAt ? new Date(connected.lastSyncedAt).toLocaleDateString("pt-BR") : "nunca"],
+                ["última busca", syncStatus?.latestRun ? new Date(syncStatus.latestRun.finishedAt ?? syncStatus.latestRun.startedAt).toLocaleString("pt-BR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "nunca"],
+                ["última música trazida", connected.lastSyncedAt ? new Date(connected.lastSyncedAt).toLocaleString("pt-BR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "nenhuma"],
                 ["audições novas nela", count(syncStatus?.latestRun?.insertedCount ?? 0)],
               ]}
             />

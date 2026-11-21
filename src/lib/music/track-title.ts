@@ -38,5 +38,9 @@ export function splitTrackTitle(title: string): { title: string; edition: string
   return { title, edition: null };
 }
 
+/** Sem o "(feat. Fulano)": numa linha de lista, o crédito come o nome da faixa. */
+export const withoutFeat = (title: string) =>
+  title.replace(/\s*[([]\s*(?:feat\.?|ft\.?|featuring|with)\s[^)\]]*[)\]]/i, "").trim() || title;
+
 /** Só o nome, sem a edição: para lombada, legenda e qualquer lugar onde o sufixo come o espaço. */
 export const cleanTitle = (title: string) => splitTrackTitle(title).title;
