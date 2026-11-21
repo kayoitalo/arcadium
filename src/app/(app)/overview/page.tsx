@@ -105,12 +105,9 @@ function ConversationBody() {
     <Conversa
       moments={view.moments}
       epilogue={<DiscoveryRecall recall={recall} />}
-      endReplies={
-        <>
-          <Resposta href={recall.resumeHref ?? "/discovery"}>{recall.resumeHref ? "retomar a busca" : "seguir descobrindo"}</Resposta>
-          {recall.saved.length > 0 && <Resposta href="/discovery/collection">o que ficou pra depois</Resposta>}
-        </>
-      }
+      // a retomada logo acima já tem "retomar esse caminho" e "ver o que ficou pra depois":
+      // no pé, só o caminho genérico quando ela não tem nada a mostrar
+      endReplies={recall.status === "ready" && !recall.empty ? <></> : <Resposta href="/discovery">seguir descobrindo</Resposta>}
     />
   );
 }

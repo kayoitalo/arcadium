@@ -10,6 +10,7 @@ import { usePen } from "@/components/amigo/use-pen";
 import { useSelection } from "./selection-provider";
 import styles from "./descobertas.module.css";
 import paper from "./collection-desk.module.css";
+import { cleanTitle } from "@/lib/music/track-title";
 interface ExportResult {
   playlistTitle?: string;
   playlistUrl?: string;
@@ -125,7 +126,7 @@ export function CollectionDesk() {
                 {kept.map((item) => (
                   <li key={item.id}>
                     <span className={styles.keptTrack}>
-                      {item.trackName} <span className={styles.keptHow}>{item.artistName}</span>
+                      {cleanTitle(item.trackName)} <span className={styles.keptHow}>{item.artistName}</span>
                     </span>
                     <span className={styles.keptHow}>{HOW[item.action]}</span>
                     <button type="button" className={styles.remove} disabled={selection.syncing} onClick={() => void selection.remove(item)} aria-label={`Remover ${item.trackName} da lista`}>remover</button>

@@ -45,14 +45,18 @@ export default function OQueMudouPage() {
   /** A pista dos seis meses: prova à parte, que não segura a tela se demorar ou falhar. */
   const [race, setRace] = useState<GenreRace | null>(null);
 
+  // a pista sai depois da frase: os gêneros que ela cita correm sempre, senão a caneta traça outra raia
+  const citedKey = said ? said.cited.join(",") : said === null ? "" : null;
   useEffect(() => {
+    if (citedKey === null) return;
     const controller = new AbortController();
-    privateFetch("/api/genre-race", { signal: controller.signal, cache: "no-store" })
+    const query = citedKey ? `?include=${encodeURIComponent(citedKey)}` : "";
+    privateFetch(`/api/genre-race${query}`, { signal: controller.signal, cache: "no-store" })
       .then((response) => (response.ok ? (response.json() as Promise<GenreRace>) : null))
       .then((payload) => { if (payload && !controller.signal.aborted) setRace(payload); })
       .catch(() => undefined);
     return () => controller.abort();
-  }, []);
+  }, [citedKey]);
 
   useEffect(() => {
     const controller = new AbortController();

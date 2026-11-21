@@ -482,8 +482,9 @@ export function Conversa({
         {/* onde estou no fio: o texto e as marcas dos assuntos, que também levam até eles */}
         <div className={styles.thread}>
           <p className={styles.position} aria-live="polite" aria-atomic="true">
-            {atEnd ? "Fim da conversa" : `Assunto ${active + 1} de ${moments.length} · ${moments[active]?.window ?? ""}`}
-            {!atEnd && (steps.length > 0 ? " · prévia de 30s" : " · sem prévia neste assunto")}
+            {atEnd ? "Fim da conversa" : `p. ${active + 1} de ${moments.length}`}
+            {/* a janela já está no alto do assunto, e o "toca aí" já diz que há prévia: no celular, some */}
+            {!atEnd && <span className={styles.positionExtra}>{` · ${moments[active]?.window ?? ""}${steps.length > 0 ? " · prévia de 30s" : " · sem prévia neste assunto"}`}</span>}
           </p>
           {!atEnd && !activeDismissed && <button type="button" className={styles.cardButton} onClick={() => void makeCard()} disabled={card === "busy"}>
             {card === "busy" ? "montando o cartão…" : card === "saved" ? "cartão salvo ✓" : card === "failed" ? "não deu. tenta de novo" : "virar cartão ↓"}

@@ -5,6 +5,8 @@
  * saem dos números, na voz dele.
  */
 
+import { cleanTitle } from "@/lib/music/track-title";
+
 export interface YearFacts {
   year: number;
   /** O ano ainda está correndo: "até aqui", não "o ano inteiro". */
@@ -40,6 +42,8 @@ export interface YearChapter {
 const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 const count = (value: number) => value.toLocaleString("pt-BR");
 const hourWords = (hour: number) => (hour === 0 ? "meia-noite" : hour === 12 ? "meio-dia" : `${hour}h`);
+/** A hora com a preposição certa: "ao meio-dia", "à meia-noite", "à 1h", "às 19h". */
+export const atHour = (hour: number) => (hour === 12 ? "ao meio-dia" : hour === 0 ? "à meia-noite" : hour === 1 ? "à 1h" : `às ${hour}h`);
 
 /** Os capítulos que o ano sustenta, na ordem em que ele conta. */
 export function yearChapters(facts: YearFacts): YearChapter[] {
@@ -68,7 +72,7 @@ export function yearChapters(facts: YearFacts): YearChapter[] {
   if (facts.peakHour) {
     chapters.push({
       id: "hora", title: "a tua hora",
-      headline: `O teu ano tocou mais às ${hourWords(facts.peakHour.hour)}.`,
+      headline: `O teu ano tocou mais ${atHour(facts.peakHour.hour)}.`,
       mark: hourWords(facts.peakHour.hour),
       narrative: `${count(facts.peakHour.plays)} audições começaram nessa hora. É quando tu mais aperta o play.`,
       proof: { kind: "hour", hour: facts.peakHour.hour },
@@ -85,10 +89,11 @@ export function yearChapters(facts: YearFacts): YearChapter[] {
   }
   if (facts.topAlbum) {
     const every = facts.throughMonth > 1 && facts.topAlbum.months >= facts.throughMonth;
+    const album = cleanTitle(facts.topAlbum.name);
     chapters.push({
       id: "disco", title: "o disco do ano",
-      headline: `O disco do ano foi ${facts.topAlbum.name}.`,
-      mark: facts.topAlbum.name,
+      headline: `O disco do ano foi ${album}.`,
+      mark: album,
       narrative: every
         ? `Apareceu em todos os meses. ${count(facts.topAlbum.plays)} faixas dele tocaram.`
         : `Apareceu em ${facts.topAlbum.months} ${facts.topAlbum.months === 1 ? "mês" : "meses"} diferentes e somou ${count(facts.topAlbum.plays)} faixas.`,

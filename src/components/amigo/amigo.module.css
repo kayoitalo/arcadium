@@ -473,17 +473,19 @@
 }
 
 @media (max-width: 760px) {
+  /* no celular o pé é fixo: fileira solta, do tamanho de cada resposta, pra não comer um terço da tela */
   .reactions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    padding: 16px 0 max(14px, env(safe-area-inset-bottom));
-    background: linear-gradient(to top, var(--papel) 78%, transparent);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--papel) 80%, transparent);
   }
 
   .reaction {
+    flex: 1 1 auto;
     justify-content: center;
-    min-height: 44px;
+    min-height: 40px;
     height: auto;
     padding: 0 12px;
     font-size: 14px;

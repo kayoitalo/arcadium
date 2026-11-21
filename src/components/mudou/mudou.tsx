@@ -101,10 +101,12 @@ export function Mudou({
   // uma escala só para os dois lados, senão as distâncias mentem
   const scale = Math.max(1, ...items.flatMap((item) => [item.previousShare, item.currentShare]));
 
-  // na pista, ele percorre o gênero que cita; se ele não citar nenhum que corre ali, o que mais subiu
+  // na pista, ele percorre o gênero que cita — o que subiu primeiro, que é o que o grifo acende;
+  // se ele não citar nenhum que corre ali, o que mais subiu
   const showRace = Boolean(race && race.months.length >= 3 && race.lanes.length >= 3);
+  const byClimb = [...citedItems].sort((a, b) => b.delta - a.delta);
   const racer = !race || !showRace ? null
-    : race.lanes.find((lane) => citedItems.some((item) => item.genre === lane.genre)) ?? biggestClimb(race)?.lane ?? null;
+    : byClimb.map((item) => race.lanes.find((lane) => lane.genre === item.genre)).find(Boolean) ?? biggestClimb(race)?.lane ?? null;
   const racerId = `pista:${racer?.genre ?? ""}`;
 
   const draw = (origin: DOMRect): PenDrawing => {

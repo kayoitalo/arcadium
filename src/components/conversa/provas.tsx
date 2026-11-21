@@ -3,7 +3,7 @@
 import { Capa } from "@/components/amigo/fala";
 import { shorten } from "@/components/amigo/measure";
 import type { Evidence } from "@/modules/conversation/domain/conversation.types";
-import { splitTrackTitle } from "@/lib/music/track-title";
+import { cleanTitle, splitTrackTitle } from "@/lib/music/track-title";
 import styles from "./conversa.module.css";
 
 /*
@@ -86,7 +86,7 @@ export function rankingNote(evidence: Extract<Evidence, { kind: "ranking" }>): s
   const runnerUp = rows.find((_, index) => index !== focusIndex);
   if (focusIndex !== 0 || !runnerUp) return "é esse aqui";
   const lead = rows[focusIndex].plays - runnerUp.plays;
-  return lead > 0 ? `+${lead} que ${shorten(runnerUp.label)}` : `empatado com ${shorten(runnerUp.label)}`;
+  return lead > 0 ? `+${lead} que ${shorten(cleanTitle(runnerUp.label))}` : `empatado com ${shorten(cleanTitle(runnerUp.label))}`;
 }
 
 export function ProvaLista({

@@ -14,6 +14,7 @@ import { privateFetch } from "@/lib/http/private-fetch";
 import type { YearReview } from "@/modules/statistics/application/year-review";
 import type { YearChapter } from "@/modules/statistics/domain/year-chapters";
 import styles from "./teu-ano.module.css";
+import { cleanTitle } from "@/lib/music/track-title";
 
 const count = (value: number) => value.toLocaleString("pt-BR");
 
@@ -138,7 +139,7 @@ export function TeuAno() {
           {evidence.kind === "cover" && <figure className={styles.record}>
             <Capa cover={{ url: evidence.coverUrl, title: evidence.title, artist: evidence.artist }} className={styles.cover} innerRef={proof as React.RefObject<HTMLDivElement>} glow eager />
             <figcaption>
-              <span className={styles.recordTitle}>{evidence.title}</span>
+              <span className={styles.recordTitle}>{cleanTitle(evidence.title)}</span>
               <span className={styles.recordArtist}>{evidence.artist}</span>
               <span className={styles.tally}>
                 <Risquinhos count={evidence.tally} lit={pen.done.has(`${ink}:prova`)} label={evidence.tallyLabel} />

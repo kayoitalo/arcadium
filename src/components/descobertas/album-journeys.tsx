@@ -15,6 +15,7 @@ import type { AlbumSource, EditionSummary } from "@/modules/recommendations/doma
 import { CARTOLA_JOURNEY_HREF, findCuratedAlbum, type CurationCredit } from "@/modules/recommendations/domain/curated-albums";
 import { DiscoveryDisclosure } from "./discovery-disclosure";
 import styles from "./album-journeys.module.css";
+import { cleanTitle } from "@/lib/music/track-title";
 
 type AlbumReference = { source: AlbumSource; artistName: string; albumName: string; coverUrl?: string | null; plays?: number };
 
@@ -28,7 +29,7 @@ const SHELF_FROM = 4;
  */
 export function spineShape(album: { albumName: string; artistName: string; plays?: number }, max: number): { width: number; height: number } {
   const share = max > 0 ? Math.min(1, Math.max(0, (album.plays ?? 0) / max)) : 0;
-  return { width: Math.round(28 + share * 26), height: Number((0.78 + seeded(`${album.artistName}|${album.albumName}`)() * 0.22).toFixed(3)) };
+  return { width: Math.round(28 + share * 26), height: Number((0.78 + seeded(`${album.artistName}|${cleanTitle(album.albumName)}`)() * 0.22).toFixed(3)) };
 }
 
 /**
@@ -43,10 +44,10 @@ function Lombada({ album, max, disabled, open, onOpen }: { album: AlbumReference
   const tint = useCoverTint(album.coverUrl);
   const shape = spineShape(album, max);
   return <button type="button" className={styles.spine} disabled={disabled} aria-expanded={open} aria-controls={open ? "album-versions" : undefined} data-open={open || undefined} onClick={onOpen}
-    aria-label={`ouvir este disco: ${album.albumName}, de ${album.artistName}`} title={`${album.albumName} · ${album.artistName}`}
+    aria-label={`ouvir este disco: ${cleanTitle(album.albumName)}, de ${album.artistName}`} title={`${cleanTitle(album.albumName)} · ${album.artistName}`}
     data-bare={!tint || undefined} data-ink={tint ? inkOn(tint) : undefined}
     style={{ "--lombada": tint ?? undefined, "--grossura": `${shape.width}px`, "--altura": shape.height } as CSSProperties}>
-    <span>{album.albumName}</span>
+    <span>{cleanTitle(album.albumName)}</span>
   </button>;
 }
 export function EditionCredit({ album }: { album: EditionSummary }) {
@@ -63,7 +64,7 @@ export function AlbumProgress({ album, curation, tracks, index, disabled, onMove
   tracks: { id: string; trackName: string; artistName: string; scoreComponents?: { albumEdition?: { disc: number; number: number } } }[];
   index: number; disabled: boolean; onMove: (index: number) => void }) {
   return <section className={styles.progress} aria-label="Edição escolhida">
-    <p className={styles.eyebrow}>um disco, do começo ao fim</p><h2>{album.albumName}</h2><p>{album.artistName}</p>
+    <p className={styles.eyebrow}>um disco, do começo ao fim</p><h2>{cleanTitle(album.albumName)}</h2><p>{album.artistName}</p>
     <EditionCredit album={album} />
     {curation && <EditorialCredit curation={curation} />}
     <DiscoveryDisclosure summary="ordem das faixas" className={styles.contextDisclosure}>
@@ -195,16 +196,16 @@ export function AlbumJourneys({ initialItem = null, initialCuration = null, onBe
             <ul className={styles.library} data-shelf="true">{library.albums.map((row, index) => <li key={JSON.stringify(row.source)} data-album-index={index} data-open={index === at}>
               <Lombada album={row} max={max} disabled={busy} open={index === at} onOpen={() => (index === at && !error ? close(index) : void findEditions(row))} />
             </li>)}</ul>
-            <aside ref={pulled} className={styles.pulled} data-empty={!album || undefined} aria-label={album ? `${album.albumName}, de ${album.artistName}` : undefined}>
+            <aside ref={pulled} className={styles.pulled} data-empty={!album || undefined} aria-label={album ? `${cleanTitle(album.albumName)}, de ${album.artistName}` : undefined}>
               {album
                 // a chave troca a cada disco puxado: a capa sai da estante de novo
                 ? <div key={JSON.stringify(album.source)} className={styles.pulledBody}>
                   <div className={styles.pulledRecord}>
                     {album.coverUrl
                       ? <Capa cover={{ url: album.coverUrl, title: album.albumName, artist: album.artistName }} className={styles.pulledCover} glow eager />
-                      : <div className={`${styles.jacket} ${styles.pulledCover}`} aria-hidden="true"><i /><b>{album.albumName}</b></div>}
+                      : <div className={`${styles.jacket} ${styles.pulledCover}`} aria-hidden="true"><i /><b>{cleanTitle(album.albumName)}</b></div>}
                   </div>
-                  <div className={styles.pulledTitle}><h2>{album.albumName}</h2><p>{album.artistName}</p></div>
+                  <div className={styles.pulledTitle}><h2>{cleanTitle(album.albumName)}</h2><p>{album.artistName}</p></div>
                   {versions(album, at)}
                 </div>
                 : <p className={styles.pulledHint} aria-hidden="true"><span />puxa um disco.<br />ele abre aqui.</p>}
@@ -218,9 +219,9 @@ export function AlbumJourneys({ initialItem = null, initialCuration = null, onBe
             <div className={styles.libraryRow}>
               {album.coverUrl
                 ? <Capa cover={{ url: album.coverUrl, title: album.albumName, artist: album.artistName }} className={styles.shelfCover} />
-                : <div className={styles.jacket} aria-hidden="true"><i /><b>{album.albumName}</b></div>}
+                : <div className={styles.jacket} aria-hidden="true"><i /><b>{cleanTitle(album.albumName)}</b></div>}
               {/* com ou sem capa, o mesmo desenho: o quadrado e, embaixo, disco e artista */}
-              <div className={styles.albumTitle}><h2>{album.albumName}</h2><p>{album.artistName}</p></div>
+              <div className={styles.albumTitle}><h2>{cleanTitle(album.albumName)}</h2><p>{album.artistName}</p></div>
               <button disabled={busy} aria-expanded={active} aria-controls={active ? "album-versions" : undefined} onClick={() => void findEditions(album)}>ouvir este disco →</button>
             </div>
             {active && versions(album, index)}

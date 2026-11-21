@@ -291,6 +291,8 @@
 
   .block:first-child { min-height: auto; }
   .position { grid-column: 1 / -1; }
+  .positionExtra { display: none; }
+  .thread { gap: 10px; }
 
   .pair {
     padding-top: 92px;
