@@ -3,7 +3,7 @@
 import { useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Fala, PenLayer, Resposta, Respostas, type Claim } from "@/components/amigo/fala";
-import { asterisk, band, bracket, dimension, strike, type Point } from "@/components/amigo/gestures";
+import { asterisk, band, bracket, check, dimension, strike, type Point } from "@/components/amigo/gestures";
 import { boxOf, textLines } from "@/components/amigo/measure";
 import type { TraceGesture, WaveSpec } from "@/components/amigo/trace";
 import { usePen, type PenDrawing, type PenNote } from "@/components/amigo/use-pen";
@@ -17,6 +17,7 @@ import styles from "./conversa.module.css";
 import { privateFetch } from "@/lib/http/private-fetch";
 import { cardFromMoment, deliverCard, renderCard } from "./cartao";
 import { cleanTitle } from "@/lib/music/track-title";
+import { coverProxyUrl } from "@/lib/cover";
 
 /*
  * A conversa: a tela inicial. Um fio que se rola e se revisita — o
@@ -94,6 +95,14 @@ function claimsOf(evidence: Evidence | null | undefined): Array<Claim & { target
   return [];
 }
 
+/** A capa que representa o assunto no índice: a de chegada numa transição; décadas não têm capa. */
+function coverOf(evidence: Evidence | null | undefined): string | null {
+  if (!evidence) return null;
+  if (evidence.kind === "transition") return evidence.to.cover.url ?? evidence.from.cover.url;
+  if (evidence.kind === "decades") return null;
+  return "cover" in evidence ? evidence.cover.url : null;
+}
+
 /** A régua dele em cima de uma barra do dado: a própria barra, na cor dele. */
 function ruler(bar: HTMLElement, origin: DOMRect): { base: Point[]; box: ReturnType<typeof boxOf> } {
   const box = boxOf(bar, origin);
@@ -115,9 +124,12 @@ export function Conversa({
   moments: all,
   epilogue,
   endReplies,
+  masthead,
   ending = FIM,
 }: {
   moments: ConversationMoment[];
+  /** Antes do fio: o dia de hoje, com o que tocou. A caneta sublinha a data. */
+  masthead?: ReactNode;
   epilogue?: ReactNode;
   endReplies?: ReactNode;
   /** A fala que fecha o fio; a do retrato fala de mês, não de dias. */
@@ -192,13 +204,38 @@ export function Conversa({
 
   // ---------- onde o traço vai ----------
 
-  const pose = `${seen.join(",")}|${active}|${dismissed.join(",")}|${expanded.join(",")}|${sound.playing ? "som" : ""}|${pointing ? `${pointing.index}:${pointing.id}` : ""}`;
+  const pose = `${seen.join(",")}|${active}|${dismissed.join(",")}|${expanded.join(",")}|${sound.playing ? "som" : ""}|${pointing ? `${pointing.index}:${pointing.id}` : ""}|${masthead ? "dia" : ""}`;
 
   const draw = (origin: DOMRect): PenDrawing => {
     const thin = Math.max(1.5, Math.min(2.5, origin.width / 600));
     const gestures: TraceGesture[] = [];
     const notes: PenNote[] = [];
     let wave: WaveSpec | null = null;
+
+    // a data do cabeçalho: sublinhada uma vez, como quem abre a página do caderno
+    const dia = stageRef.current?.querySelector<HTMLElement>("[data-dia]");
+    if (dia) {
+      const { lines, size } = textLines(dia, origin);
+      const line = lines[lines.length - 1];
+      if (line) {
+        const y = line.baseline + size * 0.16;
+        gestures.push({ id: "dia", layer: "over", strokes: [[{ x: line.left - 2, y }, { x: line.left + (line.right - line.left) * 0.55, y: y - 0.8 }, { x: line.right + 4, y: y - 2.4 }]], width: thin, dim: active !== 0 });
+      }
+    }
+
+    // o fio de hoje, conferido: visto no que você viu, risco no que dispensou
+    if (seen.includes(moments.length)) {
+      moments.forEach((_, index) => {
+        const item = parts.current.get(`${moments.length}:fio:${index}`);
+        if (!item) return;
+        if (dismissed.includes(index)) {
+          const { lines, size } = textLines(item, origin);
+          gestures.push({ id: `fio:${index}:risco`, layer: "over", strokes: strike(lines, size), width: Math.max(1.6, size * 0.08), cap: "butt", dim: active !== moments.length });
+        } else if (seen.includes(index)) {
+          gestures.push({ id: `fio:${index}:visto`, layer: "over", strokes: [check(boxOf(item, origin), 14)], width: Math.max(1.8, thin), dim: active !== moments.length });
+        }
+      });
+    }
 
     for (const index of seen) {
       const dim = index !== active;
@@ -480,6 +517,7 @@ export function Conversa({
 
   return (
     <div ref={stageRef} className={styles.stage}>
+      {masthead}
       {[...moments, null].map((moment, index) => {
         const isActive = index === active;
         const isDismissed = dismissed.includes(index);
@@ -551,6 +589,21 @@ export function Conversa({
             {evidence?.kind === "debut" && <ProvaEstreia evidence={evidence} playing={isActive && sound.playing} />}
             {evidence?.kind === "night" && <ProvaMadrugada evidence={evidence} playing={isActive && sound.playing} />}
             {evidence?.kind === "binge" && <ProvaMaratona evidence={evidence} playing={isActive && sound.playing} />}
+            {/* o fio conferido: a lista do que ele contou hoje, com o que você fez com cada assunto */}
+            {!moment && moments.length > 1 && (
+              <div className={styles.fio}>
+                <p className={styles.fioTitle}>o fio de hoje</p>
+                <ol>
+                  {moments.map((item, position) => (
+                    <li key={item.key} data-gone={dismissed.includes(position) || undefined}>
+                      <button type="button" onClick={() => go(position)}>
+                        <span ref={register(moments.length)(`fio:${position}`)}>{item.headline}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
             {!moment && epilogue}
           </section>
         );
@@ -571,9 +624,20 @@ export function Conversa({
           {!atEnd && !activeDismissed && <button type="button" className={styles.cardButton} onClick={() => void makeCard()} disabled={card === "busy"}>
             {card === "busy" ? "montando o cartão…" : card === "saved" ? "cartão salvo ✓" : card === "failed" ? "não deu. tenta de novo" : "virar cartão ↓"}
           </button>}
+          {/* o índice em mini-capas: a da vez acesa, as vistas apagadas, as dispensadas riscadas */}
           <div className={styles.ticks} role="group" aria-label="Assuntos da conversa">
-            {moments.map((moment, index) => <button key={moment.key} type="button" aria-label={`Ir ao assunto ${index + 1}`} aria-pressed={index === active}
-              data-dismissed={dismissed.includes(index) || undefined} onClick={() => go(index)}><i /></button>)}
+            {moments.map((moment, index) => {
+              const cover = coverOf(moment.evidence);
+              return (
+                <button key={moment.key} type="button" aria-label={`Ir ao assunto ${index + 1}: ${moment.headline}`} aria-pressed={index === active}
+                  data-seen={seen.includes(index) || undefined} data-dismissed={dismissed.includes(index) || undefined} onClick={() => go(index)}>
+                  {cover
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={coverProxyUrl(cover) ?? undefined} alt="" loading="lazy" />
+                    : <i>{moment.evidence?.kind === "decades" ? "’" + String(moment.evidence.bars[0]?.decade ?? "").slice(2, 4) : index + 1}</i>}
+                </button>
+              );
+            })}
           </div>
         </div>
         {atEnd ? (

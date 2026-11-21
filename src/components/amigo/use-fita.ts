@@ -15,6 +15,34 @@ interface HistoryPage {
   since: string | null;
 }
 
+/** O dia de hoje, só com o que tocou: de ontem pra cá, a última audição e as capas desse tempo. */
+export interface Dia {
+  /** "sexta, 20 de novembro" */
+  date: string;
+  plays: number;
+  /** Bateu no limite da página: são pelo menos essas. */
+  atLeast: boolean;
+  last: { track: string; artist: string; time: string } | null;
+  capas: Folha[];
+}
+
+const weekday = new Intl.DateTimeFormat("pt-BR", { weekday: "long" });
+const dayMonth = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long" });
+
+export function diaFrom(page: HistoryPage, now = new Date(), limit = 100): Dia {
+  const since = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  const recent = page.events.filter((event) => new Date(event.playedAt) >= since);
+  const { fita } = fitaFrom({ ...page, events: recent }, 14);
+  const first = page.events[0];
+  return {
+    date: `${weekday.format(now).replace(/-feira$/, "")}, ${dayMonth.format(now)}`,
+    plays: recent.length,
+    atLeast: recent.length >= limit,
+    last: first ? { track: cleanTitle(first.rawTrackName), artist: first.rawArtistName, time: time.format(new Date(first.playedAt)) } : null,
+    capas: fita,
+  };
+}
+
 /** As últimas capas que tocaram, um disco por vez, e quantas audições ele está lendo: o que mostrar enquanto espera. */
 export function fitaFrom(page: HistoryPage, limit = 10): { fita: Folha[]; later: string | null } {
   const seen = new Set<string>();
@@ -38,14 +66,14 @@ export function fitaFrom(page: HistoryPage, limit = 10): { fita: Folha[]; later:
  * O histórico recente chega em um segundo; a conversa pode levar dez. Ele
  * busca uma vez, e a espera mostra o que já sabe: a fita e a conta real.
  */
-export function useFita(enabled = true): { fita: Folha[]; later: string | null } {
-  const [value, setValue] = useState<{ fita: Folha[]; later: string | null }>({ fita: [], later: null });
+export function useFita(enabled = true): { fita: Folha[]; later: string | null; dia: Dia | null } {
+  const [value, setValue] = useState<{ fita: Folha[]; later: string | null; dia: Dia | null }>({ fita: [], later: null, dia: null });
   useEffect(() => {
     if (!enabled) return;
     const controller = new AbortController();
-    privateFetch("/api/history?limit=30", { signal: controller.signal, cache: "no-store" })
+    privateFetch("/api/history?limit=100", { signal: controller.signal, cache: "no-store" })
       .then((response) => (response.ok ? (response.json() as Promise<HistoryPage>) : null))
-      .then((page) => { if (page && !controller.signal.aborted) setValue(fitaFrom(page)); })
+      .then((page) => { if (page && !controller.signal.aborted) setValue({ ...fitaFrom(page), dia: diaFrom(page) }); })
       .catch(() => undefined);
     return () => controller.abort();
   }, [enabled]);

@@ -7,6 +7,7 @@ import { Aviso } from "@/components/amigo/aviso";
 import { Resposta } from "@/components/amigo/fala";
 import { Conversa } from "@/components/conversa/conversa";
 import { useFita } from "@/components/amigo/use-fita";
+import { DiaDeHoje } from "@/components/conversa/dia";
 import { DiscoveryRecall, useDiscoveryRecall } from "@/components/descobertas/discovery-recall";
 import type { ConversationView } from "@/modules/conversation/domain/conversation.types";
 
@@ -26,7 +27,8 @@ function ConversationBody() {
   // a retomada e as respostas do fim leem o mesmo estado da descoberta
   const recall = useDiscoveryRecall();
   // enquanto a conversa chega, ele folheia o que tocou por último
-  const { fita, later } = useFita(state.status === "loading" || (state.status === "ready" && state.view.writing));
+  // e o mesmo histórico recente vira o cabeçalho do dia, em cima do fio
+  const { fita, later, dia } = useFita();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -107,6 +109,7 @@ function ConversationBody() {
   return (
     <Conversa
       moments={view.moments}
+      masthead={dia ? <DiaDeHoje dia={dia} /> : null}
       epilogue={<DiscoveryRecall recall={recall} />}
       // a retomada logo acima já tem "retomar esse caminho" e "ver o que ficou pra depois":
       // no pé, só o caminho genérico quando ela não tem nada a mostrar

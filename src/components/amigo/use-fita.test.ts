@@ -18,3 +18,23 @@ describe("a fita da espera", () => {
     expect(fitaFrom({ events: [], totalItems: 0, since: null }).later).toBeNull();
   });
 });
+
+describe("o dia de hoje", () => {
+  it("counts only what played since yesterday and names the day without -feira", async () => {
+    const { diaFrom } = await import("./use-fita");
+    const now = new Date(2026, 10, 20, 10, 0);
+    const page = {
+      events: [
+        { ...event("a", "No More Tears", "https://x/a.jpg", "No More Tears"), playedAt: new Date(2026, 10, 19, 19, 33).toISOString() },
+        { ...event("b", "Blizzard", "https://x/b.jpg"), playedAt: new Date(2026, 10, 19, 8, 0).toISOString() },
+        { ...event("c", "Old", "https://x/c.jpg"), playedAt: new Date(2026, 10, 17, 8, 0).toISOString() },
+      ],
+      totalItems: 3, since: null,
+    };
+    const dia = diaFrom(page, now);
+    expect(dia.date).toBe("sexta, 20 de novembro");
+    expect(dia.plays).toBe(2);
+    expect(dia.capas.map((capa) => capa.key)).toEqual(["a", "b"]);
+    expect(dia.last?.track).toBe("No More Tears");
+  });
+});
