@@ -651,7 +651,7 @@
   }
 }
 
-/* na tela larga, a janela da fala sai pra margem, à esquerda da linha */
+/* na tela larga, a janela da fala sai pra margem; uma linha curta, do tamanho da fala, separa a nota do texto */
 @media (min-width: 1600px) {
   .fala > .window[data-margin] {
     position: absolute;
@@ -661,6 +661,16 @@
     max-width: calc(var(--gutter) - 72px);
     margin: 0;
     text-align: right;
+  }
+
+  .fala:has(> .window[data-margin])::before {
+    content: "";
+    position: absolute;
+    top: 0.45em;
+    bottom: 0.3em;
+    right: calc(100% + 28px);
+    width: 1px;
+    background: var(--fio-2);
   }
 }
 

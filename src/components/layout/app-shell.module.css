@@ -196,16 +196,3 @@
 @keyframes cadernoLinha { from { opacity: 0; transform: translateY(6px); font-variation-settings: "wdth" 125, "wght" 300; } }
 @media (prefers-reduced-motion: reduce) { .caderno li { animation: none; } .link { transition: none; } }
 
-/* a linha de margem do caderno, na tela larga */
-@media (min-width: 1440px) {
-  .page::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: calc(var(--gutter) - 36px);
-    width: 1px;
-    background: var(--fio);
-    pointer-events: none;
-  }
-}
