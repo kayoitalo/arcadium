@@ -358,3 +358,13 @@
   .ticks button { width: 26px; height: 26px; }
   .diaFita img { width: 26px; height: 26px; }
 }
+
+/* tocando agora: a capa, o nome e uma corda curta vibrando enquanto toca */
+.diaAgora { display: inline-flex; align-items: center; gap: 10px; margin: 0; font-size: 13px; color: var(--tinta-2); }
+.diaAgora img { width: 24px; height: 24px; object-fit: cover; }
+.diaAgora b { font-weight: inherit; color: var(--tinta); font-variation-settings: "wdth" 90, "wght" 700; }
+.diaAgoraRotulo { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--marca); font-variation-settings: "wdth" 82, "wght" 800; }
+.diaCorda { width: 48px; height: 12px; overflow: visible; }
+.diaCorda path { fill: none; stroke: var(--marca); stroke-width: 1.8; stroke-linecap: round; transform-origin: center; animation: corda 620ms ease-in-out infinite alternate; }
+@keyframes corda { from { transform: scaleY(1); } to { transform: scaleY(-1); } }
+@media (prefers-reduced-motion: reduce) { .diaCorda path { animation: none; } }
