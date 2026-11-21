@@ -9,6 +9,7 @@ import { fallbackCover } from "./cover-fallback";
 import { loadArtistGenres } from "@/modules/statistics/application/artist-genres";
 import { decadeDistribution } from "@/modules/statistics/application/decades";
 import { getPeriodRanges, type PeriodKey } from "@/modules/statistics/application/overview-service";
+import { factsAgree } from "@/modules/conversation/domain/fact-check";
 import type {
   ConversationCover,
   ConversationMoment,
@@ -690,7 +691,8 @@ async function evidenceFor(
 
   for (const [kind, attempt] of attempts) {
     const evidence = await attempt();
-    if (evidence) return { period: data.period, kind, reading, evidence };
+    // os números já foram conferidos; aqui, os nomes entre aspas e a unidade da frase
+    if (evidence && factsAgree(textOf(reading), evidence)) return { period: data.period, kind, reading, evidence };
   }
   return null;
 }
