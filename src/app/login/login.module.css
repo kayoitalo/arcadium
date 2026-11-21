@@ -36,7 +36,7 @@
   letter-spacing: -0.045em;
   text-wrap: initial;
 }
-.highlight { display: inline-block; margin-inline-start: 0.14em; color: var(--tinta); transition: color 140ms ease 120ms; }
+.highlight { display: inline-block; margin-inline-start: 0.14em; color: var(--tinta); transition: color var(--t-rapido) var(--glide) var(--t-rapido); }
 .highlight[data-marked="true"] { color: var(--sobre-marca); }
 .intro { max-width: 34ch; margin: 26px 0 0; color: var(--tinta-2); font-size: clamp(15px, 1.2vw, 18px); line-height: 1.65; }
 
@@ -49,7 +49,7 @@
 .status { margin: 24px 0 0; padding: 12px 0 12px 14px; border-left: 2px solid var(--tinta-3); color: var(--tinta-2); font-size: 14px; line-height: 1.55; }
 .form { display: grid; gap: 22px; margin-top: 36px; }
 .label { display: block; color: var(--tinta-2); font-size: 13px; }
-.passwordField { display: flex; gap: 12px; align-items: center; margin-top: 8px; border-bottom: 1px solid var(--tinta-3); transition: border-color 160ms; }
+.passwordField { display: flex; gap: 12px; align-items: center; margin-top: 8px; border-bottom: 1px solid var(--tinta-3); transition: border-color var(--t-rapido); }
 .passwordField:focus-within { border-bottom-color: var(--tinta); }
 .input { min-width: 0; width: 100%; padding: 15px 0; border: 0; border-radius: 0; background: transparent; color: var(--tinta); font: inherit; font-size: 16px; outline: none; }
 .input::placeholder { color: var(--tinta-3); }
@@ -58,8 +58,8 @@
 .reveal { flex-shrink: 0; min-height: 44px; padding: 8px 4px; border: 0; background: none; color: var(--tinta-2); font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; }
 .reveal:hover { color: var(--tinta); }
 .error { margin: -6px 0 0; color: var(--erro); font-size: 14px; line-height: 1.5; }
-.submit { display: flex; justify-content: space-between; align-items: center; gap: 24px; min-height: 52px; width: 100%; padding: 12px 22px; border: 1px solid var(--tinta); border-radius: 999px; background: var(--tinta); color: var(--papel); font: inherit; font-size: 15px; font-variation-settings: "wdth" 96, "wght" 650; cursor: pointer; transition: background-color 160ms, translate 160ms; }
-.submitArrow { font-size: 24px; line-height: 1; transition: translate 160ms; }
+.submit { display: flex; justify-content: space-between; align-items: center; gap: 24px; min-height: 52px; width: 100%; padding: 12px 22px; border: 1px solid var(--tinta); border-radius: 999px; background: var(--tinta); color: var(--papel); font: inherit; font-size: 15px; font-variation-settings: "wdth" 96, "wght" 650; cursor: pointer; transition: background-color var(--t-rapido), translate var(--t-rapido); }
+.submitArrow { font-size: 24px; line-height: 1; transition: translate var(--t-rapido); }
 .submit:hover:not(:disabled) { background: #fffdf7; }
 .submit:hover:not(:disabled) .submitArrow { translate: 2px -2px; }
 .submit:active:not(:disabled) { translate: 0 1px; }

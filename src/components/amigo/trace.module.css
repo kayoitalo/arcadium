@@ -22,7 +22,7 @@
   stroke: var(--marca);
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: opacity 420ms ease;
+  transition: opacity var(--t-medio) var(--glide);
 }
 
 /* marca-texto tem ponta chata */
@@ -71,7 +71,7 @@
 }
 
 .trace circle[data-nib] {
-  transition: opacity 220ms ease;
+  transition: opacity var(--t-rapido) var(--glide);
 }
 
 /* entre um gesto e outro só a ponta viaja: o caminho dela não fica desenhado por cima do texto */

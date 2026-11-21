@@ -45,6 +45,11 @@
 
   --gutter: clamp(20px, 5vw, 88px);
   --glide: cubic-bezier(0.22, 1, 0.36, 1);
+  /* o vocabulário de movimento: três tempos e uma curva. Loop, só com som
+     tocando ou dado chegando; o resto do movimento é da caneta. */
+  --t-rapido: 160ms;
+  --t-medio: 320ms;
+  --t-lento: 600ms;
   --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --level: 0;
 
@@ -121,6 +126,6 @@ body::after {
 
 /* a capa que viaja entre telas: o tempo e a curva da mão, não o padrão do navegador */
 ::view-transition-group(*) {
-  animation-duration: 0.5s;
-  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-duration: var(--t-lento);
+  animation-timing-function: var(--glide);
 }

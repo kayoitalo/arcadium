@@ -50,7 +50,7 @@
 
 .cover {
   width: 100%;
-  transition: scale 320ms var(--glide);
+  transition: scale var(--t-medio) var(--glide);
 }
 
 .resume:hover .cover {
@@ -138,7 +138,7 @@
   text-decoration: underline;
   text-decoration-color: var(--fio-2);
   text-underline-offset: 5px;
-  transition: color 200ms, text-decoration-color 200ms;
+  transition: color var(--t-rapido), text-decoration-color var(--t-rapido);
 }
 
 .resume .more {

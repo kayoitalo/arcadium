@@ -14,7 +14,7 @@
 
 /* a pilha do Para depois: as capas guardadas empilhadas, cada uma um pouco torta */
 .pilha { position: relative; width: 96px; height: 96px; margin-right: 8px; flex: none; }
-.pilhaCapa { position: absolute; inset: 0; width: 96px; box-shadow: 0 6px 18px -8px rgb(0 0 0 / .8); transition: transform 360ms var(--glide); }
+.pilhaCapa { position: absolute; inset: 0; width: 96px; box-shadow: 0 6px 18px -8px rgb(0 0 0 / .8); transition: transform var(--t-medio) var(--glide); }
 .pilha > :nth-child(1) { transform: rotate(-9deg) translate(-6px, 4px); }
 .pilha > :nth-child(2) { transform: rotate(6deg) translate(5px, 2px); }
 .pilha > :nth-child(3) { transform: rotate(-4deg) translate(-2px, -2px); }

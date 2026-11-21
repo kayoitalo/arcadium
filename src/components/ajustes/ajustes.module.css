@@ -122,7 +122,7 @@
   color: var(--tinta);
   font: inherit;
   font-size: 17px;
-  transition: border-color 160ms;
+  transition: border-color var(--t-rapido);
 }
 
 .field input:focus {
@@ -160,8 +160,8 @@
   text-underline-offset: 6px;
   cursor: pointer;
   transition:
-    color 160ms,
-    text-decoration-color 160ms;
+    color var(--t-rapido),
+    text-decoration-color var(--t-rapido);
 }
 
 .choices button:hover {
@@ -239,7 +239,7 @@
   font: inherit;
   font-size: 16px;
   cursor: pointer;
-  transition: color 160ms;
+  transition: color var(--t-rapido);
 }
 
 .tabs button:hover {
@@ -252,7 +252,7 @@
 }
 
 .panel {
-  animation: panelIn 180ms ease-out both;
+  animation: panelIn var(--t-rapido) var(--glide) both;
 }
 
 .panel > .section {

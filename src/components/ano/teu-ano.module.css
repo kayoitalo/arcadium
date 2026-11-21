@@ -39,7 +39,7 @@
   height: 3px;
   border-radius: 2px;
   background: var(--fio-2);
-  transition: background 240ms ease;
+  transition: background var(--t-rapido) var(--glide);
 }
 
 .progress li[data-state="lido"] i {
@@ -61,7 +61,7 @@
      (camada 2) e abaixo do traço de cima (camada 4), senão a letra some atrás do amarelo */
   position: relative;
   z-index: 3;
-  animation: chapterIn 320ms var(--glide);
+  animation: chapterIn var(--t-medio) var(--glide);
 }
 
 .fala h1 {
@@ -142,7 +142,7 @@
   text-transform: uppercase;
   color: var(--marca);
   opacity: 0;
-  transition: opacity 420ms ease 200ms;
+  transition: opacity var(--t-medio) var(--glide) var(--t-rapido);
 }
 
 .tally > span[data-lit="true"] {
@@ -192,7 +192,7 @@
   gap: 5px;
   justify-items: center;
   opacity: 0.5;
-  transition: opacity 300ms ease, transform 360ms var(--glide);
+  transition: opacity var(--t-medio) var(--glide), transform var(--t-medio) var(--glide);
 }
 
 .fita li[data-lit] {
@@ -313,7 +313,7 @@
   aspect-ratio: 4 / 5;
   overflow: hidden;
   opacity: 0;
-  transition: opacity 360ms ease;
+  transition: opacity var(--t-medio) var(--glide);
 }
 
 .foto[data-loaded] {

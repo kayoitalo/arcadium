@@ -67,7 +67,7 @@
   white-space: nowrap;
   color: var(--marca);
   clip-path: inset(0 100% 0 0);
-  transition: clip-path 380ms var(--glide);
+  transition: clip-path var(--t-medio) var(--glide);
 }
 
 .col[data-lit="true"] .peakNote {
@@ -136,7 +136,7 @@
   color: inherit;
   font: inherit;
   cursor: pointer;
-  transition: translate 240ms var(--glide);
+  transition: translate var(--t-rapido) var(--glide);
 }
 
 .day button:hover {
@@ -196,7 +196,7 @@
   white-space: nowrap;
   color: var(--marca);
   clip-path: inset(0 100% 0 0);
-  transition: clip-path 380ms var(--glide);
+  transition: clip-path var(--t-medio) var(--glide);
 }
 
 .monthNote[data-lit="true"] {
@@ -219,7 +219,7 @@
   gap: 14px;
   padding: 12px 0;
   border-bottom: 1.5px solid var(--fio-2);
-  transition: border-color 160ms;
+  transition: border-color var(--t-rapido);
 }
 
 .search:focus-within {
@@ -266,7 +266,7 @@
 .log {
   position: relative;
   z-index: 1;
-  transition: opacity 200ms ease;
+  transition: opacity var(--t-rapido) var(--glide);
 }
 
 .log[aria-busy="true"] {
@@ -387,7 +387,7 @@
 
 .play:active {
   scale: 0.92;
-  transition-duration: 160ms, 160ms, 60ms;
+  transition-duration: var(--t-rapido), var(--t-rapido), 60ms;
 }
 
 .play svg {

@@ -9,14 +9,14 @@
 .entryIntro { padding: 0 0 36px; }
 .entryIntro h1 { white-space: pre-line; margin: 0; color: var(--tinta); font-size: clamp(48px, 6.7vw, 100px); font-variation-settings: "wdth" 68, "wght" 800; line-height: 1.01; letter-spacing: -.045em; }
 .entryChoices { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); border-top: 1px solid var(--fio-2); border-bottom: 1px solid var(--fio-2); }
-.entryChoice { display: grid; grid-template-columns: minmax(0,1fr) 26px; align-items: start; gap: 16px; min-height: 150px; padding: 26px 24px 26px 0; background: transparent; border: 0; text-align: left; color: var(--tinta); font: inherit; cursor: pointer; transition: background 180ms; }
+.entryChoice { display: grid; grid-template-columns: minmax(0,1fr) 26px; align-items: start; gap: 16px; min-height: 150px; padding: 26px 24px 26px 0; background: transparent; border: 0; text-align: left; color: var(--tinta); font: inherit; cursor: pointer; transition: background var(--t-rapido); }
 .entryChoice + .entryChoice { border-left: 1px solid var(--fio-2); padding-left: 24px; }
 .entryChoice:hover { background: rgb(242 239 231 / .025); }
 .entryChoice[aria-expanded="true"] { background: rgb(242 239 231 / .04); }
 .entryChoice:disabled { opacity: .5; cursor: wait; }
 .entryChoice strong { display: block; font-size: clamp(22px, 2.1vw, 31px); font-variation-settings: "wdth" 76, "wght" 680; line-height: 1.15; letter-spacing: -.02em; }
 .entryDescription { display: block; margin-top: 12px; max-width: 30ch; color: var(--tinta-3); font-size: 14px; line-height: 1.55; }
-.entryArrow { font-size: 26px; line-height: 1; color: var(--tinta-3); transition: transform 180ms, color 180ms; }
+.entryArrow { font-size: 26px; line-height: 1; color: var(--tinta-3); transition: transform var(--t-rapido), color var(--t-rapido); }
 .entryChoice:hover .entryArrow { color: var(--tinta); transform: translateX(3px); }
 .resumeStrip { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; padding: 16px 0; margin-bottom: 28px; border-block: 1px solid var(--fio); }
 .resumeStrip p { margin: 0; font-size: 15px; color: var(--tinta); }
@@ -37,7 +37,7 @@
 .rumoButton { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0; border: 0; background: none; color: var(--tinta); font: inherit; font-size: 14px;
   text-decoration: underline; text-decoration-color: var(--tinta-3); text-underline-offset: 6px; cursor: pointer; }
 .rumoPanel { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; display: grid; width: min(360px, calc(100vw - 2 * var(--gutter))); padding: 8px 0;
-  background: #121211; border: 1px solid var(--fio-2); box-shadow: 0 30px 60px -30px rgb(0 0 0 / .9); animation: quietIn 160ms ease-out both; }
+  background: #121211; border: 1px solid var(--fio-2); box-shadow: 0 30px 60px -30px rgb(0 0 0 / .9); animation: quietIn var(--t-rapido) var(--glide) both; }
 .rumoNote { margin: 6px 20px 10px; color: var(--tinta-3); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
 .rumoItem { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 46px; padding: 0 20px; border: 0; background: none;
   color: var(--tinta); font: inherit; font-size: 15px; text-align: left; text-decoration: none; cursor: pointer; }
@@ -64,7 +64,7 @@
 /* sem trecho: a escuta segue por fora, sem play desligado na frente */
 .listenElsewhere { grid-area: listen; display: flex; flex-wrap: wrap; align-items: center; gap: 0 20px; margin-top: 20px; }
 .listenElsewhere strong { font-size: 15px; font-weight: 500; color: var(--tinta); }
-.playButton { width: 56px; height: 56px; flex: 0 0 56px; display: grid; place-items: center; border: 1px solid var(--tinta-2); border-radius: 50%; background: transparent; color: var(--tinta); cursor: pointer; transition: background 160ms, border-color 160ms; }
+.playButton { width: 56px; height: 56px; flex: 0 0 56px; display: grid; place-items: center; border: 1px solid var(--tinta-2); border-radius: 50%; background: transparent; color: var(--tinta); cursor: pointer; transition: background var(--t-rapido), border-color var(--t-rapido); }
 .playButton:hover { background: var(--tinta); color: var(--papel); border-color: var(--tinta); }
 .playButton:disabled { opacity: .35; cursor: not-allowed; background: transparent; color: var(--tinta); }
 .playButton svg { width: 22px; height: 22px; fill: currentColor; }
@@ -86,7 +86,7 @@
   font: inherit; font-size: 14px; text-decoration: underline; text-decoration-color: var(--tinta-3); text-underline-offset: 6px; cursor: pointer; }
 /* a gaveta que abre do pé: outras respostas ou o que há sobre a faixa */
 .dockPanel { flex-basis: 100%; grid-column: 1 / -1; max-height: min(52vh, 440px); overflow-y: auto; margin: 0 0 8px; padding: 6px 22px 18px;
-  background: #121211; border: 1px solid var(--fio-2); box-shadow: 0 30px 60px -30px rgb(0 0 0 / .9); animation: quietIn 160ms ease-out both; }
+  background: #121211; border: 1px solid var(--fio-2); box-shadow: 0 30px 60px -30px rgb(0 0 0 / .9); animation: quietIn var(--t-rapido) var(--glide) both; }
 .drawerTabs { display: flex; flex-wrap: wrap; gap: 0 24px; border-bottom: 1px solid var(--fio); }
 .drawerTabs button { min-height: 46px; padding: 12px 0 10px; margin-bottom: -1px; border: 0; border-bottom: 1.5px solid transparent; background: none; color: var(--tinta-3);
   font: inherit; font-size: 14px; cursor: pointer; }
@@ -124,7 +124,7 @@
 .collection > summary::-webkit-details-marker, .adjustments > summary::-webkit-details-marker { display: none; }
 .collection > summary > span:first-child { display: inline-flex; align-items: center; gap: 14px; font-size: 15px; }
 .collection > summary > span:last-child, .adjustments > summary > span:last-child { font-size: 23px; color: var(--tinta-3); }
-.collection > summary > span:last-child, .adjustments > summary > span:last-child { transition: transform 180ms ease-out; }
+.collection > summary > span:last-child, .adjustments > summary > span:last-child { transition: transform var(--t-rapido) var(--glide); }
 .collection[data-expanded="true"] > summary > span:last-child, .adjustments[data-expanded="true"] > summary > span:last-child { transform: rotate(180deg); }
 .disclosureContent { padding: 0 0 34px; }
 .adjustments { margin-bottom: 60px; border-top-color: var(--fio); }
@@ -149,7 +149,7 @@
 .quiet { margin: 12px 0; }
 .remove { min-height: 38px; padding: 8px 0; background: none; border: 0; color: var(--tinta-2); font: inherit; font-size: 12px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
 /* Export keeps its established focus trap and task state. */
-.overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgb(11 11 10 / .94); animation: quietIn 160ms ease-out both; }
+.overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgb(11 11 10 / .94); animation: quietIn var(--t-rapido) var(--glide) both; }
 .dialog { box-sizing: border-box; width: min(520px, 100%); padding: clamp(24px, 4vw, 36px); border: 1px solid var(--fio-2); background: var(--papel); max-height: calc(100dvh - 32px); overflow-y: auto; }
 .dialog h2 { margin: 0; font-size: clamp(26px, 2.5vw, 36px); font-variation-settings: "wdth" 74, "wght" 750; line-height: 1.1; letter-spacing: -.02em; }
 .dialog p { margin: 16px 0 0; color: var(--tinta-2); font-size: 15px; line-height: 1.65; }

@@ -7,6 +7,7 @@ import { intentionLabel } from "./discovery-view";
 import { DiscoveryDisclosure } from "./discovery-disclosure";
 import styles from "./descobertas.module.css";
 import { Esperando } from "@/components/amigo/esperando";
+import { GLIDE, TEMPO } from "@/lib/motion";
 
 export interface JourneySession {
   sessionId: string; createdAt: string; currentRank: number | null; total: number;
@@ -31,7 +32,7 @@ export function DiscoveryJourneyList({ sessions, currentSessionId, currentRank, 
   const reduced = Boolean(useReducedMotion());
   return <>{groupJourneys(sessions).map(({ root, steps }, index) => <motion.section key={root} className={styles.journeyGroup}
     initial={animateEntrance && !reduced ? { opacity: 0 } : false} animate={{ opacity: 1 }}
-    transition={{ duration: reduced ? 0 : 0.12, delay: reduced ? 0 : Math.min(index, 3) * 0.025 }}>
+    transition={{ duration: reduced ? 0 : TEMPO.rapido, ease: GLIDE, delay: reduced ? 0 : Math.min(index, 3) * 0.025 }}>
     <h2>{steps.some((step) => step.sessionId === root) ? "Um caminho teu" : "Trecho recente de um caminho"}</h2>
     <ol>{steps.map((step) => {
       const active = currentSessionId === step.sessionId;
