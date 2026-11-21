@@ -6,6 +6,7 @@
  */
 
 import { cleanTitle } from "@/lib/music/track-title";
+import { genreLabel } from "@/lib/format/genre";
 
 export interface YearFacts {
   year: number;
@@ -25,6 +26,8 @@ export interface YearFacts {
   hours?: number[];
   /** Audições por mês, janeiro a dezembro: a régua do capítulo do mês. */
   monthPlays?: number[];
+  /** A corrida dos gêneros no ano: a posição de cada um, mês a mês. */
+  race?: { months: string[]; lanes: Array<{ genre: string; places: Array<number | null>; shares: number[] }> } | null;
 }
 
 export type ChapterProof =
@@ -32,7 +35,9 @@ export type ChapterProof =
   | { kind: "number"; value: number; label: string; artist?: string }
   | { kind: "cover"; title: string; artist: string; coverUrl: string | null; tally: number; tallyLabel: string }
   | { kind: "hour"; hour: number; plays: number; hours: number[] }
-  | { kind: "months"; month: number; value: number; plays: number[] };
+  | { kind: "months"; month: number; value: number; plays: number[] }
+  /** A classificação dos gêneros mês a mês; `genre` é o que mais subiu, de `from` a `to`. */
+  | { kind: "race"; genre: string; from: number; to: number; months: string[]; lanes: Array<{ genre: string; places: Array<number | null>; shares: number[] }> };
 
 export interface YearChapter {
   id: string;
@@ -49,6 +54,20 @@ export interface YearChapter {
 
 const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 const count = (value: number) => value.toLocaleString("pt-BR");
+const monthName = (key: string) => MONTHS[Number(key.slice(5, 7)) - 1] ?? key;
+
+/** Quem mais subiu do primeiro ao último mês em que correu; no empate, quem terminou na frente. */
+function biggestClimbOf(lanes: Array<{ genre: string; places: Array<number | null> }>): { genre: string; from: number; to: number } | null {
+  let best: { genre: string; from: number; to: number } | null = null;
+  for (const lane of lanes) {
+    const placed = lane.places.filter((place): place is number => place !== null);
+    if (placed.length < 2) continue;
+    const [from, to] = [placed[0], placed[placed.length - 1]];
+    if (to >= from) continue;
+    if (!best || from - to > best.from - best.to || (from - to === best.from - best.to && to < best.to)) best = { genre: lane.genre, from, to };
+  }
+  return best;
+}
 const hourWords = (hour: number) => (hour === 0 ? "meia-noite" : hour === 12 ? "meio-dia" : `${hour}h`);
 /** A hora com a preposição certa: "ao meio-dia", "à meia-noite", "à 1h", "às 19h". */
 export const atHour = (hour: number) => (hour === 12 ? "ao meio-dia" : hour === 0 ? "à meia-noite" : hour === 1 ? "à 1h" : `às ${hour}h`);
@@ -97,6 +116,18 @@ export function yearChapters(facts: YearFacts): YearChapter[] {
         ? { kind: "months", month: facts.fullestMonth.month, value: facts.fullestMonth.plays, plays: facts.monthPlays }
         : { kind: "number", value: facts.fullestMonth.plays, label: `audições em ${MONTHS[facts.fullestMonth.month - 1]}` },
       month: facts.fullestMonth.month,
+    });
+  }
+  // a corrida: o gênero que mais subiu na classificação do ano
+  const climb = facts.race && facts.race.months.length >= 3 ? biggestClimbOf(facts.race.lanes) : null;
+  if (climb && facts.race) {
+    const label = genreLabel(climb.genre);
+    chapters.push({
+      id: "corrida", title: "a corrida dos gêneros",
+      headline: `${label.charAt(0).toUpperCase()}${label.slice(1)} foi do ${climb.from}º ao ${climb.to}º lugar.`,
+      mark: `${label.charAt(0).toUpperCase()}${label.slice(1)}`,
+      narrative: `De ${monthName(facts.race.months[0])} pra cá, nenhum gênero subiu tanto na tua classificação: ${climb.from - climb.to} ${climb.from - climb.to === 1 ? "posição" : "posições"}.`,
+      proof: { kind: "race", genre: climb.genre, from: climb.from, to: climb.to, months: facts.race.months, lanes: facts.race.lanes },
     });
   }
   if (facts.topAlbum) {

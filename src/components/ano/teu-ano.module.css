@@ -347,3 +347,19 @@
 /* mês que passou sem tocar nada: um traço de silêncio no lugar da capa */
 .fitaSilencio { display: block; width: 100%; aspect-ratio: 1; background: linear-gradient(var(--fio-2), var(--fio-2)) no-repeat center / 60% 1px; }
 .fita li[data-quiet] { opacity: .6; }
+
+/* a corrida dos gêneros: o número das posições ganhas e a tabela do mês */
+.corrida { display: grid; gap: 16px; width: min(100%, 380px); margin: 0; }
+.corridaTopo { display: flex; align-items: baseline; gap: 14px; }
+.corridaNumero { font-size: clamp(64px, 7vw, 110px); line-height: .84; font-variation-settings: "wdth" 62, "wght" 800; letter-spacing: -.03em; padding: 4px 8px; }
+.corridaTopo span { font-size: 13px; color: var(--tinta-3); }
+.corridaMeses { display: flex; flex-wrap: wrap; gap: 4px; }
+.corridaMeses button { padding: 3px 8px; border: 1px solid var(--fio-2); border-radius: 999px; background: none; color: var(--tinta-3); font: inherit; font-size: 11px; cursor: pointer; transition: background var(--t-rapido) var(--glide), color var(--t-rapido) var(--glide); }
+.corridaMeses button[aria-pressed="true"] { background: var(--tinta); color: var(--papel); border-color: var(--tinta); }
+.corridaLista { list-style: none; margin: 0; padding: 0; display: grid; }
+.corridaLista li { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--fio); background: var(--papel); }
+.corridaPos { font-size: 20px; line-height: 1; font-variation-settings: "wdth" 62, "wght" 800; color: var(--tinta-3); font-variant-numeric: tabular-nums; }
+.corridaNome { font-size: 15px; color: var(--tinta-2); font-variation-settings: "wdth" 86, "wght" 600; }
+.corridaFatia { font-size: 12px; color: var(--tinta-3); font-variant-numeric: tabular-nums; }
+.corridaLista li[data-citado] .corridaPos, .corridaLista li[data-citado] .corridaNome { color: var(--tinta); }
+.corridaLista li[data-citado] { box-shadow: inset 3px 0 0 var(--tinta); padding-left: 8px; }

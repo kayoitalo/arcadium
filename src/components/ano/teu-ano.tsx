@@ -14,7 +14,7 @@ import { privateFetch } from "@/lib/http/private-fetch";
 import type { YearReview } from "@/modules/statistics/application/year-review";
 import type { YearChapter } from "@/modules/statistics/domain/year-chapters";
 import styles from "./teu-ano.module.css";
-import { FitaDoAno, FotoDoArtista, ReguaMeses, Relogio } from "./desenhos";
+import { ClassificacaoDoAno, FitaDoAno, FotoDoArtista, ReguaMeses, Relogio } from "./desenhos";
 import { cleanTitle } from "@/lib/music/track-title";
 
 const count = (value: number) => value.toLocaleString("pt-BR");
@@ -141,6 +141,7 @@ export function TeuAno() {
               <strong ref={proof as React.RefObject<HTMLElement>}>{String(evidence.hour).padStart(2, "0")}h</strong>
               <figcaption>a hora que mais toca</figcaption>
             </figure>)}
+          {evidence.kind === "race" && <ClassificacaoDoAno genre={evidence.genre} from={evidence.from} to={evidence.to} months={evidence.months} lanes={evidence.lanes} proofRef={proof} />}
           {evidence.kind === "months" && <ReguaMeses plays={evidence.plays} month={evidence.month} value={evidence.value} through={data.months?.length || 12} proofRef={proof} />}
           {evidence.kind === "cover" && <figure className={styles.record}>
             <Capa cover={{ url: evidence.coverUrl, title: evidence.title, artist: evidence.artist }} className={styles.cover} innerRef={proof as React.RefObject<HTMLDivElement>} glow eager />

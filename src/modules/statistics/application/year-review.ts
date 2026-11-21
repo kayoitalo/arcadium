@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { localDay, localDayBounds } from "@/modules/statistics/domain/month-calendar";
 import { yearChapters, type YearChapter, type YearFacts } from "@/modules/statistics/domain/year-chapters";
+import { loadGenreRace } from "@/modules/statistics/application/genre-race";
 
 /*
  * O ano de quem ouve, no fuso dele, medido no banco: totais, o nome que
@@ -73,6 +74,9 @@ export async function loadYearReview(userId: string, now = new Date()): Promise<
       ) per_month ORDER BY month, plays DESC, name ASC`,
   ], { isolationLevel: "RepeatableRead" });
 
+  // a corrida do ano: de janeiro até o mês corrente; se falhar, o capítulo só não aparece
+  const throughMonth = now < end ? Number(localDay(now, timezone).slice(5, 7)) : 12;
+  const race = await loadGenreRace(userId, until, [], throughMonth).catch(() => null);
   const n = (value: unknown) => Number(value ?? 0);
   // o nome do ano já tem o capítulo dele: "quem chegou" é o novato seguinte, se o do ano também for novo
   const arrived = newcomers.find((row) => row.name !== artists[0]?.name && n(row.plays) > 0);
@@ -86,6 +90,7 @@ export async function loadYearReview(userId: string, now = new Date()): Promise<
     topAlbum: albums[0] ? { name: albums[0].name, artist: albums[0].artist, plays: n(albums[0].plays), months: n(albums[0].months), coverUrl: albums[0].coverUrl } : null,
     hours: Array.from({ length: 24 }, (_, hour) => n(hours.find((row) => n(row.hour) === hour)?.plays)),
     monthPlays: Array.from({ length: 12 }, (_, index) => n(months.find((row) => n(row.month) === index + 1)?.plays)),
+    race: race && race.lanes.length >= 3 ? { months: race.months, lanes: race.lanes } : null,
   };
   const yearMonths: YearMonth[] = Array.from({ length: facts.throughMonth }, (_, index) => {
     const month = index + 1;

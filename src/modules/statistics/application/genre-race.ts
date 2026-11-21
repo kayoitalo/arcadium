@@ -7,11 +7,12 @@ import { buildRace, lastMonths, monthShares, type GenreRace } from "@/modules/st
 const RACE_MONTHS = 6;
 
 /** A pista dos gêneros nos últimos seis meses, no fuso de quem ouve. */
-export async function loadGenreRace(userId: string, now = new Date(), must: string[] = []): Promise<GenreRace> {
+export async function loadGenreRace(userId: string, now = new Date(), must: string[] = [], monthsOfYear?: number): Promise<GenreRace> {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { timezone: true } });
   let timezone = user?.timezone ?? "America/Sao_Paulo";
   try { new Intl.DateTimeFormat("pt-BR", { timeZone: timezone }); } catch { timezone = "America/Sao_Paulo"; }
-  const months = lastMonths(localDay(now, timezone).slice(0, 7), RACE_MONTHS);
+  // com monthsOfYear, a corrida é do ano: de janeiro até o mês corrente
+  const months = lastMonths(localDay(now, timezone).slice(0, 7), monthsOfYear ?? RACE_MONTHS);
   const start = localDayBounds(`${months[0]}-01`, timezone)!.start;
   const rows = await prisma.$queryRaw<Array<{ month: string; artist: string; plays: number }>>`
     SELECT to_char(("playedAt" AT TIME ZONE 'UTC') AT TIME ZONE ${timezone}, 'YYYY-MM') AS month,

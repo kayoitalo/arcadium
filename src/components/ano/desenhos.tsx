@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, type Ref } from "react";
+import { useEffect, useState, type Ref } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { genreLabel } from "@/lib/format/genre";
+import { GLIDE, TEMPO } from "@/lib/motion";
 import { Capa } from "@/components/amigo/fala";
 import { useArtistPhoto } from "@/components/conversa/use-artist-photo";
 import { coverProxyUrl } from "@/lib/cover";
@@ -104,5 +107,59 @@ export function FotoDoArtista({ name }: { name: string }) {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={`${coverProxyUrl(photo.imageUrl)}&kind=portrait`} alt={`${photo.artistName} — foto do Spotify`} onLoad={() => setLoaded(photo.imageUrl)} />
     </span>
+  );
+}
+
+const MES_CURTO = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+/**
+ * A corrida dos gêneros no ano, como tabela de campeonato: posição, gênero,
+ * fatia. Os meses passam sozinhos uma vez (ou na régua, por toque) e as
+ * linhas trocam de lugar deslizando. O gênero que mais subiu fica aceso; em
+ * cima, as posições que ele andou, que a caneta circula.
+ */
+export function ClassificacaoDoAno({ genre, from, to, months, lanes, proofRef }: {
+  genre: string; from: number; to: number; months: string[];
+  lanes: Array<{ genre: string; places: Array<number | null>; shares: number[] }>;
+  proofRef: Ref<HTMLElement>;
+}) {
+  const reduced = Boolean(useReducedMotion());
+  const last = months.length - 1;
+  const [mes, setMes] = useState(reduced ? last : 0);
+  const [tocou, setTocou] = useState(reduced);
+  useEffect(() => {
+    if (tocou) return;
+    if (mes >= last) { setTocou(true); return; }
+    const timer = window.setTimeout(() => setMes((current) => current + 1), 900);
+    return () => window.clearTimeout(timer);
+  }, [mes, last, tocou]);
+  const rows = lanes
+    .map((lane) => ({ genre: lane.genre, place: lane.places[mes], share: lane.shares[mes] }))
+    .filter((row): row is { genre: string; place: number; share: number } => row.place !== null)
+    .sort((a, b) => a.place - b.place);
+  const andou = from - to;
+  return (
+    <figure className={styles.corrida}>
+      <div className={styles.corridaTopo}>
+        <strong ref={proofRef as Ref<HTMLElement>} className={styles.corridaNumero}>+{andou}</strong>
+        <span>{andou === 1 ? "posição" : "posições"} na tua classificação</span>
+      </div>
+      <div className={styles.corridaMeses} role="group" aria-label="Mês da classificação">
+        {months.map((key, index) => (
+          <button key={key} type="button" aria-pressed={index === mes} onClick={() => { setTocou(true); setMes(index); }}>
+            {MES_CURTO[Number(key.slice(5, 7)) - 1]}
+          </button>
+        ))}
+      </div>
+      <ol className={styles.corridaLista}>
+        {rows.map((row) => (
+          <motion.li key={row.genre} layout={!reduced} transition={{ duration: TEMPO.medio, ease: GLIDE }} data-citado={row.genre === genre || undefined}>
+            <span className={styles.corridaPos}>{String(row.place).padStart(2, "0")}</span>
+            <span className={styles.corridaNome}>{genreLabel(row.genre)}</span>
+            <span className={styles.corridaFatia}>{row.share.toString().replace(".", ",")}%</span>
+          </motion.li>
+        ))}
+      </ol>
+    </figure>
   );
 }
