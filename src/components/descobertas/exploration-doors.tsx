@@ -5,6 +5,7 @@ import { privateFetch } from "@/lib/http/private-fetch";
 import { TERRITORY_VERSION, type TerritoryRequest, type RepertoireRestriction } from "@/modules/recommendations/domain/territories";
 import { CARTOLA_JOURNEY_HREF } from "@/modules/recommendations/domain/curated-albums";
 import styles from "./exploration-doors.module.css";
+import { Esperando } from "@/components/amigo/esperando";
 
 type Doors = { limited: boolean; doors: Array<{ genre: string; artists: number; examples: string[] }> };
 
@@ -25,7 +26,7 @@ export function TerritoryDoors({ busy, onTerritory }: { busy: boolean; onTerrito
   return <section id="territory-doors" className={styles.panel} aria-label="Escolher outro universo">
     <h2>Escolhe o destino. Eu fico por lá.</h2>
     <p>Artistas desse estilo que ainda não passaram pelo teu fone.</p>
-    {!data && !error && <p role="status">Abrindo as portas…</p>}
+    {!data && !error && <Esperando>Abrindo as portas…</Esperando>}
     {error && <p role="alert">Não consegui abrir as portas agora. <button onClick={() => setAttempt((n) => n + 1)}>tenta de novo</button></p>}
     {data && <>
       {data.doors.length === 0 && <p>Ainda não conheço estilos suficientes no teu catálogo para abrir uma porta. Os outros caminhos continuam aqui.</p>}

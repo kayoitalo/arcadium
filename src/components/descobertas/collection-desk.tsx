@@ -11,6 +11,7 @@ import { useSelection } from "./selection-provider";
 import styles from "./descobertas.module.css";
 import paper from "./collection-desk.module.css";
 import { cleanTitle } from "@/lib/music/track-title";
+import { Esperando } from "@/components/amigo/esperando";
 interface ExportResult {
   playlistTitle?: string;
   playlistUrl?: string;
@@ -112,7 +113,7 @@ export function CollectionDesk() {
     <div className={paper.counter}><strong>{kept.length.toString().padStart(2,"0")}</strong><span>{kept.length === 1 ? "faixa separada" : "faixas separadas"}</span>
       {kept.length > 0 && <Respostas inline label="Levar"><Resposta primary onClick={() => void exportKept()}>levar {kept.length} pro Spotify</Resposta></Respostas>}</div>
     {selection.error && <p role="alert">{selection.error} <button className={styles.textButton} onClick={() => void selection.refresh()}>atualizar coleção</button></p>}
-          {!selection.ready && !selection.error && <p role="status">Abrindo tua coleção…</p>}
+          {!selection.ready && !selection.error && <Esperando>Abrindo tua coleção…</Esperando>}
           {selection.localItems.length > 0 && <p className={styles.mapNote}>Há {selection.localItems.length} faixas na lista antiga deste navegador. <button className={styles.textButton} disabled={selection.syncing || !selection.ready} onClick={() => void selection.importLocal()}>trazer para a conta</button></p>}
           {exported && exportHidden && <p className={styles.quiet} role="status">
             {exported === "running" ? "Levando tua lista pro Spotify… " : "A última exportação terminou. "}

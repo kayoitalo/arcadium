@@ -296,7 +296,7 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
     );
   }
 
-  if (!data) return <Aviso waiting headline="Peraí, tô puxando teu histórico." />;
+  if (!data) return <Aviso waiting planta="historico" headline="Peraí, tô puxando teu histórico." />;
 
   if (data.totalItems === 0 && !loadedQuery && !query && !loadedDay && !day) {
     return (

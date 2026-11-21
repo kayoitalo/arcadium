@@ -33,6 +33,7 @@ import { DiscoveryDisclosure } from "./discovery-disclosure";
 import { DiscoveryTransition, useDiscoveryScene } from "./discovery-transition";
 import type { DiscoveryContext, DiscoveryIntent } from "@/modules/recommendations/domain/discovery-intent";
 import { ASPECTS, feedbackChannel, type FeedbackEntry, type FeedbackChannel } from "@/modules/recommendations/domain/feedback";
+import { Esperando } from "@/components/amigo/esperando";
 
 interface Candidate {
   id: string;
@@ -456,7 +457,7 @@ export function Descobertas({ initialSessionId = null }: {
         onResume={() => void load(proximity, fame, "RESUME")}
         territoryOpen={territoryOpen} onTerritory={() => setTerritoryOpen((open) => !open)}
         territory={<TerritoryDoors busy={busy || saving} onTerritory={(territory) => void load(55, 50, "NEW_ENTRY", { intent: "TERRITORY", territory })} />} />
-      {busy && <p className={styles.quiet} role="status">Procurando tua última busca…</p>}
+      {busy && <Esperando className={styles.quiet}>Procurando tua última busca…</Esperando>}
       {loadError && <p className={styles.entryError} role="alert">{loadError} <button className={styles.textButton} onClick={() => void load(55, 50, "BOOTSTRAP")}>tentar novamente</button></p>}
     </>;
   } else if (!queue && failed) {
@@ -467,7 +468,7 @@ export function Descobertas({ initialSessionId = null }: {
       </Aviso>
     );
   } else if (!queue || busy) {
-    top = <Aviso waiting window="seguindo as tuas pistas" headline="Peraí. Tua próxima descoberta está a caminho." narrative="Tô cruzando tuas referências. Já volto com a primeira." />;
+    top = <Aviso waiting planta="descobrir" window="seguindo as tuas pistas" headline="Peraí. Tua próxima descoberta está a caminho." narrative="Tô cruzando tuas referências. Já volto com a primeira." />;
   } else if (failed) {
     top = (
       <Aviso headline="Me perdi procurando." narrative={loadError ?? "Não consegui buscar nesse canto."}>

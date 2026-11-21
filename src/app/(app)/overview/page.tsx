@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Aviso } from "@/components/amigo/aviso";
 import { Resposta } from "@/components/amigo/fala";
 import { Conversa } from "@/components/conversa/conversa";
+import { useFita } from "@/components/amigo/use-fita";
 import { DiscoveryRecall, useDiscoveryRecall } from "@/components/descobertas/discovery-recall";
 import type { ConversationView } from "@/modules/conversation/domain/conversation.types";
 
@@ -24,6 +25,8 @@ function ConversationBody() {
   const [attempt, setAttempt] = useState(0);
   // a retomada e as respostas do fim leem o mesmo estado da descoberta
   const recall = useDiscoveryRecall();
+  // enquanto a conversa chega, ele folheia o que tocou por último
+  const { fita, later } = useFita(state.status === "loading" || (state.status === "ready" && state.view.writing));
 
   useEffect(() => {
     const controller = new AbortController();
@@ -47,7 +50,7 @@ function ConversationBody() {
   }, [attempt]);
 
   if (state.status === "loading") {
-    return <Aviso waiting headline="Peraí, tô ouvindo aqui." />;
+    return <Aviso waiting planta="conversa" fita={fita} later={later ?? undefined} headline="Peraí, tô ouvindo aqui." />;
   }
 
   if (state.status === "error") {

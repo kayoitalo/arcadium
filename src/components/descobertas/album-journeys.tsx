@@ -16,6 +16,7 @@ import { CARTOLA_JOURNEY_HREF, findCuratedAlbum, type CurationCredit } from "@/m
 import { DiscoveryDisclosure } from "./discovery-disclosure";
 import styles from "./album-journeys.module.css";
 import { cleanTitle } from "@/lib/music/track-title";
+import { Esperando } from "@/components/amigo/esperando";
 
 type AlbumReference = { source: AlbumSource; artistName: string; albumName: string; coverUrl?: string | null; plays?: number };
 
@@ -164,7 +165,7 @@ export function AlbumJourneys({ initialItem = null, initialCuration = null, onBe
       <label>procurar um disco ou artista que você já ouviu<input maxLength={120} value={draft} disabled={busy} onChange={(event) => setDraft(event.target.value)} /></label><button disabled={busy || loading}>procurar</button>
       <Link className={styles.curated} href={CARTOLA_JOURNEY_HREF}>ou o samba de Cartola, em ordem →</Link>
     </form>}
-    {loading && <p role="status">Abrindo a estante…</p>}
+    {loading && <Esperando>Abrindo a estante…</Esperando>}
     {libraryError && <p role="alert">Não consegui abrir tua estante agora. <button onClick={() => setAttempt((n) => n + 1)}>tenta de novo</button></p>}
     {library && <>{!curation && <p className={styles.note}>{initialItem ? "O disco dessa indicação." : query ? `O que achei pra “${query}”.` : library.albums.length >= SHELF_FROM ? "Os discos que você mais ouviu. Os mais grossos são os que mais tocaram: puxa um." : "Os discos que você mais ouviu."}</p>}
       {!library.albums.length && <p>Não achei esse disco no que você ouviu. Tenta outro nome.</p>}

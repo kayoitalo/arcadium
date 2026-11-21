@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { privateFetch } from "@/lib/http/private-fetch";
 import { culturalContextSchema, type ContextKind, type CulturalContext } from "@/modules/recommendations/domain/cultural-context";
 import styles from "./album-journeys.module.css";
+import { Esperando } from "@/components/amigo/esperando";
 
 export function ContextExcerpt({ value }: { value: CulturalContext }) {
   return <div className={styles.context}>
@@ -29,7 +30,7 @@ export function TrackContext({ itemId, albumName }: { itemId: string; albumName:
   }, [itemId, kind, attempt]);
   return <div className={styles.contextDisclosure}>
     {albumName && <nav aria-label="Assunto do contexto">{(["album", "track"] as const).map((option) => <button key={option} aria-pressed={kind === option} onClick={() => setKind(option)}>{option === "album" ? "sobre o álbum" : "sobre a música"}</button>)}</nav>}
-    {!value && !error && <p role="status">Procurando a história…</p>}
+    {!value && !error && <Esperando>Procurando a história…</Esperando>}
     {error && <p role="alert">{error} <button onClick={() => setAttempt((n) => n + 1)}>tenta de novo</button></p>}
     {value?.kind === kind && <ContextExcerpt value={value} />}
   </div>;

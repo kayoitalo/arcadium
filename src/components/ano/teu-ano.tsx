@@ -107,7 +107,7 @@ export function TeuAno() {
       <Resposta onClick={() => setAttempt((value) => value + 1)}>tenta de novo</Resposta>
     </Aviso>;
   }
-  if (!data) return <Aviso waiting headline="Peraí, tô juntando teu ano." />;
+  if (!data) return <Aviso waiting planta="ano" headline="Peraí, tô juntando teu ano." />;
   if (!chapter) {
     return <Aviso headline="Ainda não tem ano pra contar." narrative="Quando tiver música tua por aqui, eu volto com os capítulos.">
       <Resposta href="/overview">voltar pra conversa</Resposta>
