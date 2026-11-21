@@ -15,6 +15,8 @@ export function NavPen({ nav, current, reduced }: { nav: RefObject<HTMLElement |
   const trail = useRef<SVGPathElement>(null);
   const nib = useRef<SVGCircleElement>(null);
   const last = useRef<Point | null>(null);
+  /** Enquanto a caneta anda, a medida de tamanho não redesenha por cima dela. */
+  const moving = useRef(false);
 
   const lineFor = (): Point[] | null => {
     const host = nav.current;
@@ -78,10 +80,12 @@ export function NavPen({ nav, current, reduced }: { nav: RefObject<HTMLElement |
       dot.setAttribute("cy", String(at.y));
       dot.style.opacity = back < 1 && go === 0 ? "0" : write >= 1 ? "0" : "1";
       if (write < 1) frame = requestAnimationFrame(tick);
+      else moving.current = false;
     };
     path.style.strokeDasharray = `0 ${inkLength + 4}`;
+    moving.current = true;
     frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
+    return () => { cancelAnimationFrame(frame); moving.current = false; };
     // a palavra atual é a dependência de verdade; a medida é lida na hora
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, reduced]);
@@ -90,7 +94,11 @@ export function NavPen({ nav, current, reduced }: { nav: RefObject<HTMLElement |
   useEffect(() => {
     const host = nav.current;
     if (!host) return;
+    // o observador avisa uma vez assim que liga: essa primeira medida é a mesma que a caneta acabou de usar
+    let first = true;
     const observer = new ResizeObserver(() => {
+      if (first) { first = false; return; }
+      if (moving.current) return;
       const line = lineFor();
       if (!line || !ink.current) return;
       ink.current.setAttribute("d", toPath(line));
