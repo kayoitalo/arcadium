@@ -132,3 +132,6 @@
 
 .versionHeading h2 {position:relative;z-index:3;}
 .versionHeading h2[data-marked="true"] {color:var(--sobre-marca);}
+
+/* a estante pede a largura toda: em tela média, o disco puxado abre embaixo dela, sem apertar as lombadas */
+@media (max-width: 1180px) { .shelfLayout { grid-template-columns: minmax(0, 1fr); row-gap: 28px; } .pulled { max-width: 640px; } }

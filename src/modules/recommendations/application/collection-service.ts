@@ -40,7 +40,10 @@ export async function collectFeedback(tx: Tx, userId: string, item: { id: string
 export class CollectionService {
   async list(userId: string) {
     const rows = await prisma.collectionEntry.findMany({ where: { userId }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: MAX_SELECTED_TRACKS });
-    return rows.map((row) => ({ id: row.sourceItemId, artistName: row.artistName, trackName: row.trackName, action: row.action as "liked" | "saved" }));
+    // a capa vem da indicação que deu origem à faixa guardada, quando ela ainda existe
+    const covers = new Map((await prisma.recommendationItem.findMany({ where: { id: { in: rows.map((row) => row.sourceItemId) }, session: { userId } }, select: { id: true, coverUrl: true } }))
+      .map((item) => [item.id, item.coverUrl]));
+    return rows.map((row) => ({ id: row.sourceItemId, artistName: row.artistName, trackName: row.trackName, action: row.action as "liked" | "saved", coverUrl: covers.get(row.sourceItemId) ?? null }));
   }
   async remove(userId: string, item: Pick<SelectedTrack, "artistName" | "trackName">) {
     await prisma.$transaction(async (tx) => {

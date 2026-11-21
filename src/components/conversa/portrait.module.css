@@ -85,3 +85,19 @@
   .follow { order:7; }
 }
 @media(prefers-reduced-motion:reduce) { .artistMark,.photoSpace > img { transition:none; } }
+
+/* a trilha do nome, embaixo do cartaz */
+.trilha { display:grid; gap:16px; margin-top:clamp(28px,5vh,56px); padding-top:20px; border-top:1px solid var(--fio); }
+.trilhaTitulo { margin:0; font-size:12px; color:var(--tinta-3); }
+.trilhaCurva { width:100%; height:auto; overflow:visible; }
+.trilhaCurva text { font-family:inherit; }
+.trilhaPico { fill:none; stroke:var(--marca); stroke-width:2; stroke-linecap:round; stroke-dasharray:1; stroke-dashoffset:1; animation:trilhaPico 700ms cubic-bezier(.22,1,.36,1) 300ms forwards; }
+@keyframes trilhaPico { to { stroke-dashoffset:0; } }
+.trilhaNota { fill:var(--marca); font-size:12px; font-variation-settings:"wdth" 82,"wght" 800; letter-spacing:.05em; text-transform:uppercase; }
+.trilhaFaixas { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr)); gap:14px 24px; margin:0; padding:0; list-style:none; }
+.trilhaFaixas li { display:grid; grid-template-columns:48px minmax(0,1fr); gap:12px; align-items:center; }
+.trilhaFaixas li > span { display:grid; min-width:0; }
+.trilhaFaixas b { font-weight:inherit; font-size:15px; font-variation-settings:"wdth" 85,"wght" 720; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.trilhaFaixas span span, .trilhaFaixas small { font-size:12px; color:var(--tinta-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.trilhaCapa { width:48px; }
+@media(prefers-reduced-motion:reduce) { .trilhaPico { animation:none; stroke-dashoffset:0; } }

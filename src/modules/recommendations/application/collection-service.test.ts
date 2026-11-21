@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ transaction: vi.fn(), lock: vi.fn(), entry: vi.fn(), count: vi.fn(), upsert: vi.fn(), remove: vi.fn(), list: vi.fn(), owned: vi.fn(), batch: vi.fn() }));
-vi.mock("@/lib/db/prisma", () => ({ prisma: { $transaction: mocks.transaction, collectionEntry: { findMany: mocks.list } } }));
+const mocks = vi.hoisted(() => ({ transaction: vi.fn(), lock: vi.fn(), entry: vi.fn(), count: vi.fn(), upsert: vi.fn(), remove: vi.fn(), list: vi.fn(), owned: vi.fn(), batch: vi.fn(), covers: vi.fn() }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { $transaction: mocks.transaction, collectionEntry: { findMany: mocks.list }, recommendationItem: { findMany: mocks.covers } } }));
 import { CollectionService, collectionKey, collectFeedback } from "./collection-service";
 const track = { id: "item", artistName: "Band", trackName: "Song (Live)", action: "saved" as const };
 const tx = () => ({ $queryRaw: mocks.lock, collectionEntry: { findUnique: mocks.entry, count: mocks.count, upsert: mocks.upsert, deleteMany: mocks.remove, findMany: mocks.list, createMany: mocks.batch }, recommendationItem: { findMany: mocks.owned } });
@@ -28,7 +28,11 @@ describe("account collection", () => {
     expect(result).toEqual({ imported: ["item"], importedItems: [track], skipped: ["other"] }); expect(mocks.batch).not.toHaveBeenCalled();
   });
   it("scopes read/removal to the account without touching musical feedback", async () => {
-    await new CollectionService().list("owner"); await new CollectionService().remove("owner", track);
+    mocks.list.mockResolvedValueOnce([{ sourceItemId: "item", artistName: "A", trackName: "B", action: "saved" }]);
+    mocks.covers.mockResolvedValueOnce([{ id: "item", coverUrl: "https://capa" }]);
+    expect(await new CollectionService().list("owner")).toEqual([{ id: "item", artistName: "A", trackName: "B", action: "saved", coverUrl: "https://capa" }]);
+    expect(mocks.covers).toHaveBeenCalledWith(expect.objectContaining({ where: { id: { in: ["item"] }, session: { userId: "owner" } } }));
+    await new CollectionService().remove("owner", track);
     expect(mocks.list).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "owner" }, take: 200 }));
     expect(mocks.remove).toHaveBeenCalledWith({ where: { userId: "owner", key: collectionKey(track) } });
   });

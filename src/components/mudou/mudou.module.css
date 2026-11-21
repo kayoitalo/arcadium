@@ -283,3 +283,67 @@
     stroke-width: 3.5;
   }
 }
+
+/* quem puxou a mudança: os discos atrás da porcentagem, embaixo da pista */
+.puxou {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 24px 40px;
+  margin-top: clamp(28px, 5vh, 48px);
+  padding-top: 20px;
+  border-top: 1px solid var(--fio);
+}
+
+.puxouTitulo {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--tinta-3);
+}
+
+.puxouLado ol {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.puxouLado li {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.puxouCapa {
+  width: 48px;
+}
+
+.puxouNome {
+  display: grid;
+  min-width: 0;
+}
+
+.puxouNome b {
+  font-weight: inherit;
+  font-size: 15px;
+  font-variation-settings: "wdth" 85, "wght" 720;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.puxouNome span {
+  font-size: 12px;
+  color: var(--tinta-3);
+}
+
+.puxouLado strong {
+  font-size: 24px;
+  font-variation-settings: "wdth" 62, "wght" 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.puxouLado strong[data-down] {
+  color: var(--tinta-3);
+}

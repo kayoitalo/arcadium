@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { privateFetch } from "@/lib/http/private-fetch";
 import { useReducedMotion } from "framer-motion";
-import { Fala, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
+import { Capa, Fala, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
 import { band } from "@/components/amigo/gestures";
 import { textLines } from "@/components/amigo/measure";
 import { usePen } from "@/components/amigo/use-pen";
@@ -110,7 +110,15 @@ export function CollectionDesk() {
     <header className={paper.header}><div><Fala level={1} headline="Isso aqui ficou pra depois." mark={["pra depois"]} markRef={markRef} marked={pen.started.has("depois")}
       narrative="O que você curtiu ou quis guardar. Tirar daqui não apaga o que você me contou." /></div></header>
     {/* o número e o que dá pra fazer com ele na mesma linha: levar pro Spotify é a ação da tela */}
-    <div className={paper.counter}><strong>{kept.length.toString().padStart(2,"0")}</strong><span>{kept.length === 1 ? "faixa separada" : "faixas separadas"}</span>
+    <div className={paper.counter}>
+      {/* a pilha do lado da vitrola: as últimas capas guardadas, uma sobre a outra */}
+      {kept.length > 0 && <div className={paper.pilha} aria-hidden="true">
+        {kept.slice(-5).map((item) => (
+          <Capa key={item.id} cover={{ url: item.coverUrl ?? null, title: item.trackName, artist: item.artistName }} label={false}
+            className={paper.pilhaCapa} />
+        ))}
+      </div>}
+      <strong>{kept.length.toString().padStart(2,"0")}</strong><span>{kept.length === 1 ? "faixa separada" : "faixas separadas"}</span>
       {kept.length > 0 && <Respostas inline label="Levar"><Resposta primary onClick={() => void exportKept()}>levar {kept.length} pro Spotify</Resposta></Respostas>}</div>
     {selection.error && <p role="alert">{selection.error} <button className={styles.textButton} onClick={() => void selection.refresh()}>atualizar coleção</button></p>}
           {!selection.ready && !selection.error && <Esperando>Abrindo tua coleção…</Esperando>}

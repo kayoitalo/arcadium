@@ -663,3 +663,25 @@
     text-align: right;
   }
 }
+
+/* a foto do artista no lugar de uma capa que não existe */
+.fotoArtista {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+}
+
+.fotoArtista > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 22%;
+  opacity: 0;
+  transition: opacity 360ms ease;
+}
+
+.fotoArtista > img[data-loaded] {
+  opacity: 1;
+}

@@ -31,7 +31,8 @@ const SHELF_FROM = 4;
  */
 export function spineShape(album: { albumName: string; artistName: string; plays?: number }, max: number): { width: number; height: number } {
   const share = max > 0 ? Math.min(1, Math.max(0, (album.plays ?? 0) / max)) : 0;
-  return { width: Math.round(28 + share * 26), height: Number((0.78 + seeded(`${album.artistName}|${cleanTitle(album.albumName)}`)() * 0.22).toFixed(3)) };
+  // de 22 a 64 px: a diferença entre o mais ouvido e o resto tem que se ver de longe
+  return { width: Math.round(22 + Math.pow(share, 0.7) * 42), height: Number((0.78 + seeded(`${album.artistName}|${cleanTitle(album.albumName)}`)() * 0.22).toFixed(3)) };
 }
 
 /**

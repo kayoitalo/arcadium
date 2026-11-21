@@ -11,3 +11,15 @@
 .desk ol > li { counter-increment: collection-track; position: relative; padding: 24px 0 24px 42px; min-width: 0; border-top: 1px solid var(--fio-2); }
 .desk ol > li::before { content: counter(collection-track,decimal-leading-zero); position: absolute; top: 26px; left: 0; color: var(--tinta-3); font-size: 12px; }
 @media(max-width:700px) { .desk ol { grid-template-columns: 1fr; } }
+
+/* a pilha do Para depois: as capas guardadas empilhadas, cada uma um pouco torta */
+.pilha { position: relative; width: 96px; height: 96px; margin-right: 8px; flex: none; }
+.pilhaCapa { position: absolute; inset: 0; width: 96px; box-shadow: 0 6px 18px -8px rgb(0 0 0 / .8); transition: transform 360ms var(--glide); }
+.pilha > :nth-child(1) { transform: rotate(-9deg) translate(-6px, 4px); }
+.pilha > :nth-child(2) { transform: rotate(6deg) translate(5px, 2px); }
+.pilha > :nth-child(3) { transform: rotate(-4deg) translate(-2px, -2px); }
+.pilha > :nth-child(4) { transform: rotate(3deg) translate(2px, -3px); }
+.pilha > :nth-child(5) { transform: rotate(-1deg); }
+.counter:hover .pilha > :nth-child(1) { transform: rotate(-16deg) translate(-18px, 6px); }
+.counter:hover .pilha > :nth-child(2) { transform: rotate(12deg) translate(16px, 2px); }
+@media (prefers-reduced-motion: reduce) { .pilhaCapa { transition: none; } }

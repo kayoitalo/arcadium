@@ -5,6 +5,8 @@ import { useCallback, useRef, type ReactNode } from "react";
 import { DiscoveryDisclosure } from "@/components/descobertas/discovery-disclosure";
 import { biggestClimb, type GenreRace } from "@/modules/statistics/domain/genre-race";
 import { laneStrokes, Pista, RACE_VIEW } from "./pista";
+import { QuemPuxou } from "./quem-puxou";
+import type { GenreMovers } from "@/modules/statistics/application/genre-movers";
 import { Fala, PenLayer } from "@/components/amigo/fala";
 import { band } from "@/components/amigo/gestures";
 import { boxOf, textLines } from "@/components/amigo/measure";
@@ -69,10 +71,13 @@ export function Mudou({
   cited,
   window: when,
   race = null,
+  movers = null,
 }: {
   shift: { rising: TasteShiftItem[]; declining: TasteShiftItem[] };
   /** A pista dos últimos seis meses; sem ela (ou com poucos gêneros), a prova é só a lista. */
   race?: GenreRace | null;
+  /** Os discos que puxaram a mudança: chegam depois, e a tela não espera por eles. */
+  movers?: GenreMovers | null;
   headline: string;
   /** Os gêneros que a fala cita, na ordem em que ele fala deles. */
   cited: string[];
@@ -201,6 +206,7 @@ export function Mudou({
             {group("ganhou espaço", shift.rising)}
             {group("perdeu espaço", shift.declining)}
           </>}
+          {movers && <QuemPuxou movers={movers} />}
         </div>
       </div>
       <PenLayer pen={pen} signal={silence} reduced={reduced} />

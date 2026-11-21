@@ -34,6 +34,9 @@ import { DiscoveryTransition, useDiscoveryScene } from "./discovery-transition";
 import type { DiscoveryContext, DiscoveryIntent } from "@/modules/recommendations/domain/discovery-intent";
 import { ASPECTS, feedbackChannel, type FeedbackEntry, type FeedbackChannel } from "@/modules/recommendations/domain/feedback";
 import { Esperando } from "@/components/amigo/esperando";
+import { useDiscoveryRecall } from "./discovery-recall";
+import { useFita } from "@/components/amigo/use-fita";
+import { cleanTitle } from "@/lib/music/track-title";
 
 interface Candidate {
   id: string;
@@ -126,6 +129,9 @@ export function Descobertas({ initialSessionId = null }: {
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const savingRef = useRef(false);
   const selection = useSelection();
+  // a entrada mostra de onde parte: a capa onde a última busca parou e as capas do que você ouviu por último
+  const recall = useDiscoveryRecall();
+  const recentes = useFita();
   const kept = selection.items;
   /** Quantas faixas você guardou nesta visita: cada uma ganha o visto dele, uma vez. */
   const [savedHere, setSavedHere] = useState(0);
@@ -453,6 +459,8 @@ export function Descobertas({ initialSessionId = null }: {
   if (choosing) {
     top = <>
       <DiscoveryEntry busy={busy || saving} hasSession={Boolean(sessionId)} currentRank={index + 1} total={queue?.length ?? 0}
+        resumeCover={recall.latest?.current ? { url: recall.latest.current.coverUrl ?? null, title: recall.latest.current.albumName ?? recall.latest.current.trackName, artist: recall.latest.current.artistName, track: cleanTitle(recall.latest.current.trackName) } : null}
+        ownCovers={recentes.fita.map((folha) => folha.coverUrl)}
         onChoose={(nextProximity, nextFame, nextIntent) => void load(nextProximity, nextFame, "NEW_ENTRY", { intent: nextIntent })}
         onResume={() => void load(proximity, fame, "RESUME")}
         territoryOpen={territoryOpen} onTerritory={() => setTerritoryOpen((open) => !open)}

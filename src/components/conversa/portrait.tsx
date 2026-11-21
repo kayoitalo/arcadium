@@ -11,6 +11,7 @@ import { usePen } from "@/components/amigo/use-pen";
 import { band, circle, frame } from "@/components/amigo/gestures";
 import { textLines, boxOf } from "@/components/amigo/measure";
 import { useArtistPhoto } from "./use-artist-photo";
+import { TrilhaDoArtista } from "./trilha";
 import { Janela } from "@/components/amigo/janela";
 import { coverProxyUrl } from "@/lib/cover";
 import { Risquinhos } from "@/components/amigo/risquinhos";
@@ -108,6 +109,8 @@ export function Portrait() {
               : reservePhoto ? <span role="status">Conferindo uma foto deste artista…</span> : image.error||failedPhoto===imageKey ? <>A foto não veio agora. <button onClick={()=>{setFailedPhoto(null);image.retry();}}>tentar a foto novamente</button></> : missingText}</figcaption></figure>
           </article> : <p>Nenhum artista neste recorte.</p>}
         </section>
+        {/* desde o começo, o cartaz ganha a trilha do nome: a curva mês a mês e as faixas que mais tocaram */}
+        {selected && view === "all" && <TrilhaDoArtista key={selected.name} name={selected.name} />}
       </>}
       {topics.length > 0 && <DiscoveryDisclosure className={styles.topics} summary={`assuntos que você silenciou na conversa (${topics.length})`}>
         <ul>{topics.map((topic) => <li key={topic.key}><p>{topic.headline}</p><button disabled={restoring} onClick={() => void restore(topic.key)}>voltar a esse assunto</button></li>)}</ul>

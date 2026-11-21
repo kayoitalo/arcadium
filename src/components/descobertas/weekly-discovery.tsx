@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useReducedMotion } from "framer-motion";
 import { privateFetch } from "@/lib/http/private-fetch";
 import { Capa, Fala, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
+import { FotoArtista } from "@/components/amigo/foto-artista";
 import { band } from "@/components/amigo/gestures";
 import { textLines } from "@/components/amigo/measure";
 import { usePen } from "@/components/amigo/use-pen";
@@ -146,7 +147,10 @@ export function WeeklyDiscovery({ journeyId, allowNarrative, onStart = (id) => w
       <ol className={styles.doors}>{week.entries.map((entry) => {
         const name = entry.album?.albumName ?? entry.artistName;
         return <li key={entry.id}><WeeklyDoor entry={entry}>
-          <Capa cover={{ url: entry.album?.artworkUrl, title: name, artist: entry.artistName }} className={styles.doorCover} />
+          {/* sem a arte do disco, a porta mostra a foto do artista; sem foto, o selo */}
+          {entry.album?.artworkUrl
+            ? <Capa cover={{ url: entry.album.artworkUrl, title: name, artist: entry.artistName }} className={styles.doorCover} />
+            : <FotoArtista name={entry.artistName} className={styles.doorCover} fallback={<Capa cover={{ url: null, title: name, artist: entry.artistName }} />} />}
           <div className={styles.doorText}>
             <p className={styles.eyebrow}>{WEEKLY_TITLES[entry.role]} · {entry.kind === "ALBUM" ? "álbum em ordem" : "faixas do artista"}</p>
             <h2>{name}</h2>
