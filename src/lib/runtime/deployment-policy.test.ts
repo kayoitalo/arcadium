@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { automaticAiAllowed, databaseConnectionString, databaseFingerprint, manualAiAllowed, prismaDatasource } from "./deployment-policy.mjs";
+import { automaticAiAllowed, databaseConnectionString, databaseFingerprint, directConnection, manualAiAllowed, prismaDatasource } from "./deployment-policy.mjs";
 
 const production = "postgresql://owner:secret@ep-main.neon.tech/music?sslmode=require";
 const preview = "postgresql://owner:another@ep-preview.neon.tech/music?sslmode=require";
@@ -20,6 +20,15 @@ describe("isolated preview deployment", () => {
   it("uses the isolated connection for database CLI operations", () => {
     expect(prismaDatasource({ VERCEL_ENV: "preview", PREVIEW_DATABASE_URL: preview, PRODUCTION_DATABASE_FINGERPRINT: fingerprint }, ["migrate", "status"]))
       .toEqual({ url: preview });
+  });
+  it("runs migrations through the direct Neon connection, never the pooler", () => {
+    const pooled = "postgresql://owner:another@ep-preview-pooler.sa-east-1.aws.neon.tech/music?sslmode=require";
+    const env = { VERCEL_ENV: "preview", PREVIEW_DATABASE_URL: pooled, PRODUCTION_DATABASE_FINGERPRINT: fingerprint };
+    expect(prismaDatasource(env, ["migrate", "deploy"])).toEqual({ url: "postgresql://owner:another@ep-preview.sa-east-1.aws.neon.tech/music?sslmode=require" });
+    expect(prismaDatasource(env, ["db", "execute"])?.url).not.toContain("-pooler");
+    expect(prismaDatasource(env, ["studio"])).toEqual({ url: pooled });
+    expect(directConnection(preview)).toBe(preview);
+    expect(directConnection("not a url")).toBe("not a url");
   });
   it("does not silently use production when preview configuration is absent", () => {
     expect(() => databaseConnectionString({ VERCEL_ENV: "preview", DATABASE_URL: production })).toThrow("isolated");
