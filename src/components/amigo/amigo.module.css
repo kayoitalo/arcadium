@@ -695,3 +695,24 @@
 .fotoArtista > img[data-loaded] {
   opacity: 1;
 }
+
+/* a medida da cota de planta: o tempo entre as duas audições, dentro do vão
+   da linha, com o papel por trás pra corda vibrar sem passar por cima */
+.note[data-kind="medida"] {
+  translate: -50% -50%;
+  padding: 0 6px;
+  background: var(--papel);
+  font-size: clamp(0.95rem, 0.8rem + 0.4vw, 1.2rem);
+  font-variation-settings: "wdth" 74, "wght" 820;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--marca);
+  animation: medida 460ms var(--glide) both;
+}
+
+@keyframes medida {
+  from {
+    opacity: 0;
+    font-variation-settings: "wdth" 125, "wght" 500;
+  }
+}

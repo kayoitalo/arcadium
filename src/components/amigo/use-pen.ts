@@ -19,7 +19,8 @@ export interface PenNote {
   text: string;
   x: number;
   y: number;
-  kind: "grito" | "dado";
+  /** "medida" é a cota de planta: o número dentro do vão da linha. */
+  kind: "grito" | "dado" | "medida";
   align?: "center" | "start" | "end";
   dim?: boolean;
   /** Mudou o número, a anotação grita de novo (o corte seco de uma transição). */

@@ -17,6 +17,7 @@ import styles from "./conversa.module.css";
 import { privateFetch } from "@/lib/http/private-fetch";
 import { cardFromMoment, deliverCard, renderCard } from "./cartao";
 import { cleanTitle } from "@/lib/music/track-title";
+import { gapLabel } from "@/lib/format/gap";
 import { coverProxyUrl } from "@/lib/cover";
 
 /*
@@ -276,11 +277,18 @@ export function Conversa({
         const fromBox = boxOf(from, origin);
         const lift = Math.min(96, Math.max(52, fromBox.height * 0.42));
         const { posts, span, mid } = dimension(fromBox, boxOf(to, origin), lift);
-        // com som, a travessa vira corda: as colunas ficam, ela vibra
+        // a cota de planta: a linha abre um vão no meio e a medida do tempo entre as duas mora nele
+        const label = gapLabel(evidence.gapMinutes);
+        const half = (label.length * 8.4 + 24) / 2;
+        const [start, end] = [span[0], span[span.length - 1]];
+        const measured = end.x - start.x > half * 2 + 28
+          ? [[start, { x: mid.x - half, y: start.y }], [{ x: mid.x + half, y: end.y }, end]]
+          : [span];
+        // com som, a travessa vira corda: as colunas ficam, ela vibra por trás da medida
         gestures.push({
           id: `${index}:cota`,
           layer: "over",
-          strokes: live ? posts : [posts[0], span, posts[1]],
+          strokes: live ? posts : [posts[0], ...measured, posts[1]],
           width: thin,
           cap: "square",
           join: "miter",
@@ -291,26 +299,13 @@ export function Conversa({
             base: span,
             amp: Math.min(40, lift * 0.55),
             inPlace: true,
-            // só para baixo: para cima ela passaria pelo "PAM."
+            // só para baixo: a medida fica parada em cima da linha enquanto a corda vibra
             outwardFrom: { x: mid.x, y: mid.y - 1000 },
             width: thin,
             cap: "square",
           };
         }
-        notes.push({ id: `${index}:pam`, gesture: `${index}:cota`, text: "PAM.", x: mid.x, y: mid.y - 12, kind: "grito", dim });
-        // embaixo da travessa é onde a corda vibra: tocando, o intervalo sai da frente (as horas seguem nas legendas)
-        if (!live) {
-          notes.push({
-            id: `${index}:intervalo`,
-            gesture: `${index}:cota`,
-            text: evidence.gapMinutes < 1 ? "logo em seguida" : `${evidence.gapMinutes} min depois`,
-            x: posts[1][0].x - 12,
-            y: mid.y + 10,
-            kind: "dado",
-            align: "end",
-            dim,
-          });
-        }
+        notes.push({ id: `${index}:medida`, gesture: `${index}:cota`, text: label, x: mid.x, y: mid.y, kind: "medida", dim });
       } else if (evidence?.kind === "ranking") {
         const bar = part("bar");
         if (!bar) continue;
@@ -389,8 +384,8 @@ export function Conversa({
 
   const pen = usePen(stageRef, draw, pose);
   const { forget } = pen;
-  // o corte seco da transição: o "PAM." do assunto da vez grita de novo
-  const notes = pen.notes.map((note) => (note.kind === "grito" && !note.dim ? { ...note, pop: cut } : note));
+  // o corte seco da transição: a medida do assunto da vez pulsa de novo
+  const notes = pen.notes.map((note) => ((note.kind === "grito" || note.kind === "medida") && !note.dim ? { ...note, pop: cut } : note));
 
   // ---------- o assunto da vez ----------
 
