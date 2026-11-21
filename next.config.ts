@@ -13,6 +13,8 @@ const nextConfig: NextConfig = {
 
   experimental: {
     useTypeScriptCli: true,
+    // a capa viaja entre as telas: <ViewTransition> com o mesmo nome dos dois lados
+    viewTransition: true,
   },
 };
 

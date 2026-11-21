@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Capa } from "@/components/amigo/fala";
+import { Capa, shareName } from "@/components/amigo/fala";
 import { privateFetch } from "@/lib/http/private-fetch";
 import { useSelection } from "./selection-provider";
 import styles from "./discovery-recall.module.css";
@@ -113,6 +113,7 @@ export function DiscoveryRecall({ recall: shared }: { recall?: Recall }) {
                 className={styles.cover}
                 cover={{ url: current.coverUrl, title: current.albumName ?? current.trackName, artist: current.artistName }}
                 label={false}
+                share={shareName(current.artistName, current.trackName)}
               />
             )}
             <span className={styles.where}>

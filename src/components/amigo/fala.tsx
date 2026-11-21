@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, type CSSProperties, type ReactNode, type Ref, type RefObject } from "react";
+import { useCallback, useEffect, useState, ViewTransition, type CSSProperties, type ReactNode, type Ref, type RefObject } from "react";
 import { coverProxyUrl } from "@/lib/cover";
 import { readTint, type Tint } from "@/lib/cover-tint";
 import { knownTint, rememberTint } from "./use-cover-tint";
 import { markPieces } from "./measure";
+import { Selo } from "./selo";
 import { Trace } from "./trace";
 import type { Pen } from "./use-pen";
 import styles from "./amigo.module.css";
@@ -260,6 +261,13 @@ export interface CoverData {
  * luz baixa e uma sombra da própria arte. É a capa trazendo a cor; o
  * amarelo continua sendo só do traço.
  */
+/** Um nome que serve de view-transition-name: a mesma faixa dá o mesmo nome em qualquer tela. */
+export function shareName(...parts: string[]): string {
+  let hash = 0;
+  for (const char of parts.join("|").toLocaleLowerCase("pt-BR")) hash = (Math.imul(hash, 31) + char.charCodeAt(0)) | 0;
+  return `capa-${(hash >>> 0).toString(36)}`;
+}
+
 export function Capa({
   cover,
   playing = false,
@@ -268,6 +276,7 @@ export function Capa({
   eager = false,
   label = true,
   glow = false,
+  share,
 }: {
   cover: CoverData;
   playing?: boolean;
@@ -278,6 +287,8 @@ export function Capa({
   label?: boolean;
   /** A capa do assunto da vez: acende o papel em volta com a cor dela. */
   glow?: boolean;
+  /** A mesma capa em outra tela: com o mesmo nome dos dois lados, ela viaja de uma pra outra. */
+  share?: string;
 }) {
   const src = coverProxyUrl(cover.url);
   const [state, setState] = useState<"loading" | "loaded" | "failed">(src ? "loading" : "failed");
@@ -303,12 +314,11 @@ export function Capa({
   }, [loaded]);
   const lit = glow && state === "loaded" && tint !== null;
 
-  return (
+  const node = (
     <div ref={innerRef} className={`${styles.cover} ${className}`} data-playing={playing} data-glow={lit || undefined}
       style={tint ? ({ "--capa-luz": tint } as CSSProperties) : undefined}>
-      {state === "failed" && label && <span className={styles.coverEmpty}>{cover.title}</span>}
-      {/* miniatura pequena demais pro título: as iniciais do disco, pra a coluna não virar uma fila de quadrados vazios */}
-      {state === "failed" && !label && <span className={styles.coverInitials} aria-hidden="true">{initials(cover.title)}</span>}
+      {/* sem capa, o selo do disco: o nome em volta do centro; em miniatura, só a inicial */}
+      {state === "failed" && <Selo title={cover.title} artist={cover.artist} small={!label} />}
       {src && state !== "failed" && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -325,6 +335,7 @@ export function Capa({
       )}
     </div>
   );
+  return share ? <ViewTransition name={share}>{node}</ViewTransition> : node;
 }
 
 /** A camada do traço de uma tela e o que ele escreve fora da grade. */

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { AnimatePresence, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Aviso } from "@/components/amigo/aviso";
-import { Capa, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
+import { Capa, PenLayer, Resposta, Respostas, shareName } from "@/components/amigo/fala";
 import { Regua } from "@/components/amigo/regua";
 import { Visto } from "@/components/amigo/visto";
 import { band, frame } from "@/components/amigo/gestures";
@@ -542,7 +542,7 @@ export function Descobertas({ initialSessionId = null }: {
             {current.appleMusicUrl && <a className={styles.textButton} href={current.appleMusicUrl} target="_blank" rel="noreferrer">no Apple Music ↗</a>}
             {mediaState === "error" && <button className={styles.textButton} onClick={() => setMediaAttempt((value) => value + 1)}>procurar o trecho de novo</button>}
           </>}
-          artwork={<Capa cover={{ url: current.coverUrl, title: current.albumName ?? current.trackName, artist: current.artistName }} playing={sound.playing} innerRef={coverRef} className={styles.cover} eager glow />}
+          artwork={<Capa cover={{ url: current.coverUrl, title: current.albumName ?? current.trackName, artist: current.artistName }} playing={sound.playing} innerRef={coverRef} className={styles.cover} eager glow share={shareName(current.artistName, current.trackName)} />}
           metadata={<>{current.albumName && <span>{current.albumName} · </span>}{current.genre && <span>{genreLabel(current.genre)}</span>}
             {current.previewUrl && current.appleMusicUrl && <> · <a href={current.appleMusicUrl} target="_blank" rel="noreferrer">Apple Music ↗</a></>}
             {current.sourceUrl && <> · <a href={current.sourceUrl} target="_blank" rel="noreferrer">referência no Last.fm ↗</a></>}

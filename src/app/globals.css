@@ -127,3 +127,9 @@ body::after {
     --gutter: max(88px, calc((100vw - 1280px) / 2));
   }
 }
+
+/* a capa que viaja entre telas: o tempo e a curva da mão, não o padrão do navegador */
+::view-transition-group(*) {
+  animation-duration: 0.5s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}

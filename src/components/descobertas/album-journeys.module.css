@@ -108,7 +108,10 @@
 .pulled .editionList h3 { font-size: 20px; }
 /* nenhum disco puxado ainda: o lugar dele, em fio, pra estante não mudar de largura depois */
 .pulledHint { display: grid; gap: 14px; margin: 22px 0 0; color: var(--tinta-3); font-size: 13px; line-height: 1.6; }
-.pulledHint span { display: block; width: min(100%, 200px); aspect-ratio: 1; border: 1px dashed var(--fio-2); }
+/* o vão de quem ainda não puxou nada: um disco sem capa, que diz o que fazer */
+.pulledHint span { display: block; width: min(100%, 220px); aspect-ratio: 1; opacity: .7; }
+/* sem capa, o selo do disco ocupa o quadrado da capa */
+.selo { aspect-ratio: 1; width: 100%; overflow: hidden; }
 @keyframes pullOut {
   0% { opacity: 0; translate: -72px 0; rotate: -5deg; }
   62% { opacity: 1; translate: 8px 0; rotate: .8deg; }

@@ -16,6 +16,7 @@ import { CARTOLA_JOURNEY_HREF, findCuratedAlbum, type CurationCredit } from "@/m
 import { DiscoveryDisclosure } from "./discovery-disclosure";
 import styles from "./album-journeys.module.css";
 import { cleanTitle } from "@/lib/music/track-title";
+import { Selo } from "@/components/amigo/selo";
 import { Esperando } from "@/components/amigo/esperando";
 
 type AlbumReference = { source: AlbumSource; artistName: string; albumName: string; coverUrl?: string | null; plays?: number };
@@ -204,12 +205,12 @@ export function AlbumJourneys({ initialItem = null, initialCuration = null, onBe
                   <div className={styles.pulledRecord}>
                     {album.coverUrl
                       ? <Capa cover={{ url: album.coverUrl, title: album.albumName, artist: album.artistName }} className={styles.pulledCover} glow eager />
-                      : <div className={`${styles.jacket} ${styles.pulledCover}`} aria-hidden="true"><i /><b>{cleanTitle(album.albumName)}</b></div>}
+                      : <div className={`${styles.selo} ${styles.pulledCover}`}><Selo title={cleanTitle(album.albumName)} artist={album.artistName} /></div>}
                   </div>
                   <div className={styles.pulledTitle}><h2>{cleanTitle(album.albumName)}</h2><p>{album.artistName}</p></div>
                   {versions(album, at)}
                 </div>
-                : <p className={styles.pulledHint} aria-hidden="true"><span />puxa um disco.<br />ele abre aqui.</p>}
+                : <div className={styles.pulledHint} aria-hidden="true"><span><Selo title="puxa um disco" artist="ele abre aqui" /></span></div>}
             </aside>
           </div>;
         }
@@ -220,7 +221,7 @@ export function AlbumJourneys({ initialItem = null, initialCuration = null, onBe
             <div className={styles.libraryRow}>
               {album.coverUrl
                 ? <Capa cover={{ url: album.coverUrl, title: album.albumName, artist: album.artistName }} className={styles.shelfCover} />
-                : <div className={styles.jacket} aria-hidden="true"><i /><b>{cleanTitle(album.albumName)}</b></div>}
+                : <div className={styles.selo}><Selo title={cleanTitle(album.albumName)} artist={album.artistName} /></div>}
               {/* com ou sem capa, o mesmo desenho: o quadrado e, embaixo, disco e artista */}
               <div className={styles.albumTitle}><h2>{cleanTitle(album.albumName)}</h2><p>{album.artistName}</p></div>
               <button disabled={busy} aria-expanded={active} aria-controls={active ? "album-versions" : undefined} onClick={() => void findEditions(album)}>ouvir este disco →</button>
