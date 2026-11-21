@@ -22,7 +22,7 @@ export interface Dia {
   plays: number;
   /** Bateu no limite da página: são pelo menos essas. */
   atLeast: boolean;
-  last: { track: string; artist: string; time: string } | null;
+  last: { track: string; artist: string; time: string; /** "quinta", quando não foi hoje nem ontem; "ontem" ou "hoje". */ day: string } | null;
   capas: Folha[];
 }
 
@@ -32,13 +32,20 @@ const dayMonth = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long
 export function diaFrom(page: HistoryPage, now = new Date(), limit = 100): Dia {
   const since = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
   const recent = page.events.filter((event) => new Date(event.playedAt) >= since);
-  const { fita } = fitaFrom({ ...page, events: recent }, 14);
+  // sem nada de ontem pra cá, a fita mostra o que tocou por último
+  const { fita } = fitaFrom({ ...page, events: recent.length > 0 ? recent : page.events }, 14);
   const first = page.events[0];
+  const lastAt = first ? new Date(first.playedAt) : null;
+  const dayOf = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const daysAgo = lastAt ? Math.round((dayOf(now) - dayOf(lastAt)) / 86_400_000) : 0;
   return {
     date: `${weekday.format(now).replace(/-feira$/, "")}, ${dayMonth.format(now)}`,
     plays: recent.length,
     atLeast: recent.length >= limit,
-    last: first ? { track: cleanTitle(first.rawTrackName), artist: first.rawArtistName, time: time.format(new Date(first.playedAt)) } : null,
+    last: first && lastAt ? {
+      track: cleanTitle(first.rawTrackName), artist: first.rawArtistName, time: time.format(lastAt),
+      day: daysAgo <= 0 ? "hoje" : daysAgo === 1 ? "ontem" : weekday.format(lastAt).replace(/-feira$/, ""),
+    } : null,
     capas: fita,
   };
 }

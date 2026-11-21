@@ -37,7 +37,8 @@ export function DiscoveryEntry({ busy, hasSession, currentRank, total, territory
   const choice = (title: string, description: string, onClick: () => void, pressed?: boolean, covers: string[] = []) => <button className={styles.entryChoice} key={title}
     disabled={busy} onClick={onClick} aria-expanded={pressed}>
     <span>
-      {covers.length > 0 && <span className={styles.entryCovers} aria-hidden="true">
+      {/* o lugar das capas existe em todos os caminhos: os títulos ficam na mesma linha */}
+      {<span className={styles.entryCovers} aria-hidden="true">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {covers.slice(0, 3).map((url) => <img key={url} src={url} alt="" loading="lazy" />)}
       </span>}

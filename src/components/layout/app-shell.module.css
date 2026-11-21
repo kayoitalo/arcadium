@@ -178,7 +178,8 @@
   }
 }
 
-.nav { position: relative; }
+.nav { position: relative; scrollbar-width: none; }
+.nav::-webkit-scrollbar { display: none; }
 .link { position: relative; transition: color 160ms, font-variation-settings 220ms var(--glide); }
 .link[aria-current="page"] { border-color: transparent; }
 /* no toque, a palavra responde na largura da letra: estreita e encorpa */

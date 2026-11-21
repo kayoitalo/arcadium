@@ -73,9 +73,9 @@ function claimsOf(evidence: Evidence | null | undefined): Array<Claim & { target
   if (!evidence) return [];
   if (evidence.kind === "transition") {
     return [
-      { id: "to:track", text: evidence.to.track, target: "to" },
+      { id: "to:track", text: cleanTitle(evidence.to.track), target: "to" },
       { id: "to:artist", text: evidence.to.artist, target: "to" },
-      { id: "from:track", text: evidence.from.track, target: "from" },
+      { id: "from:track", text: cleanTitle(evidence.from.track), target: "from" },
       { id: "from:artist", text: evidence.from.artist, target: "from" },
     ];
   }
@@ -366,13 +366,21 @@ export function Conversa({
       if (from && to) {
         const rects = from.getClientRects();
         const last = rects[rects.length - 1] ?? from.getBoundingClientRect();
-        const a = { x: last.right - origin.left + 6, y: last.top - origin.top + last.height * 0.55 };
+        const under = last.bottom - origin.top + 2;
+        const underline = [{ x: last.left - origin.left, y: under }, { x: last.right - origin.left, y: under - 1 }];
+        const column = (from.closest("p") ?? from).getBoundingClientRect();
+        const exit = { x: column.right - origin.left + 14, y: last.top - origin.top + last.height * 0.55 };
         const box = boxOf(to, origin);
         const b = { x: box.left - 10, y: box.top + box.height / 2 };
-        const stroke = b.x > a.x + 24
-          ? [a, { x: (a.x + b.x) / 2, y: a.y }, { x: (a.x + b.x) / 2, y: b.y }, b]
-          : [a, { x: a.x, y: Math.min(a.y, b.y) - 22 }, { x: box.left + box.width / 2, y: Math.min(a.y, b.y) - 22 }, { x: box.left + box.width / 2, y: box.top - 6 }];
-        gestures.push({ id: `${active}:aponta:${pointing.id}`, layer: "over", strokes: [stroke], width: thin, join: "round" });
+        // do lado de fora da coluna: a linha não passa por cima das palavras que vêm depois do trecho
+        // a capa da direita numa transição tem a outra capa no caminho: a cota entra por cima dela
+        const fromAbove = claim?.target === "to";
+        const cota = fromAbove
+          ? [exit, { x: exit.x, y: box.top - 14 }, { x: box.left + box.width / 2, y: box.top - 14 }, { x: box.left + box.width / 2, y: box.top - 3 }]
+          : b.x > exit.x + 24
+          ? [exit, { x: (exit.x + b.x) / 2, y: exit.y }, { x: (exit.x + b.x) / 2, y: b.y }, b]
+          : [{ x: (underline[0].x + underline[1].x) / 2, y: under }, { x: (underline[0].x + underline[1].x) / 2, y: box.top - 18 }, { x: box.left + box.width / 2, y: box.top - 18 }, { x: box.left + box.width / 2, y: box.top - 6 }];
+        gestures.push({ id: `${active}:aponta:${pointing.id}`, layer: "over", strokes: [underline, cota], width: thin, join: "round" });
       }
     }
 
@@ -634,7 +642,7 @@ export function Conversa({
                   {cover
                     // eslint-disable-next-line @next/next/no-img-element
                     ? <img src={coverProxyUrl(cover) ?? undefined} alt="" loading="lazy" />
-                    : <i>{moment.evidence?.kind === "decades" ? "’" + String(moment.evidence.bars[0]?.decade ?? "").slice(2, 4) : index + 1}</i>}
+                    : <i>{moment.evidence?.kind === "decades" ? "’" + String(moment.evidence.focus[0] ?? moment.evidence.bars[0]?.decade ?? "").slice(2, 4) : index + 1}</i>}
                 </button>
               );
             })}

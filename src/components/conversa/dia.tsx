@@ -17,6 +17,11 @@ export function DiaDeHoje({ dia }: { dia: Dia }) {
             de ontem pra cá · <b>{plays}</b> · a última às <b>{dia.last.time}</b>, {dia.last.track}
           </p>
         )}
+        {!plays && dia.last && (
+          <p className={styles.diaConta}>
+            nada tocou de ontem pra cá · a última foi <b>{dia.last.day}, {dia.last.time}</b>, {dia.last.track}
+          </p>
+        )}
       </div>
       {dia.capas.length > 0 && (
         <ol className={styles.diaFita} aria-label="O que tocou de ontem pra cá">

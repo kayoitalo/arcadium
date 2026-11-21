@@ -34,10 +34,6 @@ export function NavPen({ nav, current, reduced }: { nav: RefObject<HTMLElement |
     const dot = nib.current;
     const line = lineFor();
     if (!host || !path || !travelPath || !dot || !line) return;
-    const box = host.getBoundingClientRect();
-    svg.current?.setAttribute("viewBox", `0 0 ${host.scrollWidth} ${box.height}`);
-    svg.current?.setAttribute("width", String(host.scrollWidth));
-    svg.current?.setAttribute("height", String(box.height));
     const from = last.current;
     last.current = line[line.length - 1];
     const draw = toPath(line);
@@ -97,9 +93,6 @@ export function NavPen({ nav, current, reduced }: { nav: RefObject<HTMLElement |
     const observer = new ResizeObserver(() => {
       const line = lineFor();
       if (!line || !ink.current) return;
-      svg.current?.setAttribute("viewBox", `0 0 ${host.scrollWidth} ${host.getBoundingClientRect().height}`);
-      svg.current?.setAttribute("width", String(host.scrollWidth));
-      svg.current?.setAttribute("height", String(host.getBoundingClientRect().height));
       ink.current.setAttribute("d", toPath(line));
       ink.current.style.strokeDasharray = "none";
       last.current = line[line.length - 1];
@@ -110,7 +103,8 @@ export function NavPen({ nav, current, reduced }: { nav: RefObject<HTMLElement |
   }, [current]);
 
   return (
-    <svg ref={svg} className="navPen" aria-hidden="true" style={{ position: "absolute", left: 0, top: 0, overflow: "visible", pointerEvents: "none" }}>
+    // sem tamanho e com overflow visível: o traço aparece e a fileira não ganha rolagem por causa dele
+    <svg ref={svg} className="navPen" aria-hidden="true" width={0} height={0} style={{ position: "absolute", left: 0, top: 0, overflow: "visible", pointerEvents: "none" }}>
       <path ref={trail} fill="none" stroke="var(--tinta-3)" strokeWidth={1} strokeLinecap="round" style={{ opacity: 0 }} />
       <path ref={ink} fill="none" stroke="var(--tinta)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
       <circle ref={nib} r={2.1} fill="var(--tinta)" style={{ opacity: 0, transition: "opacity 160ms" }} />

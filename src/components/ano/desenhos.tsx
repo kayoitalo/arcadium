@@ -21,11 +21,12 @@ export function FitaDoAno({ months, lit }: { months: YearMonth[]; lit?: number }
       {MESES.map((label, index) => {
         const entry = months.find((item) => item.month === index + 1);
         return (
-          <li key={label} data-lit={lit === index + 1 || undefined} data-future={!entry || undefined}
+          <li key={label} data-lit={lit === index + 1 || undefined} data-future={!entry || undefined} data-quiet={(entry && entry.plays === 0) || undefined}
             title={entry?.album ? `${label}: ${entry.album.name}, ${entry.album.artist} · ${count(entry.plays)} audições` : label}>
             {entry?.album
               ? <Capa cover={{ url: entry.album.coverUrl, title: entry.album.name, artist: entry.album.artist }} label={false} className={styles.fitaCapa} />
-              : <span className={styles.fitaVazio} />}
+              // mês que já passou sem nada tocado é silêncio, não espaço em branco: um traço; o que ainda não chegou fica tracejado
+              : <span className={entry ? styles.fitaSilencio : styles.fitaVazio} />}
             <span className={styles.fitaMes}>{label}</span>
           </li>
         );
@@ -37,7 +38,7 @@ export function FitaDoAno({ months, lit }: { months: YearMonth[]; lit?: number }
 /** O relógio de 24 horas: uma barra por hora, a mais tocada em tinta, o número dela no centro. */
 export function Relogio({ hours, peak, proofRef }: { hours: number[]; peak: number; proofRef: Ref<HTMLElement> }) {
   const max = Math.max(1, ...hours);
-  const [cx, cy, inner, outer] = [150, 150, 58, 140];
+  const [cx, cy, inner, outer] = [150, 150, 84, 146];
   return (
     <figure className={styles.relogio}>
       <div className={styles.relogioDial}>
@@ -53,7 +54,7 @@ export function Relogio({ hours, peak, proofRef }: { hours: number[]; peak: numb
         })}
         {[0, 6, 12, 18].map((hour) => {
           const angle = (hour / 24) * 2 * Math.PI - Math.PI / 2;
-          return <text key={hour} x={cx + Math.cos(angle) * (inner - 22)} y={cy + Math.sin(angle) * (inner - 22) + 4} textAnchor="middle" fontSize="11" fill="var(--tinta-3)">{hour}h</text>;
+          return <text key={hour} x={cx + Math.cos(angle) * (inner - 18)} y={cy + Math.sin(angle) * (inner - 18) + 4} textAnchor="middle" fontSize="11" fill="var(--tinta-3)">{hour}h</text>;
         })}
       </svg>
       <strong ref={proofRef as Ref<HTMLElement>} className={styles.relogioHora}>{String(peak).padStart(2, "0")}h</strong>
