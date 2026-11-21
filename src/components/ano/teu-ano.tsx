@@ -14,6 +14,7 @@ import { privateFetch } from "@/lib/http/private-fetch";
 import type { YearReview } from "@/modules/statistics/application/year-review";
 import type { YearChapter } from "@/modules/statistics/domain/year-chapters";
 import styles from "./teu-ano.module.css";
+import { FitaDoAno, FotoDoArtista, ReguaMeses, Relogio } from "./desenhos";
 import { cleanTitle } from "@/lib/music/track-title";
 
 const count = (value: number) => value.toLocaleString("pt-BR");
@@ -117,25 +118,30 @@ export function TeuAno() {
   const { proof: evidence } = chapter;
   return (
     <div ref={stage} className={styles.stage}>
-      <ol className={styles.progress} aria-label={`Capítulo ${at + 1} de ${chapters.length}`}>
+      {/* a fita do ano no lugar das barrinhas: o disco de cada mês, e o mês do capítulo aceso */}
+      {data.months?.length > 0 && <FitaDoAno months={data.months} lit={chapter.month} />}
+      <nav className={styles.capitulos} aria-label={`Capítulo ${at + 1} de ${chapters.length}`}>
         {chapters.map((item, index) => (
-          <li key={item.id} data-state={index < at ? "lido" : index === at ? "agora" : "depois"}>
-            <button type="button" onClick={() => go(index)} aria-label={`Ir ao capítulo ${index + 1}: ${item.title}`} aria-current={index === at ? "step" : undefined}><i /></button>
-          </li>
+          <button key={item.id} type="button" onClick={() => go(index)} aria-current={index === at ? "step" : undefined}
+            data-state={index < at ? "lido" : index === at ? "agora" : "depois"}>{item.title}</button>
         ))}
-      </ol>
+      </nav>
       <section key={chapter.id} className={styles.chapter} aria-live="polite">
         <Fala level={1} window={`${data.year}${data.ongoing ? ", até aqui" : ""} · ${chapter.title}`} headline={chapter.headline} narrative={chapter.narrative}
           mark={[chapter.mark]} markRef={mark} headlineRef={headline} marked={pen.started.has(`${ink}:grifo`)} className={styles.fala} />
         <div className={styles.proof}>
           {evidence.kind === "number" && <figure className={styles.number}>
+            {evidence.artist && <FotoDoArtista name={evidence.artist} />}
             <strong ref={proof as React.RefObject<HTMLElement>}>{count(evidence.value)}</strong>
             <figcaption>{evidence.label}</figcaption>
           </figure>}
-          {evidence.kind === "hour" && <figure className={styles.number}>
-            <strong ref={proof as React.RefObject<HTMLElement>}>{String(evidence.hour).padStart(2, "0")}h</strong>
-            <figcaption>a hora que mais toca</figcaption>
-          </figure>}
+          {evidence.kind === "hour" && (evidence.hours.length === 24
+            ? <Relogio hours={evidence.hours} peak={evidence.hour} proofRef={proof} />
+            : <figure className={styles.number}>
+              <strong ref={proof as React.RefObject<HTMLElement>}>{String(evidence.hour).padStart(2, "0")}h</strong>
+              <figcaption>a hora que mais toca</figcaption>
+            </figure>)}
+          {evidence.kind === "months" && <ReguaMeses plays={evidence.plays} month={evidence.month} value={evidence.value} through={data.months?.length || 12} proofRef={proof} />}
           {evidence.kind === "cover" && <figure className={styles.record}>
             <Capa cover={{ url: evidence.coverUrl, title: evidence.title, artist: evidence.artist }} className={styles.cover} innerRef={proof as React.RefObject<HTMLDivElement>} glow eager />
             <figcaption>
