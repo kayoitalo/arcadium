@@ -2,7 +2,7 @@
 
 import { useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Fala, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
+import { Fala, PenLayer, Resposta, Respostas, type Claim } from "@/components/amigo/fala";
 import { asterisk, band, bracket, dimension, strike, type Point } from "@/components/amigo/gestures";
 import { boxOf, textLines } from "@/components/amigo/measure";
 import type { TraceGesture, WaveSpec } from "@/components/amigo/trace";
@@ -16,6 +16,7 @@ import { ProvaEstreia, ProvaLoop, ProvaMadrugada, ProvaMaratona, ProvaSurpresa, 
 import styles from "./conversa.module.css";
 import { privateFetch } from "@/lib/http/private-fetch";
 import { cardFromMoment, deliverCard, renderCard } from "./cartao";
+import { cleanTitle } from "@/lib/music/track-title";
 
 /*
  * A conversa: a tela inicial. Um fio que se rola e se revisita — o
@@ -66,6 +67,33 @@ function marksOf(evidence: Evidence | null | undefined): string[] | undefined {
   return evidence.focus.flatMap((decade) => [decadeLabel(decade), `${decade}s`]);
 }
 
+/** Os trechos da fala que apontam pra uma peça da prova: o nome na frase e a peça na tela. */
+function claimsOf(evidence: Evidence | null | undefined): Array<Claim & { target: string }> {
+  if (!evidence) return [];
+  if (evidence.kind === "transition") {
+    return [
+      { id: "to:track", text: evidence.to.track, target: "to" },
+      { id: "to:artist", text: evidence.to.artist, target: "to" },
+      { id: "from:track", text: evidence.from.track, target: "from" },
+      { id: "from:artist", text: evidence.from.artist, target: "from" },
+    ];
+  }
+  if (evidence.kind === "ranking") {
+    const row = evidence.rows[evidence.focusIndex];
+    return [
+      { id: "row:label", text: cleanTitle(row.label), target: "bar" },
+      ...(row.sub ? [{ id: "row:sub", text: row.sub, target: "bar" }] : []),
+    ];
+  }
+  if (evidence.kind === "decades") {
+    return evidence.focus.flatMap((decade) => [
+      { id: `decada:${decade}`, text: decadeLabel(decade), target: `bar:${decade}` },
+      { id: `decada-s:${decade}`, text: `${decade}s`, target: `bar:${decade}` },
+    ]);
+  }
+  return [];
+}
+
 /** A régua dele em cima de uma barra do dado: a própria barra, na cor dele. */
 function ruler(bar: HTMLElement, origin: DOMRect): { base: Point[]; box: ReturnType<typeof boxOf> } {
   const box = boxOf(bar, origin);
@@ -107,6 +135,8 @@ export function Conversa({
   const [dismissed, setDismissed] = useState<number[]>([]);
   const [expanded, setExpanded] = useState<number[]>([]);
   const [cut, setCut] = useState(0);
+  /** O trecho da fala que você apontou: a caneta liga ele à peça da prova. */
+  const [pointing, setPointing] = useState<{ index: number; id: string } | null>(null);
   /** O cartão do assunto da vez: montando, entregue ou com erro. */
   const [card, setCard] = useState<"idle" | "busy" | "saved" | "failed">("idle");
 
@@ -162,7 +192,7 @@ export function Conversa({
 
   // ---------- onde o traço vai ----------
 
-  const pose = `${seen.join(",")}|${active}|${dismissed.join(",")}|${expanded.join(",")}|${sound.playing ? "som" : ""}`;
+  const pose = `${seen.join(",")}|${active}|${dismissed.join(",")}|${expanded.join(",")}|${sound.playing ? "som" : ""}|${pointing ? `${pointing.index}:${pointing.id}` : ""}`;
 
   const draw = (origin: DOMRect): PenDrawing => {
     const thin = Math.max(1.5, Math.min(2.5, origin.width / 600));
@@ -291,6 +321,24 @@ export function Conversa({
       }
     }
 
+    // a frase apontada: uma cota de desenho técnico do fim do trecho até a peça que ele cita
+    if (pointing && pointing.index === active && !dismissed.includes(active)) {
+      const claim = claimsOf(moments[active]?.evidence).find((entry) => entry.id === pointing.id);
+      const from = parts.current.get(`${active}:claim:${pointing.id}`);
+      const to = claim ? parts.current.get(`${active}:${claim.target}`) : undefined;
+      if (from && to) {
+        const rects = from.getClientRects();
+        const last = rects[rects.length - 1] ?? from.getBoundingClientRect();
+        const a = { x: last.right - origin.left + 6, y: last.top - origin.top + last.height * 0.55 };
+        const box = boxOf(to, origin);
+        const b = { x: box.left - 10, y: box.top + box.height / 2 };
+        const stroke = b.x > a.x + 24
+          ? [a, { x: (a.x + b.x) / 2, y: a.y }, { x: (a.x + b.x) / 2, y: b.y }, b]
+          : [a, { x: a.x, y: Math.min(a.y, b.y) - 22 }, { x: box.left + box.width / 2, y: Math.min(a.y, b.y) - 22 }, { x: box.left + box.width / 2, y: box.top - 6 }];
+        gestures.push({ id: `${active}:aponta:${pointing.id}`, layer: "over", strokes: [stroke], width: thin, join: "round" });
+      }
+    }
+
     return { gestures, wave, notes };
   };
 
@@ -320,6 +368,9 @@ export function Conversa({
     }
     return () => observer.disconnect();
   }, [total]);
+
+  // mudou de assunto, o trecho apontado no anterior deixa de ser apontado
+  useEffect(() => { setPointing(null); }, [active]);
 
   // mudou de assunto, a música daquele assunto para
   useEffect(() => {
@@ -461,6 +512,10 @@ export function Conversa({
               headlineRef={refs("headline")}
               markRef={refs("mark")}
               mark={marksOf(evidence)}
+              claims={isActive && !isDismissed ? claimsOf(evidence) : undefined}
+              claimRef={(id) => refs(`claim:${id}`)}
+              onClaim={(id) => setPointing(id ? { index, id } : null)}
+              claimOn={pointing?.index === index ? pointing.id : null}
             />
 
             {/* riscado o assunto, a prova continua ali, apagada: o dado não deixou de ser verdade */}

@@ -495,3 +495,21 @@
     display: none;
   }
 }
+
+/* o trecho da fala que a prova sustenta: pontilhado quieto; apontado, a caneta liga ele ao dado */
+.claim {
+  text-decoration: underline dotted rgb(242 239 231 / 0.32);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  cursor: help;
+  border-radius: 2px;
+  transition: color 160ms, text-decoration-color 160ms;
+}
+
+.claim:hover,
+.claim:focus-visible,
+.claim[data-on="true"] {
+  color: var(--tinta);
+  text-decoration-color: transparent;
+  outline: none;
+}
