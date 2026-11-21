@@ -151,88 +151,6 @@
   clip-path: inset(0 0 0 0);
 }
 
-/* ---------- a pista ---------- */
-
-.race {
-  margin: 0;
-}
-
-.race svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
-}
-
-.raceLane {
-  fill: rgb(242 239 231 / 0.035);
-}
-
-.raceNumber,
-.raceMonth {
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  fill: var(--tinta-3);
-}
-
-.raceNumber {
-  font-variation-settings: "wdth" 70, "wght" 760;
-}
-
-.raceRunner path {
-  fill: none;
-  stroke: var(--fio-2);
-  stroke-width: 2.5;
-  stroke-linecap: round;
-}
-
-.raceRunner circle {
-  fill: var(--tinta-3);
-}
-
-.raceRunner text {
-  font-size: 15px;
-  font-variation-settings: "wdth" 88, "wght" 620;
-  fill: var(--tinta-2);
-}
-
-/* a raia citada: o traço dele por cima; quando ele termina, o nome e o ponto acendem */
-.raceRunner[data-cited="true"] circle,
-.raceRunner[data-cited="true"] text {
-  transition: fill 300ms ease;
-}
-
-.raceRunner[data-lit="true"] circle,
-.raceRunner[data-lit="true"] text {
-  fill: var(--marca);
-}
-
-/* o anel do ponto de chegada: só aparece depois que o traço chegou lá */
-.raceRunner .racePing {
-  fill: none;
-  stroke: var(--marca);
-  stroke-width: 2;
-  opacity: 0;
-  transform-box: fill-box;
-  transform-origin: center;
-}
-
-.raceRunner[data-lit="true"] .racePing {
-  animation: racePing 2.6s ease-out 900ms infinite;
-}
-
-@keyframes racePing {
-  0% {
-    opacity: 0.9;
-    scale: 1;
-  }
-  70%,
-  100% {
-    opacity: 0;
-    scale: 3.2;
-  }
-}
-
 .numbers summary {
   min-height: 44px;
   padding: 12px 0;
@@ -267,56 +185,47 @@
   }
 }
 
-/* no celular a pista encolhe inteira: a letra dentro dela cresce na mesma
-   proporção, pra continuar legível sem rolar de lado */
-@media (max-width: 760px) {
-  .raceRunner text {
-    font-size: 25px;
-  }
-
-  .raceNumber,
-  .raceMonth {
-    font-size: 22px;
-  }
-
-  .raceRunner path {
-    stroke-width: 3.5;
-  }
+/* o gênero que a frase cita: a prova dela, grande, com os discos que puxaram logo embaixo */
+.cited {
+  display: grid;
+  gap: 18px;
+  padding-bottom: clamp(22px, 4vh, 34px);
+  border-bottom: 1px solid var(--fio);
 }
 
-/* quem puxou a mudança: os discos atrás da porcentagem, embaixo da pista */
+.row[data-cited] .label {
+  font-size: clamp(1.4rem, 1rem + 1.2vw, 2.1rem);
+  font-variation-settings: "wdth" 72, "wght" 800;
+  letter-spacing: -0.01em;
+}
+
+.row[data-cited] .value {
+  font-size: clamp(1rem, 0.85rem + 0.4vw, 1.25rem);
+  font-variation-settings: "wdth" 80, "wght" 700;
+}
+
+.row[data-cited] .track {
+  height: 16px;
+}
+
+/* quem puxou: os discos do gênero, em audições (a unidade vai escrita) */
 .puxou {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-  gap: 24px 40px;
-  margin-top: clamp(28px, 5vh, 48px);
-  padding-top: 20px;
-  border-top: 1px solid var(--fio);
-}
-
-.puxouTitulo {
-  margin: 0 0 12px;
-  font-size: 12px;
-  color: var(--tinta-3);
-}
-
-.puxouLado ol {
-  display: grid;
-  gap: 12px;
+  gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.puxouLado li {
+.puxou li {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
 }
 
 .puxouCapa {
-  width: 48px;
+  width: 40px;
 }
 
 .puxouNome {
@@ -326,8 +235,8 @@
 
 .puxouNome b {
   font-weight: inherit;
-  font-size: 15px;
-  font-variation-settings: "wdth" 85, "wght" 720;
+  font-size: 14px;
+  font-variation-settings: "wdth" 85, "wght" 700;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -338,12 +247,13 @@
   color: var(--tinta-3);
 }
 
-.puxouLado strong {
-  font-size: 24px;
-  font-variation-settings: "wdth" 62, "wght" 800;
+.puxou strong {
+  font-size: 13px;
+  font-variation-settings: "wdth" 86, "wght" 700;
   font-variant-numeric: tabular-nums;
+  color: var(--tinta-2);
 }
 
-.puxouLado strong[data-down] {
+.puxou strong[data-down] {
   color: var(--tinta-3);
 }

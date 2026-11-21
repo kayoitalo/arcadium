@@ -73,3 +73,8 @@
 .trace circle[data-nib] {
   transition: opacity 220ms ease;
 }
+
+/* entre um gesto e outro só a ponta viaja: o caminho dela não fica desenhado por cima do texto */
+.trace path[data-kind="travel"] {
+  opacity: 0;
+}

@@ -11,7 +11,6 @@ import { useScreenLines } from "@/components/amigo/use-screen-lines";
 import { Mudou } from "@/components/mudou/mudou";
 import { shiftHeadline, verifyShiftLine } from "@/modules/conversation/domain/shift-line";
 import type { OverviewData, TasteShiftItem } from "@/modules/statistics/application/overview-service";
-import type { GenreRace } from "@/modules/statistics/domain/genre-race";
 import type { GenreMovers } from "@/modules/statistics/application/genre-movers";
 
 type Window = "30d" | "1y";
@@ -43,23 +42,9 @@ export default function OQueMudouPage() {
   /** O que ele diz: `undefined` enquanto decide, `null` quando não há o que dizer. */
   const [said, setSaid] = useState<{ headline: string; cited: string[] } | null | undefined>(undefined);
   const lines = useScreenLines("evolution", period);
-  /** A pista dos seis meses: prova à parte, que não segura a tela se demorar ou falhar. */
-  const [race, setRace] = useState<GenreRace | null>(null);
   /** Quem puxou a mudança: os discos do gênero que subiu e do que caiu. */
   const [movers, setMovers] = useState<GenreMovers | null>(null);
 
-  // a pista sai depois da frase: os gêneros que ela cita correm sempre, senão a caneta traça outra raia
-  const citedKey = said ? said.cited.join(",") : said === null ? "" : null;
-  useEffect(() => {
-    if (citedKey === null) return;
-    const controller = new AbortController();
-    const query = citedKey ? `?include=${encodeURIComponent(citedKey)}` : "";
-    privateFetch(`/api/genre-race${query}`, { signal: controller.signal, cache: "no-store" })
-      .then((response) => (response.ok ? (response.json() as Promise<GenreRace>) : null))
-      .then((payload) => { if (payload && !controller.signal.aborted) setRace(payload); })
-      .catch(() => undefined);
-    return () => controller.abort();
-  }, [citedKey]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -152,5 +137,5 @@ export default function OQueMudouPage() {
     );
   }
 
-  return <Mudou shift={shift} headline={said.headline} cited={said.cited} window={janela} race={race} movers={movers} />;
+  return <Mudou shift={shift} headline={said.headline} cited={said.cited} window={janela} movers={movers} />;
 }

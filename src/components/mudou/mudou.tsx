@@ -3,8 +3,6 @@
 import { useReducedMotion } from "framer-motion";
 import { useCallback, useRef, type ReactNode } from "react";
 import { DiscoveryDisclosure } from "@/components/descobertas/discovery-disclosure";
-import { biggestClimb, type GenreRace } from "@/modules/statistics/domain/genre-race";
-import { laneStrokes, Pista, RACE_VIEW } from "./pista";
 import { QuemPuxou } from "./quem-puxou";
 import type { GenreMovers } from "@/modules/statistics/application/genre-movers";
 import { Fala, PenLayer } from "@/components/amigo/fala";
@@ -26,6 +24,7 @@ function points(delta: number): string {
 }
 
 type Register = (key: string) => (node: HTMLElement | null) => void;
+const ignore: Register = () => () => undefined;
 
 function Linha({
   item,
@@ -36,7 +35,7 @@ function Linha({
 }: {
   item: TasteShiftItem;
   scale: number;
-  /** Ele cita este gênero: a anotação espera o traço terminar. */
+  /** Ele cita este gênero: a linha é grande e a anotação espera o traço terminar. */
   cited: boolean;
   lit: boolean;
   register: Register;
@@ -44,7 +43,7 @@ function Linha({
   const from = (item.previousShare / scale) * 100;
   const to = (item.currentShare / scale) * 100;
   return (
-    <li className={styles.row} data-lit={lit}>
+    <li className={styles.row} data-lit={lit} data-cited={cited || undefined}>
       <span className={styles.label}>{genreLabel(item.genre)}</span>
       <span className={styles.value}>
         {decimal(item.previousShare)}% → {decimal(item.currentShare)}%
@@ -54,28 +53,26 @@ function Linha({
         <span ref={register(`de:${item.genre}`)} className={styles.from} style={{ left: `${from}%` }} />
         <span ref={register(`para:${item.genre}`)} className={styles.to} style={{ left: `${to}%` }} />
       </span>
-      {cited && <span className={styles.note}>{points(item.delta)}</span>}
+      {cited && <span className={styles.note} data-lit={lit}>{points(item.delta)}</span>}
     </li>
   );
 }
 
 /**
- * A tela de "o que mudou" com dado: a fala dele (a frase do modelo que o
- * dado sustenta, ou o maior salto dito por ele) e os gêneros que mais
- * ganharam e perderam espaço. O traço percorre, na trilha do gênero
- * citado, o caminho de onde ele estava até onde chegou.
+ * O que mudou, janela contra janela anterior. Uma lógica só na tela: a
+ * frase fala em fatia da escuta, e a prova é a mesma fatia — antes e agora,
+ * dos gêneros que ela cita, com o traço dele percorrendo o caminho de um
+ * ao outro. Embaixo de cada um, os discos que puxaram (em audições, com a
+ * unidade escrita). O resto dos gêneros fica a um clique.
  */
 export function Mudou({
   shift,
   headline,
   cited,
   window: when,
-  race = null,
   movers = null,
 }: {
   shift: { rising: TasteShiftItem[]; declining: TasteShiftItem[] };
-  /** A pista dos últimos seis meses; sem ela (ou com poucos gêneros), a prova é só a lista. */
-  race?: GenreRace | null;
   /** Os discos que puxaram a mudança: chegam depois, e a tela não espera por eles. */
   movers?: GenreMovers | null;
   headline: string;
@@ -88,7 +85,6 @@ export function Mudou({
   const markRef = useRef<HTMLSpanElement>(null);
   const parts = useRef(new Map<string, HTMLElement>());
   const silence = useRef<ArrayLike<number> | null>(null);
-  const raceRef = useRef<SVGSVGElement>(null);
 
   const register = useCallback<Register>(
     (key) => (node) => {
@@ -103,16 +99,13 @@ export function Mudou({
     .map((genre) => items.find((item) => item.genre === genre))
     .filter((item): item is TasteShiftItem => Boolean(item))
     .slice(0, 2);
-  // uma escala só para os dois lados, senão as distâncias mentem
+  // o que subiu primeiro, como a frase conta ("menos pop, mais hip hop" mostra hip hop em cima)
+  const shown = [...citedItems].sort((a, b) => b.delta - a.delta);
+  const rest = items.filter((item) => !citedItems.includes(item));
+  // uma escala só pra todas as trilhas, senão as distâncias mentem
   const scale = Math.max(1, ...items.flatMap((item) => [item.previousShare, item.currentShare]));
-
-  // na pista, ele percorre o gênero que cita — o que subiu primeiro, que é o que o grifo acende;
-  // se ele não citar nenhum que corre ali, o que mais subiu
-  const showRace = Boolean(race && race.months.length >= 3 && race.lanes.length >= 3);
-  const byClimb = [...citedItems].sort((a, b) => b.delta - a.delta);
-  const racer = !race || !showRace ? null
-    : byClimb.map((item) => race.lanes.find((lane) => lane.genre === item.genre)).find(Boolean) ?? biggestClimb(race)?.lane ?? null;
-  const racerId = `pista:${racer?.genre ?? ""}`;
+  const moversOf = (item: TasteShiftItem) =>
+    movers?.rising?.genre === item.genre ? movers.rising.albums : movers?.falling?.genre === item.genre ? movers.falling.albums : [];
 
   const draw = (origin: DOMRect): PenDrawing => {
     const gestures: TraceGesture[] = [];
@@ -124,7 +117,7 @@ export function Mudou({
         gestures.push({ id: "grifo", layer: "under", strokes, width, cap: "butt" });
       }
     }
-    for (const item of citedItems) {
+    for (const item of shown) {
       const from = parts.current.get(`de:${item.genre}`);
       const to = parts.current.get(`para:${item.genre}`);
       if (!from || !to) continue;
@@ -136,49 +129,16 @@ export function Mudou({
       gestures.push({
         id: `trilha:${item.genre}`,
         layer: "over",
-        strokes: [
-          [
-            { x: ax + (direction * a.width) / 2, y },
-            { x: bx - (direction * b.width) / 2, y },
-          ],
-        ],
+        strokes: [[{ x: ax + (direction * a.width) / 2, y }, { x: bx - (direction * b.width) / 2, y }]],
         width: 4,
         cap: "butt",
       });
     }
-    const svg = raceRef.current;
-    if (racer && svg) {
-      // a raia dele, da geometria da pista pra tela: a escala é uma só, o desenho não deforma
-      const box = boxOf(svg, origin);
-      const scale = box.width / RACE_VIEW.width;
-      const strokes = laneStrokes(racer.places).map((stroke) => stroke.map((point) => ({ x: box.left + point.x * scale, y: box.top + point.y * scale })));
-      // a raia dele pulsa depois de desenhada: é a corrida que ainda está acontecendo
-      if (strokes.length > 0) gestures.push({ id: racerId, layer: "over", strokes, width: 4, cap: "round", join: "round", pulse: true });
-    }
     return { gestures, wave: null, notes: [] };
   };
 
-  const pose = `${racerId}|${headline}|${citedItems.map((item) => item.genre).join(",")}|${items.map((item) => item.genre).join(",")}`;
+  const pose = `${headline}|${shown.map((item) => item.genre).join(",")}|${movers ? "discos" : ""}`;
   const pen = usePen(stageRef, draw, pose);
-
-  const group = (title: string, list: TasteShiftItem[]) =>
-    list.length > 0 && (
-      <section className={styles.group} aria-label={title}>
-        <h2 className={styles.groupTitle}>{title}</h2>
-        <ol className={styles.rows}>
-          {list.map((item) => (
-            <Linha
-              key={item.genre}
-              item={item}
-              scale={scale}
-              cited={citedItems.includes(item)}
-              lit={pen.done.has(`trilha:${item.genre}`)}
-              register={register}
-            />
-          ))}
-        </ol>
-      </section>
-    );
 
   return (
     <div ref={stageRef} className={styles.stage}>
@@ -193,20 +153,24 @@ export function Mudou({
           mark={citedItems.flatMap((item) => [genreLabel(item.genre), item.genre])}
         />
         <div className={styles.proof}>
-          {showRace && race ? <>
-            <Pista race={race} cited={racer?.genre ?? null} svgRef={raceRef} lit={pen.done.has(racerId)} />
-            {/* os números da janela escolhida continuam a um clique: a pista mostra a corrida, a lista mostra o quanto */}
-            <DiscoveryDisclosure className={styles.numbers} bodyClassName={styles.numbersBody} summary="ver em números">
-              <p className={styles.legend}><span className={styles.legendFrom} aria-hidden="true" /> antes <span className={styles.legendTo} aria-hidden="true" /> agora · participação na escuta com gênero conhecido</p>
-              {group("ganhou espaço", shift.rising)}
-              {group("perdeu espaço", shift.declining)}
+          <p className={styles.legend}>
+            <span className={styles.legendFrom} aria-hidden="true" /> antes <span className={styles.legendTo} aria-hidden="true" /> agora · fatia da escuta com gênero conhecido
+          </p>
+          {shown.map((item) => (
+            <section key={item.genre} className={styles.cited} aria-label={genreLabel(item.genre)}>
+              <ol className={styles.rows}>
+                <Linha item={item} scale={scale} cited lit={pen.done.has(`trilha:${item.genre}`)} register={register} />
+              </ol>
+              <QuemPuxou albums={moversOf(item)} />
+            </section>
+          ))}
+          {rest.length > 0 && (
+            <DiscoveryDisclosure className={styles.numbers} bodyClassName={styles.numbersBody} summary="ver todos os gêneros">
+              <ol className={styles.rows}>
+                {rest.map((item) => <Linha key={item.genre} item={item} scale={scale} cited={false} lit={false} register={ignore} />)}
+              </ol>
             </DiscoveryDisclosure>
-          </> : <>
-            <p className={styles.legend}><span className={styles.legendFrom} aria-hidden="true" /> antes <span className={styles.legendTo} aria-hidden="true" /> agora · participação na escuta com gênero conhecido</p>
-            {group("ganhou espaço", shift.rising)}
-            {group("perdeu espaço", shift.declining)}
-          </>}
-          {movers && <QuemPuxou movers={movers} />}
+          )}
         </div>
       </div>
       <PenLayer pen={pen} signal={silence} reduced={reduced} />

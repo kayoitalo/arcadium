@@ -516,19 +516,6 @@
 
 /* ---------- a espera com a cara do app ---------- */
 
-/* a manchete de espera chega condensada e vai abrindo, como letra sendo escrita */
-.aviso[data-waiting="true"] .headline {
-  animation: letraAbre 1.1s var(--glide) both;
-}
-
-@keyframes letraAbre {
-  from {
-    opacity: 0.2;
-    font-variation-settings: "wdth" 125, "wght" 220;
-    letter-spacing: 0.01em;
-  }
-}
-
 .aviso[data-waiting="true"] .narrative {
   animation: quietIn 600ms ease both;
 }

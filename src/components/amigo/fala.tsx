@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, ViewTransition, type CSSProperties, type ReactNode, type Ref, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, ViewTransition, type CSSProperties, type ReactNode, type Ref, type RefObject } from "react";
 import { coverProxyUrl } from "@/lib/cover";
 import { readTint, type Tint } from "@/lib/cover-tint";
 import { knownTint, rememberTint } from "./use-cover-tint";
@@ -95,6 +95,27 @@ export function Fala({
   claimOn?: string | null;
 }) {
   const pieces = markPieces(headline, mark);
+  // a folga do grifo só existe quando a palavra tem vizinha na mesma linha: abrindo a linha, ela não recua
+  const own = useRef<HTMLSpanElement | null>(null);
+  const [lineStart, setLineStart] = useState(false);
+  useLayoutEffect(() => {
+    const span = own.current;
+    const heading = span?.parentElement;
+    if (!span || !heading) return;
+    const check = () => {
+      const first = span.getClientRects()[0];
+      if (first) setLineStart(first.left - heading.getBoundingClientRect().left < 12);
+    };
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(heading);
+    return () => observer.disconnect();
+  }, [headline, pieces.marked]);
+  const setMark = useCallback((node: HTMLSpanElement | null) => {
+    own.current = node;
+    if (typeof markRef === "function") markRef(node);
+    else if (markRef) (markRef as { current: HTMLSpanElement | null }).current = node;
+  }, [markRef]);
   const used = new Set<string>();
   const say = (text: string) =>
     !claims?.length || !onClaim
@@ -125,8 +146,8 @@ export function Fala({
       {when && <p className={styles.window}>{when}</p>}
       <Heading ref={headlineRef} className={styles.headline}>
         {pieces.before}
-        <span ref={markRef} className={styles.mark} data-marked={marked}
-          data-space-before={/\s$/.test(pieces.before) || undefined} data-space-after={/^\s/.test(pieces.after) || undefined}>
+        <span ref={setMark} className={styles.mark} data-marked={marked}
+          data-space-before={(!lineStart && /\s$/.test(pieces.before)) || undefined} data-space-after={/^\s/.test(pieces.after) || undefined}>
           {pieces.marked}
         </span>
         {pieces.after}
