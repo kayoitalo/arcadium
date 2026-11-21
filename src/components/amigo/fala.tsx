@@ -121,7 +121,8 @@ export function Fala({
   const Heading = level === 1 ? "h1" : "h2";
   return (
     <div className={`${styles.fala} ${className}`} data-active={active} data-dismissed={dismissed}>
-      {when && <p className={styles.window}>{when}</p>}
+      {/* janela que é só texto pode sair pra margem na tela larga; escolha de janela fica junto da fala */}
+      {when && <p className={styles.window} data-margin={typeof when === "string" || undefined}>{when}</p>}
       <Heading ref={headlineRef} className={styles.headline}>
         {pieces.before}
         <span ref={markRef} className={styles.mark} data-marked={marked}

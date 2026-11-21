@@ -650,3 +650,16 @@
     stroke-dashoffset: 0;
   }
 }
+
+/* na tela larga, a janela da fala sai pra margem, à esquerda da linha */
+@media (min-width: 1600px) {
+  .fala > .window[data-margin] {
+    position: absolute;
+    top: 0.35em;
+    right: calc(100% + 56px);
+    width: max-content;
+    max-width: calc(var(--gutter) - 72px);
+    margin: 0;
+    text-align: right;
+  }
+}
