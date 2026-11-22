@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, type GenerationConfig } from "@google/generative-ai";
+import { GoogleGenAI, type GenerateContentConfig, type GenerateContentResponse } from "@google/genai";
 import {
   type MusicProfileInput,
   type NarrativeAngle,
@@ -165,24 +165,35 @@ ${LINE_EXAMPLES.map((example) => `- (${example.context}) ${example.line}`).join(
 /** Uma resposta com várias leituras e dezenas de frases é longa: ninguém espera por ela na tela. */
 const PACK_TIMEOUT_MS = 120_000;
 
+/** Uma chamada descrita: o modelo e a configuração. O reserva herda a mesma configuração. */
+export interface ModelCall { model: string; config: GenerateContentConfig }
+
+/** O texto da resposta, sem cerca de markdown, pronto pro JSON.parse. */
+export const responseJson = (response: GenerateContentResponse) =>
+  (response.text ?? "").replace(/```json/g, "").replace(/```/g, "").trim();
+
 export class GeminiAdapter implements PackProvider {
-  private ai: GoogleGenerativeAI;
+  /** Criado na primeira chamada: sem chave, o SDK reclama no console só de ser construído. */
+  private ai: GoogleGenAI | null = null;
+  private key: string;
   private modelName: string;
   private configured: boolean;
 
   constructor(apiKey?: string, modelName?: string) {
-    const key = apiKey || process.env.GEMINI_API_KEY || "";
-    this.configured = Boolean(key);
-    this.ai = new GoogleGenerativeAI(key);
+    this.key = apiKey || process.env.GEMINI_API_KEY || "";
+    this.configured = Boolean(this.key);
     this.modelName = modelName || process.env.AI_MODEL || "gemini-3.5-flash";
+  }
+
+  private client(): GoogleGenAI {
+    return (this.ai ??= new GoogleGenAI({ apiKey: this.key }));
   }
 
   async chooseWeeklyNarrative(prompt: string, audit: AttemptAudit): Promise<unknown> {
     if (!this.configured) throw new Error("GEMINI_API_KEY is not configured.");
-    const model = this.ai.getGenerativeModel({ model: this.modelName,
-      generationConfig: { responseMimeType: "application/json", maxOutputTokens: 512, temperature: 0.4 } });
-    const { result } = await this.generateWithRetry(model, prompt, 1, 12_000, audit);
-    return JSON.parse(result.response.text());
+    const call: ModelCall = { model: this.modelName, config: { responseMimeType: "application/json", maxOutputTokens: 512, temperature: 0.4 } };
+    const { result } = await this.generateWithRetry(call, prompt, 1, 12_000, audit);
+    return JSON.parse(responseJson(result));
   }
 
   /**
@@ -196,11 +207,8 @@ export class GeminiAdapter implements PackProvider {
       throw new Error("GEMINI_API_KEY is not configured.");
     }
 
-    const model = this.ai.getGenerativeModel({
-      model: this.modelName,
-      // os fatos estão travados pela base factual e pela validação; o que varia é o texto
-      generationConfig: { responseMimeType: "application/json", temperature: 1.0, topP: 0.95 },
-    });
+    // os fatos estão travados pela base factual e pela validação; o que varia é o texto
+    const call: ModelCall = { model: this.modelName, config: { responseMimeType: "application/json", temperature: 1.0, topP: 0.95 } };
 
     const slotList = slots
       .map((slot, index) => `- Leitura ${index + 1}: ângulo — ${ANGLES[slot.angle]}; forma — ${FORM_LABEL[slot.form]}: ${FORMS[slot.form]}.`)
@@ -271,9 +279,8 @@ Responda APENAS com JSON válido, sem markdown:
 `;
 
     try {
-      const { result, model: answeredBy } = await this.generateWithRetry(model, prompt, 2, PACK_TIMEOUT_MS, audit);
-      const text = result.response.text().replace(/```json/g, "").replace(/```/g, "").trim();
-      return { output: JSON.parse(text), model: answeredBy };
+      const { result, model: answeredBy } = await this.generateWithRetry(call, prompt, 2, PACK_TIMEOUT_MS, audit);
+      return { output: JSON.parse(responseJson(result)), model: answeredBy };
     } catch (error) {
       const providerMessage = error instanceof Error ? error.message.replaceAll(process.env.GEMINI_API_KEY || "__missing_key__", "[redacted]").slice(0, 400) : "Unknown provider error";
       // a causa fica anexada: é dela que o log tira o motivo (cota, sobrecarga, JSON quebrado)
@@ -287,49 +294,48 @@ Responda APENAS com JSON válido, sem markdown:
    * determinístico — que é correto, mas bem menos interessante de ler.
    */
   private async generateWithRetry(
-    model: ReturnType<GoogleGenerativeAI["getGenerativeModel"]>,
+    call: ModelCall,
     prompt: string,
     attempts = 2,
     timeoutMs = 45_000,
     audit?: AttemptAudit,
   ) {
     try {
-      return { result: await this.attemptModel(model, prompt, attempts, timeoutMs, audit), model: this.modelName };
+      return { result: await this.attemptModel(call, prompt, attempts, timeoutMs, audit), model: call.model };
     } catch (error) {
       // pico de demanda ou cota diária do modelo principal esgotada: o modelo
       // reserva tem cota própria e costuma responder nos dois casos
       const status = (error as { status?: number }).status;
       const overloaded = status === 503 || status === 504 || status === 500 || status === 502 || status === 429;
       const fallbackName = process.env.AI_FALLBACK_MODEL ?? "gemini-3.5-flash-lite";
-      if (!overloaded || !fallbackName || fallbackName === this.modelName) throw error;
+      if (!overloaded || !fallbackName || fallbackName === call.model) throw error;
 
-      logAi("ai.fallback", { from: this.modelName, to: fallbackName, status, reason: classifyAiError(error) }, "warn");
-      const fallback = this.ai.getGenerativeModel({
-        model: fallbackName,
-        generationConfig: (model as { generationConfig?: GenerationConfig }).generationConfig,
-      });
+      logAi("ai.fallback", { from: call.model, to: fallbackName, status, reason: classifyAiError(error) }, "warn");
+      const fallback: ModelCall = { model: fallbackName, config: call.config };
       return { result: await this.attemptModel(fallback, prompt, 1, timeoutMs, audit), model: fallbackName };
     }
   }
 
   private async attemptModel(
-    model: ReturnType<GoogleGenerativeAI["getGenerativeModel"]>,
+    call: ModelCall,
     prompt: string,
     attempts: number,
     timeoutMs: number,
     audit?: AttemptAudit,
-  ) {
+  ): Promise<GenerateContentResponse> {
     let lastError: unknown;
 
     for (let attempt = 0; attempt < attempts; attempt += 1) {
-      const id = audit ? await audit.before(model.model) : null;
+      const id = audit ? await audit.before(call.model) : null;
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
         // teto por tentativa: a narrativa é um enfeite do painel, não pode
         // segurar a tela esperando um provedor que não vai responder.
-        const result = await model.generateContent(prompt, { signal: controller.signal });
-        if (id) await audit!.after(id, { status: "COMPLETED", tokens: result.response.usageMetadata?.totalTokenCount });
+        const result = await this.client().models.generateContent({
+          model: call.model, contents: prompt, config: { ...call.config, abortSignal: controller.signal },
+        });
+        if (id) await audit!.after(id, { status: "COMPLETED", tokens: result.usageMetadata?.totalTokenCount });
         return result;
       } catch (error) {
         if (controller.signal.aborted) error = Object.assign(new Error("Gemini timeout"), { status: 504 });
@@ -341,7 +347,7 @@ Responda APENAS com JSON válido, sem markdown:
         const retryable = status === 503 || status === 500 || status === 502;
         if (!retryable || attempt === attempts - 1) break;
         const backoff = 700 * 2 ** attempt + Math.random() * 300;
-        logAi("ai.retry", { model: (model as { model?: string }).model, status, backoffMs: Math.round(backoff) }, "warn");
+        logAi("ai.retry", { model: call.model, status, backoffMs: Math.round(backoff) }, "warn");
         await new Promise((resolve) => setTimeout(resolve, backoff));
       } finally { clearTimeout(timer); }
     }
