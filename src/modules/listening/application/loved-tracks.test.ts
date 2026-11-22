@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { readLovedTracks, rotateByDay } from "./loved-tracks";
-import { representativeTracks } from "@/modules/recommendations/domain/taste-profile";
+import { readLovedTracks } from "./loved-tracks";
+import { declaredSeeds, representativeTracks } from "@/modules/recommendations/domain/taste-profile";
 import { trackFeedbackKey } from "@/modules/recommendations/domain/feedback";
 
 describe("readLovedTracks", () => {
@@ -18,14 +18,25 @@ describe("readLovedTracks", () => {
   });
 });
 
-describe("rotateByDay", () => {
-  const loved = Array.from({ length: 30 }, (_, index) => ({ artistName: `A${index}`, trackName: `T${index}` }));
-  it("keeps only the recent loves and starts somewhere new each day", () => {
-    const today = rotateByDay(loved, new Date("2026-11-21T12:00:00Z"));
-    const tomorrow = rotateByDay(loved, new Date("2026-11-22T12:00:00Z"));
+describe("declaredSeeds", () => {
+  const list = (prefix: string, length: number) => Array.from({ length }, (_, index) => ({ artistName: `${prefix}${index}`, trackName: `T${index}` }));
+  const none = () => 0;
+  it("keeps only the 20 most recent of each source and starts somewhere new each day", () => {
+    const loved = list("L", 30);
+    const today = declaredSeeds(loved, [], none, new Date("2026-11-21T12:00:00Z"));
+    const tomorrow = declaredSeeds(loved, [], none, new Date("2026-11-22T12:00:00Z"));
     expect(today).toHaveLength(20);
     expect(new Set(today.map((track) => track.artistName))).toEqual(new Set(loved.slice(0, 20).map((track) => track.artistName)));
     expect(tomorrow[0]).not.toEqual(today[0]);
+  });
+  it("alternates the Last.fm ♥ and the Spotify Curtidas, tagging each", () => {
+    const seeds = declaredSeeds(list("L", 2), list("S", 3), none, new Date(0));
+    expect(seeds.map((seed) => seed.region)).toEqual(["loved", "saved", "loved", "saved", "saved"]);
+  });
+  it("puts Curtidas that barely played ahead of the ones already in heavy rotation", () => {
+    const saved = [{ artistName: "Muito", trackName: "Tocada" }, { artistName: "Quase", trackName: "Nunca" }];
+    const seeds = declaredSeeds([], saved, (artist) => (artist === "Muito" ? 80 : 1), new Date(0));
+    expect(seeds.map((seed) => seed.artistName)).toEqual(["Quase", "Muito"]);
   });
 });
 

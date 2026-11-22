@@ -34,6 +34,8 @@ interface SpotifyStatus {
   connected: boolean;
   displayName?: string;
   reason?: string;
+  /** Conectado de antes das Curtidas: falta a permissão de ler a biblioteca. */
+  libraryMissing?: boolean;
 }
 
 interface EnrichmentCoverage {
@@ -389,22 +391,34 @@ export function Ajustes() {
           {syncError && <p className={styles.fieldError}>{syncError}</p>}
         </Secao>
 
-        <Secao title="playlists" state={loads.spotify === "loading" ? "consultando…" : loads.spotify === "error" ? "não consegui consultar" : spotify?.connected ? `Spotify · ${spotify.displayName}` : "não conectado"}>
+        <Secao title="spotify" state={loads.spotify === "loading" ? "consultando…" : loads.spotify === "error" ? "não consegui consultar" : spotify?.connected ? `Spotify · ${spotify.displayName}` : "não conectado"}>
           <p className={styles.hint}>
             O que você separar em “pra ouvir depois” pode virar playlist. Conectado, ela nasce direto na tua conta; sem
             conectar, você leva links e um arquivo .m3u.
           </p>
           <p className={styles.small}>
-            O Spotify é só destino: nada de lá volta pras tuas estatísticas nem pro que eu escrevo. A permissão pedida
-            cria playlists e mais nada.
+            A permissão pedida cria playlists e lê tuas Curtidas, que viram ponto de partida do Descobrir. Nada de lá
+            entra nas tuas estatísticas nem no que eu escrevo.
           </p>
+          {spotify?.connected && spotify.libraryMissing && (
+            <p className={styles.hint}>
+              Tua conexão é de antes das Curtidas. Reconecta pra eu poder partir delas no Descobrir.
+            </p>
+          )}
           {spotify && !spotify.configured && <p className={styles.small}>{spotify.reason}</p>}
           {spotify?.configured && (
             <Respostas inline label="Spotify">
               {spotify.connected ? (
-                <Resposta onClick={disconnectSpotify} disabled={busy}>
-                  desconectar
-                </Resposta>
+                <>
+                  {spotify.libraryMissing && (
+                    <Resposta onClick={connectSpotify} disabled={busy}>
+                      reconectar
+                    </Resposta>
+                  )}
+                  <Resposta onClick={disconnectSpotify} disabled={busy}>
+                    desconectar
+                  </Resposta>
+                </>
               ) : (
                 <Resposta onClick={connectSpotify} disabled={busy}>
                   conectar Spotify

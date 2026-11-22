@@ -14,29 +14,15 @@ export function readLovedTracks(payload: unknown): LovedTrack[] {
   });
 }
 
-/** Quantas das mais recentes entram no rodízio: um ♥ de anos atrás diz menos do gosto de agora. */
-const RECENT_LOVES = 20;
-
-/**
- * A ordem do rodízio: cada dia começa de uma faixa diferente entre as mais
- * recentes, pra semente do Descobrir não ser sempre a mesma.
- */
-export function rotateByDay(loved: LovedTrack[], now = new Date()): LovedTrack[] {
-  const pool = loved.slice(0, RECENT_LOVES);
-  if (pool.length === 0) return [];
-  const day = Math.floor(now.getTime() / 86_400_000);
-  const start = day % pool.length;
-  return [...pool.slice(start), ...pool.slice(0, start)];
-}
-
 const cache = new Map<string, { at: number; value: LovedTrack[] }>();
 /** O ♥ muda pouco: uma consulta a cada seis horas por conta basta. */
 const TTL_MS = 6 * 60 * 60 * 1000;
 
-/** As faixas amadas no Last.fm, já no rodízio do dia. Sem conta, sem chave ou com falha: lista vazia. */
+/** As faixas amadas no Last.fm, da mais recente pra trás. Sem conta, sem chave ou com falha: lista vazia. */
 export async function loadLovedTracks(userId: string, now = new Date()): Promise<LovedTrack[]> {
+  // o rodízio do dia é do Descobrir (declaredSeeds): aqui vem a lista crua
   const hit = cache.get(userId);
-  if (hit && now.getTime() - hit.at < TTL_MS) return rotateByDay(hit.value, now);
+  if (hit && now.getTime() - hit.at < TTL_MS) return hit.value;
   const apiKey = process.env.LASTFM_API_KEY;
   if (!apiKey) return [];
   const connection = await prisma.providerConnection.findUnique({
@@ -58,5 +44,5 @@ export async function loadLovedTracks(userId: string, now = new Date()): Promise
     return [];
   }
   cache.set(userId, { at: now.getTime(), value });
-  return rotateByDay(value, now);
+  return value;
 }

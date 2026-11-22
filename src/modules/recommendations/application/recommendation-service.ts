@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { filterGenreTags } from "@/modules/enrichment/domain/genre-tags";
 import { scoreAndRank, RANKING_VERSION, type UserProfile } from "../domain/scoring";
 import { scoreAndRank as legacyScoreAndRank } from "../domain/legacy-scoring";
-import { tasteSlice, representativeTracks, PROFILE_WEIGHTS, type TrackSeed } from "../domain/taste-profile";
+import { declaredSeeds, tasteSlice, representativeTracks, PROFILE_WEIGHTS, type TrackSeed } from "../domain/taste-profile";
 import { composeSession } from "../domain/composition";
 import { eligibleCandidates } from "../domain/eligibility";
 import { algorithmVersion, discoveryStrategy, type DiscoveryStrategy } from "../domain/strategy";
@@ -24,6 +24,7 @@ import { SessionMemoryService, type FeedbackOptions } from "./session-memory-ser
 import type { TrackCoverProvider } from "@/modules/enrichment/domain/cover-art-provider.interface";
 import { LastFmCoverAdapter } from "@/modules/enrichment/infrastructure/lastfm-cover-adapter";
 import { loadLovedTracks } from "@/modules/listening/application/loved-tracks";
+import { loadSavedTracks } from "@/modules/spotify/application/saved-tracks";
 import {
   type RecommendationMode,
   type RecommendationContext,
@@ -509,7 +510,7 @@ export class RecommendationService {
     const reference = new Date();
     const days = period === "7d" ? 7 : period === "1y" ? 365 : 30;
     const recentWhere = { userId, playedAt: { gte: new Date(reference.getTime() - days * 86_400_000) } };
-    const [longArtists, recentArtists, longTracks, recentTracks, feedback, loved] = await Promise.all([
+    const [longArtists, recentArtists, longTracks, recentTracks, feedback, loved, saved] = await Promise.all([
       prisma.listeningEvent.groupBy({ by: ["rawArtistName"], where: { userId }, _count: { id: true }, orderBy: { _count: { id: "desc" } } }),
       prisma.listeningEvent.groupBy({ by: ["rawArtistName"], where: recentWhere, _count: { id: true }, orderBy: { _count: { id: "desc" } } }),
       prisma.listeningEvent.groupBy({ by: ["rawArtistName", "rawTrackName"], where: { userId }, _count: { id: true }, _max: { playedAt: true }, orderBy: { _count: { id: "desc" } } }),
@@ -517,7 +518,10 @@ export class RecommendationService {
       prisma.recommendationFeedback.findMany({ where: { userId }, include: { item: { select: { artistName: true, trackName: true } } }, orderBy: [{ createdAt: "desc" }, { id: "desc" }] }),
       // o ♥ do Last.fm: sem ele (ou sem conta), o Descobrir parte só do resto
       loadLovedTracks(userId).catch(() => []),
+      // as Curtidas do Spotify: sem a permissão, lista vazia
+      loadSavedTracks(userId).catch(() => []),
     ]);
+    const trackPlays = new Map(longTracks.map((track) => [trackFeedbackKey(track.rawArtistName, track.rawTrackName), track._count.id]));
     const feedbackMap = new Map<string, FeedbackType>();
     const likedTracks: Array<{ artistName: string; trackName: string }> = [];
     const knownTrackKeys = new Set(longTracks.map((track) => track.rawArtistName.toLowerCase() + "|" + track.rawTrackName.toLowerCase()));
@@ -547,7 +551,8 @@ export class RecommendationService {
       topGenres: [...genreBlend].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0])).slice(0,10).map(([name]) => name),
       knownArtistNames: new Set(longArtists.map((row) => row.rawArtistName.toLowerCase())), knownTrackKeys, feedbackMap,
       totalPlays: longTerm.totalPlays, uniqueArtists: longArtists.length, longTerm, recent, likedTracks,
-      trackSeeds: representativeTracks(longTerm, recent, likedTracks, feedbackMap, 4, loved), referenceTime: reference.toISOString() };
+      trackSeeds: representativeTracks(longTerm, recent, likedTracks, feedbackMap, 4,
+        declaredSeeds(loved, saved, (artist, track) => trackPlays.get(trackFeedbackKey(artist, track)) ?? 0, reference)), referenceTime: reference.toISOString() };
   }
 
   private async generateCandidates(userId: string, profile: UserProfile, mode: RecommendationMode, dials: DiscoveryDials): Promise<RawCandidate[]> {
