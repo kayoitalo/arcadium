@@ -23,6 +23,7 @@ import { DiscoveryConflict, effectiveFeedback, effectiveTrackFeedback, trackFeed
 import { SessionMemoryService, type FeedbackOptions } from "./session-memory-service";
 import type { TrackCoverProvider } from "@/modules/enrichment/domain/cover-art-provider.interface";
 import { LastFmCoverAdapter } from "@/modules/enrichment/infrastructure/lastfm-cover-adapter";
+import { loadLovedTracks } from "@/modules/listening/application/loved-tracks";
 import {
   type RecommendationMode,
   type RecommendationContext,
@@ -508,12 +509,14 @@ export class RecommendationService {
     const reference = new Date();
     const days = period === "7d" ? 7 : period === "1y" ? 365 : 30;
     const recentWhere = { userId, playedAt: { gte: new Date(reference.getTime() - days * 86_400_000) } };
-    const [longArtists, recentArtists, longTracks, recentTracks, feedback] = await Promise.all([
+    const [longArtists, recentArtists, longTracks, recentTracks, feedback, loved] = await Promise.all([
       prisma.listeningEvent.groupBy({ by: ["rawArtistName"], where: { userId }, _count: { id: true }, orderBy: { _count: { id: "desc" } } }),
       prisma.listeningEvent.groupBy({ by: ["rawArtistName"], where: recentWhere, _count: { id: true }, orderBy: { _count: { id: "desc" } } }),
       prisma.listeningEvent.groupBy({ by: ["rawArtistName", "rawTrackName"], where: { userId }, _count: { id: true }, _max: { playedAt: true }, orderBy: { _count: { id: "desc" } } }),
       prisma.listeningEvent.groupBy({ by: ["rawArtistName", "rawTrackName"], where: recentWhere, _count: { id: true }, _max: { playedAt: true }, orderBy: { _count: { id: "desc" } } }),
       prisma.recommendationFeedback.findMany({ where: { userId }, include: { item: { select: { artistName: true, trackName: true } } }, orderBy: [{ createdAt: "desc" }, { id: "desc" }] }),
+      // o ♥ do Last.fm: sem ele (ou sem conta), o Descobrir parte só do resto
+      loadLovedTracks(userId).catch(() => []),
     ]);
     const feedbackMap = new Map<string, FeedbackType>();
     const likedTracks: Array<{ artistName: string; trackName: string }> = [];
@@ -544,7 +547,7 @@ export class RecommendationService {
       topGenres: [...genreBlend].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0])).slice(0,10).map(([name]) => name),
       knownArtistNames: new Set(longArtists.map((row) => row.rawArtistName.toLowerCase())), knownTrackKeys, feedbackMap,
       totalPlays: longTerm.totalPlays, uniqueArtists: longArtists.length, longTerm, recent, likedTracks,
-      trackSeeds: representativeTracks(longTerm, recent, likedTracks, feedbackMap), referenceTime: reference.toISOString() };
+      trackSeeds: representativeTracks(longTerm, recent, likedTracks, feedbackMap, 4, loved), referenceTime: reference.toISOString() };
   }
 
   private async generateCandidates(userId: string, profile: UserProfile, mode: RecommendationMode, dials: DiscoveryDials): Promise<RawCandidate[]> {

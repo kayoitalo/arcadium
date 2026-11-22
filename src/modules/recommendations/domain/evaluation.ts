@@ -17,7 +17,7 @@ const candidate = z.object({ artistName: z.string().min(1), trackName: z.string(
   trackId: z.string().optional(), match: z.number().optional(), isRevisit: z.boolean().optional(),
   evidence: z.array(z.object({ kind: z.enum(["artist_similarity", "track_similarity", "artist_catalog", "genre_overlap", "history_revisit", "history_repertoire", "territory_tag", "repertoire_metadata"]),
     source: z.enum(["lastfm", "catalog", "history"]), seedArtist: z.string().optional(), seedTrack: z.string().optional(), genre: z.string().optional(), rank: z.number().int().positive().optional(),
-    region: z.enum(["long_term", "recent", "feedback"]).optional(), playCount: z.number().int().nonnegative().optional(), lastPlayedAt: z.string().datetime().optional() })).default([]),
+    region: z.enum(["long_term", "recent", "feedback", "loved"]).optional(), playCount: z.number().int().nonnegative().optional(), lastPlayedAt: z.string().datetime().optional() })).default([]),
 });
 const measured = z.object({ endToEndMs: z.number().nonnegative().nullable(), providerAttempts: z.number().int().nonnegative().nullable(),
   inputTokens: z.number().int().nonnegative().nullable(), outputTokens: z.number().int().nonnegative().nullable() });

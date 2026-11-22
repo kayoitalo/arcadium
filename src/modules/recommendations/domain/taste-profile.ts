@@ -9,7 +9,7 @@ export interface TasteSlice {
   totalPlays: number;
   genreCoverage: number;
 }
-export interface TrackSeed { artistName: string; trackName: string; plays: number; lastPlayedAt?: string; region: "long_term" | "recent" | "feedback" }
+export interface TrackSeed { artistName: string; trackName: string; plays: number; lastPlayedAt?: string; region: "long_term" | "recent" | "feedback" | "loved" }
 export interface UserProfile extends LegacyProfile {
   /** A session request, not an inferred or persisted musical preference. */
   explicitReference?: { artistName: string; trackName: string };
@@ -39,9 +39,15 @@ export function tasteSlice(
       .sort((a, b) => b.share - a.share || a.name.localeCompare(b.name)), tracks };
 }
 
+/**
+ * As faixas de partida do Descobrir, uma de cada região por vez: o "curti"
+ * daqui, o ♥ do Last.fm, a fase recente e o repertório de sempre.
+ */
 export function representativeTracks(longTerm: TasteSlice, recent: TasteSlice,
-  liked: Array<{ artistName: string; trackName: string }>, feedback: Map<string, FeedbackType>, limit = 4): TrackSeed[] {
+  liked: Array<{ artistName: string; trackName: string }>, feedback: Map<string, FeedbackType>, limit = 4,
+  loved: Array<{ artistName: string; trackName: string }> = []): TrackSeed[] {
   const pools: TrackSeed[][] = [liked.map((track) => ({ ...track, plays: 0, region: "feedback" })),
+    loved.map((track) => ({ ...track, plays: 0, region: "loved" })),
     [...recent.tracks].sort((a, b) => b.plays - a.plays), [...longTerm.tracks].sort((a, b) => b.plays - a.plays)];
   const selected: TrackSeed[] = [];
   const keys = new Set<string>();

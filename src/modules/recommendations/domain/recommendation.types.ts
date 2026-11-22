@@ -101,7 +101,7 @@ export interface RecommendationEvidence {
   source: "lastfm" | "catalog" | "history";
   seedArtist?: string;
   seedTrack?: string;
-  region?: "long_term" | "recent" | "feedback";
+  region?: "long_term" | "recent" | "feedback" | "loved";
   rank?: number;
   rawMatch?: number;
   genre?: string;
