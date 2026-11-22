@@ -9,6 +9,7 @@ import { textLines } from "@/components/amigo/measure";
 import { band } from "@/components/amigo/gestures";
 import { Capa, shareName } from "@/components/amigo/fala";
 import type { DiscoveryIntent } from "@/modules/recommendations/domain/discovery-intent";
+import { SaiuAgora } from "./saiu-agora";
 
 /**
  * A porta da descoberta: ele pergunta, você escolhe um caminho. Quem já tem
@@ -63,6 +64,7 @@ export function DiscoveryEntry({ busy, hasSession, currentRank, total, territory
       {DISCOVERY_ENTRIES.filter((entry) => entry.intent === "REPERTOIRE").map((entry) => choice(entry.title, entry.description, () => onChoose(entry.proximity, entry.fame, entry.intent), undefined, ownCovers.slice(3, 6)))}
     </div>
     {territoryOpen && territory}
+    <SaiuAgora />
     <PenLayer pen={pen} signal={signal} reduced={reduced} />
   </section>;
 }

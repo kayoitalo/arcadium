@@ -209,3 +209,17 @@
 .entryCovers { display: flex; height: 40px; margin-bottom: 16px; }
 .entryCovers img { width: 40px; height: 40px; object-fit: cover; box-shadow: 0 0 0 2px var(--papel); }
 .entryCovers img + img { margin-left: -12px; }
+
+/* saiu agora: os lançamentos de quem você já ouve, na porta do Descobrir — lista miúda, sem roubar a cena dos caminhos */
+.saiu { margin-top: 36px; }
+.saiuRotulo { margin: 0 0 12px; color: var(--tinta-3); font-size: 13px; }
+.saiuLista { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 32px; margin: 0; padding: 0; list-style: none; }
+.saiuLista a { display: grid; grid-template-columns: 56px minmax(0, 1fr); grid-template-rows: auto auto auto; column-gap: 14px; align-content: center; color: var(--tinta); text-decoration: none; }
+.saiuCapa { grid-row: 1 / 4; width: 56px; align-self: center; transition: transform var(--t-rapido) var(--glide); }
+.saiuLista a:hover .saiuCapa, .saiuLista a:focus-visible .saiuCapa { transform: translateY(-2px); }
+.saiuLista strong { overflow: hidden; font-size: 14px; font-weight: 560; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.saiuLista a:hover strong { text-decoration: underline; text-underline-offset: 4px; text-decoration-color: var(--fio-2); }
+.saiuQuem { overflow: hidden; color: var(--tinta-2); font-size: 13px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.saiuQuando { color: var(--tinta-3); font-size: 12px; line-height: 1.4; font-variant-numeric: tabular-nums; }
+@media (max-width: 1024px) { .saiuLista { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .saiu { margin-top: 28px; } .saiuLista { grid-template-columns: minmax(0, 1fr); gap: 12px; } }
