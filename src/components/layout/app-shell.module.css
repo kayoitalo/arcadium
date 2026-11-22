@@ -83,12 +83,12 @@
   display: none;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 920px) {
   .shell {
     --bar-h: 56px;
   }
 
-  /* no celular a barra é só a marca e o nome da tela: o resto da tela é da conversa */
+  /* no celular (e no tablet em pé, onde as sete telas não cabem numa linha) a barra é só a marca e o nome da tela */
   .bar {
     gap: 16px;
     padding: 6px var(--gutter) 14px;
@@ -192,7 +192,7 @@
 /* o sumário do caderno, no celular */
 .cadernoNome { display: block; }
 .cadernoNota { display: block; margin-top: 2px; font-size: 13px; line-height: 1.4; color: var(--tinta-3); font-variation-settings: "wdth" 100, "wght" 420; letter-spacing: 0; text-decoration: none; }
-@media (max-width: 760px) {
+@media (max-width: 920px) {
   .caderno li { animation: cadernoLinha var(--t-medio) var(--glide) both; }
   .caderno a[aria-current="page"] { text-decoration: none; }
   .caderno a[aria-current="page"] .cadernoNome { text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 8px; }

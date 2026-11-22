@@ -15,22 +15,34 @@ interface HistoryPage {
   since: string | null;
 }
 
-/** O dia de hoje, só com o que tocou: de ontem pra cá, a última audição e as capas desse tempo. */
+/**
+ * O dia de hoje, só com o que tocou nas últimas 24 horas (a mesma janela
+ * da leitura "de ontem pra cá"), a última audição e as capas desse tempo.
+ */
 export interface Dia {
   /** "sexta, 20 de novembro" */
   date: string;
   plays: number;
   /** Bateu no limite da página: são pelo menos essas. */
   atLeast: boolean;
-  last: { track: string; artist: string; time: string; /** "quinta", quando não foi hoje nem ontem; "ontem" ou "hoje". */ day: string } | null;
+  last: {
+    track: string; artist: string; time: string;
+    /** "hoje", "ontem", o dia da semana até 6 dias atrás; depois disso, a data ("29 de outubro", com o ano se for outro). */
+    day: string;
+  } | null;
   capas: Folha[];
 }
 
 const weekday = new Intl.DateTimeFormat("pt-BR", { weekday: "long" });
 const dayMonth = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long" });
 
+/** O dia de hoje sem o histórico ainda: só a data, que já se sabe. */
+export function dateOf(now = new Date()): string {
+  return `${weekday.format(now).replace(/-feira$/, "")}, ${dayMonth.format(now)}`;
+}
+
 export function diaFrom(page: HistoryPage, now = new Date(), limit = 100): Dia {
-  const since = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  const since = new Date(now.getTime() - 86_400_000);
   const recent = page.events.filter((event) => new Date(event.playedAt) >= since);
   // sem nada de ontem pra cá, a fita mostra o que tocou por último
   const { fita } = fitaFrom({ ...page, events: recent.length > 0 ? recent : page.events }, 14);
@@ -39,12 +51,14 @@ export function diaFrom(page: HistoryPage, now = new Date(), limit = 100): Dia {
   const dayOf = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
   const daysAgo = lastAt ? Math.round((dayOf(now) - dayOf(lastAt)) / 86_400_000) : 0;
   return {
-    date: `${weekday.format(now).replace(/-feira$/, "")}, ${dayMonth.format(now)}`,
+    date: dateOf(now),
     plays: recent.length,
     atLeast: recent.length >= limit,
     last: first && lastAt ? {
       track: cleanTitle(first.rawTrackName), artist: first.rawArtistName, time: time.format(lastAt),
-      day: daysAgo <= 0 ? "hoje" : daysAgo === 1 ? "ontem" : weekday.format(lastAt).replace(/-feira$/, ""),
+      // o dia da semana só enquanto não se repete: com 7 dias, "domingo" num domingo pareceria hoje
+      day: daysAgo <= 0 ? "hoje" : daysAgo === 1 ? "ontem" : daysAgo <= 6 ? weekday.format(lastAt).replace(/-feira$/, "")
+        : lastAt.getFullYear() === now.getFullYear() ? dayMonth.format(lastAt) : `${dayMonth.format(lastAt)} de ${lastAt.getFullYear()}`,
     } : null,
     capas: fita,
   };
@@ -73,15 +87,15 @@ export function fitaFrom(page: HistoryPage, limit = 10): { fita: Folha[]; later:
  * O histórico recente chega em um segundo; a conversa pode levar dez. Ele
  * busca uma vez, e a espera mostra o que já sabe: a fita e a conta real.
  */
-export function useFita(enabled = true): { fita: Folha[]; later: string | null; dia: Dia | null } {
-  const [value, setValue] = useState<{ fita: Folha[]; later: string | null; dia: Dia | null }>({ fita: [], later: null, dia: null });
+export function useFita(enabled = true): { fita: Folha[]; later: string | null; dia: Dia | null; settled: boolean } {
+  const [value, setValue] = useState<{ fita: Folha[]; later: string | null; dia: Dia | null; settled: boolean }>({ fita: [], later: null, dia: null, settled: false });
   useEffect(() => {
     if (!enabled) return;
     const controller = new AbortController();
     privateFetch("/api/history?limit=100", { signal: controller.signal, cache: "no-store" })
       .then((response) => (response.ok ? (response.json() as Promise<HistoryPage>) : null))
-      .then((page) => { if (page && !controller.signal.aborted) setValue({ ...fitaFrom(page), dia: diaFrom(page) }); })
-      .catch(() => undefined);
+      .then((page) => { if (!controller.signal.aborted) setValue(page ? { ...fitaFrom(page), dia: diaFrom(page), settled: true } : (current) => ({ ...current, settled: true })); })
+      .catch(() => { if (!controller.signal.aborted) setValue((current) => ({ ...current, settled: true })); });
     return () => controller.abort();
   }, [enabled]);
   return value;

@@ -11,10 +11,12 @@ import { DiaDeHoje } from "@/components/conversa/dia";
 import { DiscoveryRecall, useDiscoveryRecall } from "@/components/descobertas/discovery-recall";
 import type { ConversationView } from "@/modules/conversation/domain/conversation.types";
 
-/** Enquanto ele escreve a primeira leitura, a tela pergunta de novo nesse ritmo. */
+/** Enquanto ele escreve a primeira leitura, a tela pergunta de novo nesse ritmo… */
 const POLL_MS = 10_000;
+/** …até uns três minutos: depois disso ele admite a demora em vez de pedir mais um minuto pra sempre. */
+const POLL_LIMIT = 18;
 
-type State = { status: "loading" } | { status: "error" } | { status: "ready"; view: ConversationView };
+type State = { status: "loading" } | { status: "error" } | { status: "slow" } | { status: "ready"; view: ConversationView };
 
 /**
  * A tela inicial é a conversa. Número só aparece como prova do que ele
@@ -28,18 +30,20 @@ function ConversationBody() {
   const recall = useDiscoveryRecall();
   // enquanto a conversa chega, ele folheia o que tocou por último
   // e o mesmo histórico recente vira o cabeçalho do dia, em cima do fio
-  const { fita, later, dia } = useFita();
+  const { fita, later, dia, settled } = useFita();
 
   useEffect(() => {
     const controller = new AbortController();
     let timer = 0;
+    let polls = 0;
     const load = async () => {
       try {
         const response = await privateFetch("/api/conversation", { signal: controller.signal, cache: "no-store" });
         if (!response.ok) throw new Error(`conversa ${response.status}`);
         const view = (await response.json()) as ConversationView;
+        if (view.writing && polls >= POLL_LIMIT) { setState({ status: "slow" }); return; }
         setState({ status: "ready", view });
-        if (view.writing) timer = window.setTimeout(load, POLL_MS);
+        if (view.writing) { polls += 1; timer = window.setTimeout(load, POLL_MS); }
       } catch {
         if (!controller.signal.aborted) setState({ status: "error" });
       }
@@ -53,6 +57,15 @@ function ConversationBody() {
 
   if (state.status === "loading") {
     return <Aviso waiting planta="conversa" fita={fita} later={later ?? undefined} headline="Peraí, tô ouvindo aqui." />;
+  }
+
+  if (state.status === "slow") {
+    return (
+      <Aviso headline="Tá demorando mais que o normal." narrative="Ainda não consegui escrever a primeira leitura. Tento de novo quando você pedir, ou na próxima vez que abrir.">
+        <Resposta onClick={() => { setState({ status: "loading" }); setAttempt((current) => current + 1); }}>tenta de novo</Resposta>
+        <Resposta href="/history">ver tudo que tocou</Resposta>
+      </Aviso>
+    );
   }
 
   if (state.status === "error") {
@@ -88,7 +101,7 @@ function ConversationBody() {
       <Aviso
         waiting
         headline="Tô escrevendo o que reparei."
-        narrative="Li teu histórico inteiro. Dá um minuto que eu já volto com a primeira."
+        narrative="Teu histórico já tá aqui. Dá um minuto que eu já volto com a primeira."
       />
     );
   }
@@ -99,7 +112,7 @@ function ConversationBody() {
     return (
       <Aviso
         headline="Nada que eu consiga provar ainda."
-        narrative="Eu reparei em umas coisas, mas nenhuma bateu com o teu histórico. Não vou te contar o que não consigo mostrar."
+        narrative="Ainda não achei nada que o teu histórico confirme. Não vou te contar o que não consigo mostrar."
       >
         <Resposta href="/history">ver tudo que tocou</Resposta>
       </Aviso>
@@ -109,7 +122,8 @@ function ConversationBody() {
   return (
     <Conversa
       moments={view.moments}
-      masthead={dia ? <DiaDeHoje dia={dia} /> : null}
+      // sem resposta do histórico, nada de cabeçalho; enquanto ela não vem, a data guarda o lugar
+      masthead={dia || !settled ? <DiaDeHoje dia={dia} /> : null}
       epilogue={<DiscoveryRecall recall={recall} />}
       // a retomada logo acima já tem "retomar esse caminho" e "ver o que ficou pra depois":
       // no pé, só o caminho genérico quando ela não tem nada a mostrar

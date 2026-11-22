@@ -14,14 +14,18 @@ import own from "./provas-raras.module.css";
 
 const decimal = (value: number) => value.toString().replace(".", ",");
 
+type Register = (part: string) => (node: HTMLElement | null) => void;
+/** O assunto da vez acende a capa; `register` dá à caneta as peças que a frase cita. */
+interface Lit { playing: boolean; glow?: boolean; register?: Register }
+
 /** O loop: quantas vezes seguidas, e a hora de cada uma — é a sequência de verdade. */
-export function ProvaLoop({ evidence, playing }: { evidence: Extract<Evidence, { kind: "loop" }>; playing: boolean }) {
+export function ProvaLoop({ evidence, playing, glow = false, register }: Lit & { evidence: Extract<Evidence, { kind: "loop" }> }) {
   const [day] = evidence.plays[0]?.split(" · ") ?? [""];
   const sameDay = evidence.plays.every((when) => when.startsWith(`${day} · `));
   return (
     <div className={styles.proof}>
       <div className={styles.solo}>
-        <Capa cover={evidence.cover} playing={playing} className={styles.soloCover} />
+        <Capa cover={evidence.cover} playing={playing} className={styles.soloCover} innerRef={register?.("cover")} glow={glow} />
         <div className={own.fact}>
           <p className={own.value}>
             {evidence.times}× <span>seguidas</span>
@@ -43,11 +47,11 @@ export function ProvaLoop({ evidence, playing }: { evidence: Extract<Evidence, {
 }
 
 /** A volta: a última vez antes do sumiço, a primeira depois, e o tempo entre as duas. */
-export function ProvaVolta({ evidence, playing }: { evidence: Extract<Evidence, { kind: "comeback" }>; playing: boolean }) {
+export function ProvaVolta({ evidence, playing, glow = false, register }: Lit & { evidence: Extract<Evidence, { kind: "comeback" }> }) {
   return (
     <div className={styles.proof}>
       <div className={styles.solo}>
-        <Capa cover={evidence.cover} playing={playing} className={styles.soloCover} />
+        <Capa cover={evidence.cover} playing={playing} className={styles.soloCover} innerRef={register?.("cover")} glow={glow} />
         <div className={own.fact}>
           <p className={own.value}>
             {evidence.awayFor} <span>sem tocar</span>
@@ -73,11 +77,11 @@ export function ProvaVolta({ evidence, playing }: { evidence: Extract<Evidence, 
 }
 
 /** A estreia: a primeira audição da vida, com a hora e a faixa por onde ele entrou. */
-export function ProvaEstreia({ evidence, playing }: { evidence: Extract<Evidence, { kind: "debut" }>; playing: boolean }) {
+export function ProvaEstreia({ evidence, playing, glow = false, register }: Lit & { evidence: Extract<Evidence, { kind: "debut" }> }) {
   return (
     <div className={styles.proof}>
       <div className={styles.solo}>
-        <Capa cover={evidence.cover} playing={playing} className={styles.soloCover} />
+        <Capa cover={evidence.cover} playing={playing} className={styles.soloCover} innerRef={register?.("cover")} glow={glow} />
         <div className={own.fact}>
           <p className={own.value}>
             1ª vez <span>por aqui</span>
@@ -99,20 +103,20 @@ export function ProvaEstreia({ evidence, playing }: { evidence: Extract<Evidence
 }
 
 /** A madrugada: de que hora a que hora, e o que tocou, na ordem. */
-export function ProvaMadrugada({ evidence, playing }: { evidence: Extract<Evidence, { kind: "night" }>; playing: boolean }) {
+export function ProvaMadrugada({ evidence, playing, glow = false, register }: Lit & { evidence: Extract<Evidence, { kind: "night" }> }) {
   const rest = evidence.plays - evidence.steps.length;
   const [day] = evidence.steps[0]?.when.split(" · ") ?? [""];
   return (
     <div className={styles.proof}>
       <div className={styles.solo}>
-        <Capa cover={evidence.cover} playing={playing} className={styles.soloCover} />
+        <Capa cover={evidence.cover} playing={playing} className={styles.soloCover} innerRef={register?.("cover")} glow={glow} />
         <div className={own.fact}>
           <p className={own.value}>
             {evidence.from}–{evidence.to} <span>{day}</span>
           </p>
           <ol className={own.steps} aria-label="O que tocou de madrugada">
             {evidence.steps.map((step, order) => (
-              <li key={`${step.when}-${order}`}>
+              <li key={`${step.when}-${order}`} ref={register?.(`linha:${order}`)}>
                 <span className={styles.when}>{step.when.split(" · ")[1] ?? step.when}</span>
                 <span className={own.stepTrack}>{splitTrackTitle(step.track).title}</span>
                 <span className={styles.who}>{step.artist}</span>
@@ -129,20 +133,20 @@ export function ProvaMadrugada({ evidence, playing }: { evidence: Extract<Eviden
 }
 
 /** A maratona: quantas das audições de um dia foram de um artista só, e com quais faixas. */
-export function ProvaMaratona({ evidence, playing }: { evidence: Extract<Evidence, { kind: "binge" }>; playing: boolean }) {
+export function ProvaMaratona({ evidence, playing, glow = false, register }: Lit & { evidence: Extract<Evidence, { kind: "binge" }> }) {
   const max = evidence.tracks[0]?.plays || 1;
   return (
     <div className={styles.proof}>
       <div className={styles.solo}>
-        <Capa cover={evidence.cover} playing={playing} className={styles.soloCover} />
+        <Capa cover={evidence.cover} playing={playing} className={styles.soloCover} innerRef={register?.("cover")} glow={glow} />
         <div className={own.fact}>
           <p className={own.value}>
             {evidence.plays} de {evidence.dayTotal} <span>audições em {evidence.day}</span>
           </p>
           <p className={own.name}>{evidence.artist}</p>
           <ol className={`${styles.rows} ${own.spaced}`} data-plain="true">
-            {evidence.tracks.map((row) => (
-              <li key={row.track} className={styles.row}>
+            {evidence.tracks.map((row, order) => (
+              <li key={row.track} ref={register?.(`linha:${order}`)} className={styles.row}>
                 <span className={styles.rowText}>
                   <span className={styles.rowLabel}>{splitTrackTitle(row.track).title}</span>
                 </span>
@@ -160,12 +164,12 @@ export function ProvaMaratona({ evidence, playing }: { evidence: Extract<Evidenc
 }
 
 /** A surpresa: os gêneros que dominam a janela e, fora deles, o artista que não conversa com nenhum. */
-export function ProvaSurpresa({ evidence, playing }: { evidence: Extract<Evidence, { kind: "outlier" }>; playing: boolean }) {
+export function ProvaSurpresa({ evidence, playing, glow = false, register }: Lit & { evidence: Extract<Evidence, { kind: "outlier" }> }) {
   const max = Math.max(...evidence.dominant.map((entry) => entry.share), 1);
   return (
     <div className={styles.proof}>
       <div className={styles.solo}>
-        <Capa cover={evidence.cover} playing={playing} className={styles.soloCover} />
+        <Capa cover={evidence.cover} playing={playing} className={styles.soloCover} innerRef={register?.("cover")} glow={glow} />
         <ol className={styles.rows} data-plain="true">
           {evidence.dominant.map((entry) => (
             <li key={entry.genre} className={styles.row}>
@@ -178,7 +182,7 @@ export function ProvaSurpresa({ evidence, playing }: { evidence: Extract<Evidenc
               </span>
             </li>
           ))}
-          <li className={`${styles.row} ${own.apart}`} data-lit="true">
+          <li ref={register?.("fora")} className={`${styles.row} ${own.apart}`} data-lit="true">
             <span className={styles.rowText}>
               <span className={styles.rowLabel}>{evidence.genre}</span>
               <span className={styles.rowSub}>{evidence.artist}</span>

@@ -108,7 +108,16 @@ export function Fala({
               ref={claimRef?.(piece.id)}
               className={styles.claim}
               data-on={claimOn === piece.id || undefined}
+              role="button"
+              aria-label={`${piece.text}: mostrar na prova`}
               tabIndex={0}
+              // o foco já mostra; Enter e espaço mostram de novo, Esc apaga
+              onKeyDown={(event) => {
+                if (event.key === "Escape") { onClaim(null); return; }
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+                onClaim(piece.id);
+              }}
               onMouseEnter={() => onClaim(piece.id)}
               onMouseLeave={() => onClaim(null)}
               onFocus={() => onClaim(piece.id)}
@@ -177,8 +186,10 @@ export function Resposta({
   primary = false,
   expanded,
   controls,
+  className = "",
   children,
 }: {
+  className?: string;
   onClick?: () => void;
   disabled?: boolean;
   pressed?: boolean;
@@ -201,7 +212,7 @@ export function Resposta({
   );
   if (href && download) {
     return (
-      <a className={styles.reaction} href={href} download>
+      <a className={`${styles.reaction} ${className}`} href={href} download>
         {body}
       </a>
     );
@@ -209,14 +220,14 @@ export function Resposta({
   // fora do Arcadium (Spotify, Apple Music): outra aba, a conversa fica onde estava
   if (href && /^https?:/.test(href)) {
     return (
-      <a className={styles.reaction} href={href} target="_blank" rel="noreferrer">
+      <a className={`${styles.reaction} ${className}`} href={href} target="_blank" rel="noreferrer">
         {body}
       </a>
     );
   }
   if (href) {
     return (
-      <Link className={styles.reaction} href={href}>
+      <Link className={`${styles.reaction} ${className}`} href={href}>
         {body}
       </Link>
     );
@@ -224,7 +235,7 @@ export function Resposta({
   return (
     <button
       type={submit ? "submit" : "button"}
-      className={styles.reaction}
+      className={`${styles.reaction} ${className}`}
       onClick={onClick}
       disabled={disabled}
       aria-pressed={pressed}
