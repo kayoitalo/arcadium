@@ -1,5 +1,6 @@
-import { GoogleGenAI, type GenerateContentConfig, type GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI, type BatchJob, type GenerateContentConfig, type GenerateContentResponse } from "@google/genai";
 import {
+  type PackBatchState,
   type MusicProfileInput,
   type NarrativeAngle,
   type NarrativeForm,
@@ -168,9 +169,38 @@ const PACK_TIMEOUT_MS = 120_000;
 /** Uma chamada descrita: o modelo e a configuração. O reserva herda a mesma configuração. */
 export interface ModelCall { model: string; config: GenerateContentConfig }
 
-/** O texto da resposta, sem cerca de markdown, pronto pro JSON.parse. */
-export const responseJson = (response: GenerateContentResponse) =>
-  (response.text ?? "").replace(/```json/g, "").replace(/```/g, "").trim();
+/**
+ * O texto da resposta, sem cerca de markdown, pronto pro JSON.parse. A
+ * resposta de um lote chega como objeto simples, sem o atalho `.text`:
+ * aí o texto sai das partes do primeiro candidato.
+ */
+export const responseJson = (response: GenerateContentResponse) => {
+  const text = response.text ?? response.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "";
+  return text.replace(/```json/g, "").replace(/```/g, "").trim();
+};
+
+/** O erro do provedor sem a chave no texto, com a causa anexada: é dela que o log tira o motivo. */
+function packError(error: unknown): Error {
+  const providerMessage = error instanceof Error ? error.message.replaceAll(process.env.GEMINI_API_KEY || "__missing_key__", "[redacted]").slice(0, 400) : "Unknown provider error";
+  return new Error(`Failed to generate AI pack: ${providerMessage}`, { cause: error });
+}
+
+const BATCH_DONE = new Set(["JOB_STATE_SUCCEEDED", "JOB_STATE_PARTIALLY_SUCCEEDED"]);
+const BATCH_LOST = new Set(["JOB_STATE_FAILED", "JOB_STATE_CANCELLED", "JOB_STATE_EXPIRED"]);
+
+/** O lote traduzido: correndo, pronto com o JSON cru e os tokens, ou perdido com o motivo. */
+export function packBatchState(batch: BatchJob): PackBatchState {
+  const state = String(batch.state ?? "");
+  if (BATCH_LOST.has(state)) return { state: "failed", message: batch.error?.message ?? state };
+  if (!BATCH_DONE.has(state)) return { state: "running" };
+  const answer = batch.dest?.inlinedResponses?.[0];
+  if (!answer?.response) return { state: "failed", message: answer?.error?.message ?? "O lote terminou sem resposta." };
+  try {
+    return { state: "done", output: JSON.parse(responseJson(answer.response)), tokens: answer.response.usageMetadata?.totalTokenCount };
+  } catch (error) {
+    return { state: "failed", message: `JSON quebrado no lote: ${String(error).slice(0, 120)}`, invalid: true };
+  }
+}
 
 export class GeminiAdapter implements PackProvider {
   /** Criado na primeira chamada: sem chave, o SDK reclama no console só de ser construído. */
@@ -206,7 +236,47 @@ export class GeminiAdapter implements PackProvider {
     if (!this.configured) {
       throw new Error("GEMINI_API_KEY is not configured.");
     }
+    const { call, prompt } = this.packRequest(input, slots);
+    try {
+      const { result, model: answeredBy } = await this.generateWithRetry(call, prompt, 2, PACK_TIMEOUT_MS, audit);
+      return { output: JSON.parse(responseJson(result)), model: answeredBy };
+    } catch (error) {
+      throw packError(error);
+    }
+  }
 
+  /**
+   * O mesmo pacote, pelo modo em lote: metade do preço, resposta em minutos
+   * (no pior caso, horas). É o caminho do cron — ninguém está esperando.
+   * Devolve o nome do lote, que o serviço guarda e consulta depois.
+   */
+  async submitPackBatch(input: MusicProfileInput, slots: PackSlot[]): Promise<{ job: string; model: string }> {
+    if (!this.configured) throw new Error("GEMINI_API_KEY is not configured.");
+    const { call, prompt } = this.packRequest(input, slots);
+    try {
+      const job = await this.client().batches.create({
+        model: call.model,
+        src: [{ contents: prompt, config: call.config }],
+        config: { displayName: "arcadium-pack" },
+      });
+      if (!job.name) throw new Error("O lote voltou sem nome.");
+      return { job: job.name, model: call.model };
+    } catch (error) {
+      throw packError(error);
+    }
+  }
+
+  /** Em que pé está o lote: ainda correndo, pronto (com o JSON cru) ou perdido. */
+  async readPackBatch(job: string): Promise<PackBatchState> {
+    const batch = await this.client().batches.get({ name: job });
+    return packBatchState(batch);
+  }
+
+  async cancelPackBatch(job: string): Promise<void> {
+    await this.client().batches.cancel({ name: job });
+  }
+
+  private packRequest(input: MusicProfileInput, slots: PackSlot[]): { call: ModelCall; prompt: string } {
     // os fatos estão travados pela base factual e pela validação; o que varia é o texto
     const call: ModelCall = { model: this.modelName, config: { responseMimeType: "application/json", temperature: 1.0, topP: 0.95 } };
 
@@ -277,15 +347,7 @@ Responda APENAS com JSON válido, sem markdown:
   "screenLines": [ { "screen": "evolution", "line": "..." } ]
 }
 `;
-
-    try {
-      const { result, model: answeredBy } = await this.generateWithRetry(call, prompt, 2, PACK_TIMEOUT_MS, audit);
-      return { output: JSON.parse(responseJson(result)), model: answeredBy };
-    } catch (error) {
-      const providerMessage = error instanceof Error ? error.message.replaceAll(process.env.GEMINI_API_KEY || "__missing_key__", "[redacted]").slice(0, 400) : "Unknown provider error";
-      // a causa fica anexada: é dela que o log tira o motivo (cota, sobrecarga, JSON quebrado)
-      throw new Error(`Failed to generate AI pack: ${providerMessage}`, { cause: error });
-    }
+    return { call, prompt };
   }
 
   /**

@@ -77,7 +77,8 @@ export function refreshDecision(
   return ageHours >= cadence.minHours ? "changed" : "too_recent";
 }
 
-export type RoundOutcome = "generated" | "skipped" | "blocked" | "failed";
+/** `queued`: o pacote foi pro modo em lote e chega numa rodada seguinte — conta como gerado. */
+export type RoundOutcome = "generated" | "queued" | "skipped" | "blocked" | "failed";
 
 /**
  * Depois de tentar um período, a rodada do cron segue para o próximo?

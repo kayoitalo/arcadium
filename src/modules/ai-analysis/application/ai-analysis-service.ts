@@ -23,6 +23,7 @@ import {
   type FactsProvider,
   type MusicProfileInput,
   type PackProvider,
+  type PackSlot,
   type PackView,
   type ReadingPack,
   type ScreenKey,
@@ -50,6 +51,24 @@ const IN_PROGRESS_WINDOW_MS = 5 * 60 * 1000;
 
 const packKind = (period: PeriodKey) => `PACK:${period}`;
 
+/**
+ * Quanto um lote pode demorar antes de desistirmos dele. A promessa do
+ * provedor é 24h, mas costuma voltar em minutos; enquanto o lote espera,
+ * o período fica travado, então passou disso ele é cancelado e a rodada
+ * seguinte tenta de novo.
+ */
+const BATCH_PATIENCE_MS = 4 * 60 * 60 * 1000;
+
+/** O que fica guardado na linha enquanto o lote corre. */
+interface QueuedBatch { job: string; slots: PackSlot[]; attemptId: string }
+
+/** Há uma geração em andamento: uma chamada recente, ou um lote ainda não recolhido. */
+const inProgressWhere = (userId: string, kind: string) => ({
+  userId, kind, OR: [{ status: "PENDING", createdAt: { gte: new Date(Date.now() - IN_PROGRESS_WINDOW_MS) } }, { status: "BATCHING" }],
+});
+
+export type RefreshReport = Array<{ period: PeriodKey; outcome: RefreshOutcome["status"] | "collected" | "waiting"; detail?: string }>;
+
 /** Sem IA o app não fica mudo: frases fixas, honestas e sem inventar dado. */
 const FALLBACK_SCREEN_LINES: Array<{ screen: ScreenKey; line: string }> = [
   { screen: "evolution", line: "O que entrou e o que saiu de moda no seu fone." },
@@ -62,6 +81,7 @@ const FALLBACK_SCREEN_LINES: Array<{ screen: ScreenKey; line: string }> = [
 
 export type RefreshOutcome =
   | { status: "generated"; decision: RefreshDecision; pack: ReadingPack; builtAt: Date }
+  | { status: "queued"; decision: RefreshDecision }
   | { status: "skipped"; decision: RefreshDecision | "in_progress" }
   | { status: "blocked"; reason: "budget" | "no_key" }
   | { status: "failed" };
@@ -95,13 +115,14 @@ export class AIAnalysisService {
    * prioridade e gera no máximo UM pacote por execução — o primeiro que
    * precisar. Falha ou teto encerram a rodada: não adianta insistir agora.
    */
-  async refreshStalest(userId: string): Promise<Array<{ period: PeriodKey; outcome: RefreshOutcome["status"]; detail?: string }>> {
-    const report: Array<{ period: PeriodKey; outcome: RefreshOutcome["status"]; detail?: string }> = [];
+  async refreshStalest(userId: string, options: { batch?: boolean } = {}): Promise<RefreshReport> {
+    // primeiro recolhe o que o modo em lote já devolveu: é o que libera o período
+    const report: RefreshReport = options.batch ? await this.collectBatches(userId) : [];
 
     for (const period of REFRESH_PRIORITY) {
-      const outcome = await this.refreshPack(userId, period);
+      const outcome = await this.refreshPack(userId, period, options);
       const detail =
-        outcome.status === "generated" || outcome.status === "skipped"
+        outcome.status === "generated" || outcome.status === "queued" || outcome.status === "skipped"
           ? outcome.decision
           : outcome.status === "blocked"
             ? outcome.reason
@@ -118,7 +139,7 @@ export class AIAnalysisService {
    * com a escuta mudada depois do tempo mínimo. Tudo o mais é pulado sem
    * gastar cota.
    */
-  async refreshPack(userId: string, period: PeriodKey): Promise<RefreshOutcome> {
+  async refreshPack(userId: string, period: PeriodKey, options: { batch?: boolean } = {}): Promise<RefreshOutcome> {
     const kind = packKind(period);
     if (!process.env.GEMINI_API_KEY) return { status: "blocked", reason: "no_key" };
 
@@ -127,10 +148,7 @@ export class AIAnalysisService {
       return { status: "skipped", decision: "too_recent" };
     }
 
-    const running = await prisma.aIAnalysisRun.findFirst({
-      where: { userId, kind, status: "PENDING", createdAt: { gte: new Date(Date.now() - IN_PROGRESS_WINDOW_MS) } },
-      select: { id: true },
-    });
+    const running = await prisma.aIAnalysisRun.findFirst({ where: inProgressWhere(userId, kind), select: { id: true } });
     if (running) return { status: "skipped", decision: "in_progress" };
 
     const profile = await this.profileBuilder.buildProfile(userId, period);
@@ -165,7 +183,7 @@ export class AIAnalysisService {
     // cota, e o teto e a trava de "em andamento" precisam enxergar isso
     const run = await prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
-      if (await tx.aIAnalysisRun.findFirst({ where: { userId, kind, status: "PENDING", createdAt: { gte: new Date(Date.now() - IN_PROGRESS_WINDOW_MS) } }, select: { id: true } })) return null;
+      if (await tx.aIAnalysisRun.findFirst({ where: inProgressWhere(userId, kind), select: { id: true } })) return null;
       return tx.aIAnalysisRun.create({
       data: {
         userId,
@@ -182,30 +200,34 @@ export class AIAnalysisService {
 
     try {
       const slots = pickSlots(availableAngles(profile), READINGS_PER_PACK);
-      const { output, model } = await this.adapter.generatePack(await this.enrich(profile, userId), slots, {
+      const enriched = await this.enrich(profile, userId);
+
+      if (options.batch && this.adapter.submitPackBatch) {
+        // conta sem faturamento não aceita lote (400, FAILED_PRECONDITION): aí a
+        // geração segue na hora, como antes. Recusa não custa nada, então a
+        // tentativa só é reservada quando o lote entra.
+        const queued = await this.adapter.submitPackBatch(enriched, slots).catch((error) => {
+          logAi("ai.batch_unavailable", { kind, status: errorStatus(error), message: String(error).slice(0, 160) }, "warn");
+          return null;
+        });
+        if (queued) {
+          const attempt = await reserveAttempt(userId, queued.model).catch(async (error) => {
+            await this.adapter.cancelPackBatch?.(queued.job).catch(() => undefined);
+            throw error;
+          });
+          const stored: QueuedBatch = { job: queued.job, slots, attemptId: attempt.id };
+          await prisma.aIAnalysisRun.update({ where: { id: run.id }, data: { status: "BATCHING", model: queued.model, rawOutput: JSON.stringify(stored) } });
+          logAi("ai.batch_queued", { kind, model: queued.model, decision, ms: Date.now() - startedAt });
+          return { status: "queued", decision };
+        }
+      }
+
+      const { output, model } = await this.adapter.generatePack(enriched, slots, {
         before: async (model) => (await reserveAttempt(userId, model)).id,
         after: async (id, result) => { await prisma.aIAnalysisRun.update({ where: { id }, data: { status: result.status, tokenCount: result.tokens ?? null } }); },
       });
-      const sanitized = sanitizePack(output, slots, exampleTexts());
-
-      if (sanitized.readings.length === 0) {
-        throw rejectedText("invalid_output", `Nenhuma leitura do pacote sobrou (${sanitized.dropped.readings} descartadas)`);
-      }
-
-      const pack: ReadingPack = {
-        readings: sanitized.readings,
-        albumLines: sanitized.albumLines,
-        screenLines: sanitized.screenLines,
-        fingerprint,
-        model,
-      };
-
-      const saved = await prisma.aIAnalysisRun.update({
-        where: { id: run.id },
-        // o modelo que respondeu de fato: com a cota do principal esgotada, é o reserva
-        data: { status: "COMPLETED", model, validatedOutput: pack as any },
-        select: { createdAt: true },
-      });
+      // o modelo que respondeu de fato: com a cota do principal esgotada, é o reserva
+      const { pack, builtAt, dropped } = await this.savePack(run.id, output, slots, fingerprint, model);
 
       logAi("ai.call_ok", {
         kind,
@@ -214,12 +236,12 @@ export class AIAnalysisService {
         readings: pack.readings.length,
         albumLines: pack.albumLines.length,
         screenLines: pack.screenLines.length,
-        dropped: sanitized.dropped,
+        dropped,
         ms: Date.now() - startedAt,
         promptVersion: PACK_PROMPT_VERSION,
       });
 
-      return { status: "generated", decision, pack, builtAt: saved.createdAt };
+      return { status: "generated", decision, pack, builtAt };
     } catch (error) {
       const reason = classifyAiError(error);
       const message = error instanceof Error ? error.message : String(error);
@@ -268,6 +290,71 @@ export class AIAnalysisService {
     ]);
     const addressAs = ADDRESS_STYLES.find((style) => style === user?.addressAs) ?? "neutro";
     return { ...profile, ...(facts.length > 0 ? { facts } : {}), listener: { addressAs } };
+  }
+
+  /** Valida o JSON cru item a item e guarda o pacote na linha da geração. Sem leitura que preste, é falha. */
+  private async savePack(runId: string, output: unknown, slots: PackSlot[], fingerprint: string, model: string) {
+    const sanitized = sanitizePack(output, slots, exampleTexts());
+    if (sanitized.readings.length === 0) {
+      throw rejectedText("invalid_output", `Nenhuma leitura do pacote sobrou (${sanitized.dropped.readings} descartadas)`);
+    }
+    const pack: ReadingPack = { readings: sanitized.readings, albumLines: sanitized.albumLines, screenLines: sanitized.screenLines, fingerprint, model };
+    const saved = await prisma.aIAnalysisRun.update({
+      where: { id: runId },
+      data: { status: "COMPLETED", model, validatedOutput: pack as any },
+      select: { createdAt: true },
+    });
+    return { pack, builtAt: saved.createdAt, dropped: sanitized.dropped };
+  }
+
+  /**
+   * Recolhe os lotes que o modo em lote já devolveu. Pronto vira pacote;
+   * perdido, ou esperando além da paciência, vira falha — e libera o
+   * período pra rodada tentar de novo. O pacote fica datado do envio, que é
+   * de quando são os dados que ele leu.
+   */
+  async collectBatches(userId: string): Promise<RefreshReport> {
+    const adapter = this.adapter;
+    if (!adapter.readPackBatch) return [];
+    const runs = await prisma.aIAnalysisRun.findMany({
+      where: { userId, status: "BATCHING", kind: { startsWith: "PACK:" } },
+      select: { id: true, kind: true, model: true, inputHash: true, rawOutput: true, createdAt: true },
+    });
+    const report: RefreshReport = [];
+    for (const run of runs) {
+      const period = run.kind.slice("PACK:".length) as PeriodKey;
+      const fail = async (reason: string, message: string, attemptId?: string) => {
+        await prisma.aIAnalysisRun.update({ where: { id: run.id }, data: { status: "FAILED", errorMessage: `[${reason}] ${message}`.slice(0, 500) } });
+        if (attemptId) await prisma.aIAnalysisRun.update({ where: { id: attemptId }, data: { status: "FAILED" } }).catch(() => undefined);
+        logAi("ai.batch_failed", { kind: run.kind, reason, message: message.slice(0, 200) }, "error");
+        report.push({ period, outcome: "failed", detail: reason });
+      };
+      let queued: QueuedBatch;
+      try { queued = JSON.parse(run.rawOutput ?? ""); } catch { await fail("unknown", "Lote sem registro do envio."); continue; }
+
+      try {
+        const state = await adapter.readPackBatch(queued.job);
+        if (state.state === "running") {
+          if (Date.now() - run.createdAt.getTime() < BATCH_PATIENCE_MS) { report.push({ period, outcome: "waiting" }); continue; }
+          await adapter.cancelPackBatch?.(queued.job).catch(() => undefined);
+          await fail("timeout", "O lote passou da paciência e foi cancelado.", queued.attemptId);
+          continue;
+        }
+        if (state.state === "failed") { await fail(state.invalid ? "invalid_output" : "unknown", state.message, queued.attemptId); continue; }
+
+        await prisma.aIAnalysisRun.update({ where: { id: queued.attemptId }, data: { status: "COMPLETED", tokenCount: state.tokens ?? null } }).catch(() => undefined);
+        const { pack, dropped } = await this.savePack(run.id, state.output, queued.slots, run.inputHash ?? "", run.model ?? "");
+        logAi("ai.batch_collected", { kind: run.kind, model: run.model, readings: pack.readings.length, dropped, waitedMs: Date.now() - run.createdAt.getTime() });
+        report.push({ period, outcome: "collected" });
+      } catch (error) {
+        // erro de rede ao consultar não perde o lote: a próxima rodada pergunta de novo
+        const reason = classifyAiError(error);
+        if (reason === "invalid_output") { await fail(reason, error instanceof Error ? error.message : String(error)); continue; }
+        logAi("ai.batch_check_failed", { kind: run.kind, reason, message: String(error).slice(0, 200) }, "warn");
+        report.push({ period, outcome: "waiting", detail: reason });
+      }
+    }
+    return report;
   }
 
   private async findLatestPack(userId: string, period: PeriodKey): Promise<StoredPack | null> {
