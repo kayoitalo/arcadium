@@ -2,23 +2,44 @@ import { prisma } from "@/lib/db/prisma";
 import { normalizeText } from "../domain/normalization";
 import { itunesArtwork, matchFreshReleases, type FeedRelease, type FreshRelease, type ItunesAlbum } from "../domain/fresh-releases";
 
-/** Duas semanas: o feed do site todo nesse recorte tem ~1,6 MB, abaixo do teto de 2 MB do cache do Next. */
+/** Duas semanas de lançamentos do site todo (~1,6 a 2,2 MB): o bastante pra "saiu agora". */
 const FEED_DAYS = 14;
-/** O feed muda devagar: seis horas no cache de dados, compartilhado entre as funções. */
+/** O feed muda devagar: seis horas na memória do servidor. */
 const FEED_REVALIDATE_S = 6 * 60 * 60;
 /** Só conta quem a pessoa ouviu de verdade no último ano. */
 const MIN_PLAYS = 10;
 
-async function loadFeed(): Promise<FeedRelease[]> {
+/*
+ * O feed passa de 2 MB em semana cheia, e o cache de dados do Next recusa
+ * item desse tamanho (baixava de novo a cada visita). Fica na memória do
+ * servidor, já reduzido aos campos que o cruzamento usa.
+ */
+let feedCache: { at: number; releases: FeedRelease[] } | null = null;
+let feedLoading: Promise<FeedRelease[]> | null = null;
+
+async function fetchFeed(): Promise<FeedRelease[]> {
   const params = new URLSearchParams({ days: String(FEED_DAYS), past: "true", future: "false" });
   const response = await fetch(`https://api.listenbrainz.org/1/explore/fresh-releases/?${params}`, {
     headers: { "User-Agent": process.env.LISTENBRAINZ_USER_AGENT || "Arcadium/0.1" },
     signal: AbortSignal.timeout(8_000),
-    next: { revalidate: FEED_REVALIDATE_S },
+    cache: "no-store",
   });
   if (!response.ok) throw new Error(`ListenBrainz respondeu ${response.status}`);
   const payload = (await response.json()) as { payload?: { releases?: FeedRelease[] } };
-  return payload.payload?.releases ?? [];
+  return (payload.payload?.releases ?? []).map((release) => ({
+    artist_credit_name: release.artist_credit_name, artist_mbids: release.artist_mbids, release_name: release.release_name,
+    release_date: release.release_date, release_group_mbid: release.release_group_mbid, release_group_primary_type: release.release_group_primary_type,
+    release_mbid: release.release_mbid, caa_id: release.caa_id, caa_release_mbid: release.caa_release_mbid,
+  }));
+}
+
+async function loadFeed(now = Date.now()): Promise<FeedRelease[]> {
+  if (feedCache && now - feedCache.at < FEED_REVALIDATE_S * 1000) return feedCache.releases;
+  // duas visitas ao mesmo tempo esperam o mesmo download
+  feedLoading ??= fetchFeed()
+    .then((releases) => { feedCache = { at: Date.now(), releases }; return releases; })
+    .finally(() => { feedLoading = null; });
+  return feedLoading;
 }
 
 /** O que saiu nas últimas duas semanas de quem a pessoa ouve. Falhou o feed: lista vazia, a tela só não mostra. */

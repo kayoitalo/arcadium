@@ -119,8 +119,8 @@ export function NavPen({ nav, current, reduced }: { nav: RefObject<HTMLElement |
   }, [current]);
 
   return (
-    // sem tamanho e com overflow visível: o traço aparece e a fileira não ganha rolagem por causa dele
-    <svg ref={svg} className="navPen" aria-hidden="true" width={0} height={0} style={{ position: "absolute", left: 0, top: 0, overflow: "visible", pointerEvents: "none" }}>
+    // do tamanho do menu, nunca zero: SVG com largura ou altura 0 não é pintado (o traço existia, medido, e ninguém via)
+    <svg ref={svg} className="navPen" aria-hidden="true" width="100%" height="100%" style={{ position: "absolute", left: 0, top: 0, overflow: "visible", pointerEvents: "none" }}>
       <path ref={trail} fill="none" stroke="var(--tinta-3)" strokeWidth={1} strokeLinecap="round" style={{ opacity: 0 }} />
       <path ref={ink} fill="none" stroke="var(--tinta)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
       <circle ref={nib} r={2.1} fill="var(--tinta)" style={{ opacity: 0, transition: "opacity 160ms" }} />
