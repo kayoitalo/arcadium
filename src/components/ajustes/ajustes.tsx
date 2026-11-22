@@ -10,6 +10,7 @@ import { Aviso } from "@/components/amigo/aviso";
 import { Fala, Resposta, Respostas } from "@/components/amigo/fala";
 import styles from "./ajustes.module.css";
 import { DiscoveryHealth } from "./discovery-health";
+import { FichaDoCaderno } from "./ficha";
 
 interface SyncForm {
   username: string;
@@ -33,6 +34,8 @@ interface SpotifyStatus {
   connected: boolean;
   displayName?: string;
   reason?: string;
+  /** Conectado de antes das Curtidas: falta a permissão de ler a biblioteca. */
+  libraryMissing?: boolean;
 }
 
 interface EnrichmentCoverage {
@@ -334,6 +337,14 @@ export function Ajustes() {
       </div>
 
       {tab === "conta" && <div role="tabpanel" id="painel-conta" aria-labelledby="aba-conta" className={styles.panel}>
+        <Secao title="a ficha do caderno">
+          <FichaDoCaderno sync={syncStatus ? {
+            username: syncStatus.connection?.username ?? null,
+            // a busca de verdade é a última rodada; lastSyncedAt é a hora da última música trazida
+            lastSyncedAt: syncStatus.latestRun?.finishedAt ?? syncStatus.latestRun?.startedAt ?? null,
+            failed: Boolean(syncStatus.latestRun?.errorMessage) || syncStatus.latestRun?.status === "FAILED",
+          } : null} />
+        </Secao>
         <Secao title="como eu falo contigo">
           <p className={styles.hint}>Escolhe como eu te chamo. Vale a partir da próxima leitura que eu escrever.</p>
           <ul className={styles.choices} role="group" aria-label="Como ele te chama">
@@ -371,7 +382,8 @@ export function Ajustes() {
           {connected && (
             <Numeros
               items={[
-                ["última busca", connected.lastSyncedAt ? new Date(connected.lastSyncedAt).toLocaleDateString("pt-BR") : "nunca"],
+                ["última busca", syncStatus?.latestRun ? new Date(syncStatus.latestRun.finishedAt ?? syncStatus.latestRun.startedAt).toLocaleString("pt-BR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "nunca"],
+                ["última música trazida", connected.lastSyncedAt ? new Date(connected.lastSyncedAt).toLocaleString("pt-BR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "nenhuma"],
                 ["audições novas nela", count(syncStatus?.latestRun?.insertedCount ?? 0)],
               ]}
             />
@@ -379,22 +391,34 @@ export function Ajustes() {
           {syncError && <p className={styles.fieldError}>{syncError}</p>}
         </Secao>
 
-        <Secao title="playlists" state={loads.spotify === "loading" ? "consultando…" : loads.spotify === "error" ? "não consegui consultar" : spotify?.connected ? `Spotify · ${spotify.displayName}` : "não conectado"}>
+        <Secao title="spotify" state={loads.spotify === "loading" ? "consultando…" : loads.spotify === "error" ? "não consegui consultar" : spotify?.connected ? `Spotify · ${spotify.displayName}` : "não conectado"}>
           <p className={styles.hint}>
             O que você separar em “pra ouvir depois” pode virar playlist. Conectado, ela nasce direto na tua conta; sem
             conectar, você leva links e um arquivo .m3u.
           </p>
           <p className={styles.small}>
-            O Spotify é só destino: nada de lá volta pras tuas estatísticas nem pro que eu escrevo. A permissão pedida
-            cria playlists e mais nada.
+            A permissão pedida cria playlists e lê tuas Curtidas, que viram ponto de partida do Descobrir. Nada de lá
+            entra nas tuas estatísticas nem no que eu escrevo.
           </p>
+          {spotify?.connected && spotify.libraryMissing && (
+            <p className={styles.hint}>
+              Tua conexão é de antes das Curtidas. Reconecta pra eu poder partir delas no Descobrir.
+            </p>
+          )}
           {spotify && !spotify.configured && <p className={styles.small}>{spotify.reason}</p>}
           {spotify?.configured && (
             <Respostas inline label="Spotify">
               {spotify.connected ? (
-                <Resposta onClick={disconnectSpotify} disabled={busy}>
-                  desconectar
-                </Resposta>
+                <>
+                  {spotify.libraryMissing && (
+                    <Resposta onClick={connectSpotify} disabled={busy}>
+                      reconectar
+                    </Resposta>
+                  )}
+                  <Resposta onClick={disconnectSpotify} disabled={busy}>
+                    desconectar
+                  </Resposta>
+                </>
               ) : (
                 <Resposta onClick={connectSpotify} disabled={busy}>
                   conectar Spotify

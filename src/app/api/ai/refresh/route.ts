@@ -27,7 +27,8 @@ export async function POST(request: Request) {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    const report = await new AIAnalysisService().refreshStalest(user.id);
+    // o cron não tem pressa: o pacote vai pelo modo em lote, pela metade do preço (AI_BATCH=off volta pra chamada direta)
+    const report = await new AIAnalysisService().refreshStalest(user.id, { batch: process.env.AI_BATCH !== "off" });
     logAi("ai.refresh_run", { report });
     return NextResponse.json({ report });
   } catch (error) {

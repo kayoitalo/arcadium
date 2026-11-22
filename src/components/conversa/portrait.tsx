@@ -11,9 +11,11 @@ import { usePen } from "@/components/amigo/use-pen";
 import { band, circle, frame } from "@/components/amigo/gestures";
 import { textLines, boxOf } from "@/components/amigo/measure";
 import { useArtistPhoto } from "./use-artist-photo";
+import { TrilhaDoArtista } from "./trilha";
 import { Janela } from "@/components/amigo/janela";
 import { coverProxyUrl } from "@/lib/cover";
 import { Risquinhos } from "@/components/amigo/risquinhos";
+import { Esperando } from "@/components/amigo/esperando";
 type Data = Awaited<ReturnType<PortraitService["load"]>>;
 const count = (n: number) => n.toLocaleString("pt-BR");
 const PERSPECTIVES = [{ key: "all", label: "desde o começo" }, { key: "recent", label: "os últimos 30 dias" }] as const;
@@ -66,7 +68,7 @@ export function Portrait() {
       <nav aria-label="Leituras de longo prazo"><Link href="/portrait/longo">o que eu reparei de um ano pra cá →</Link></nav>
     </div></header>
     {error && <p role="alert">Não consegui atualizar o retrato ou guardar tua escolha. <button onClick={() => setAttempt((v) => v + 1)}>tenta de novo</button></p>}
-    {!data && !error && <p className={styles.note} role="status">Reunindo o que ficou…</p>}
+    {!data && !error && <Esperando className={styles.note}>Reunindo o que ficou…</Esperando>}
     {data && <>
       {!data.total ? <p>Ainda não ouvi nada teu pra montar um retrato. <Link href="/settings">conectar o Last.fm →</Link></p> : <>
         {/* a perspectiva como frase que troca a palavra, igual às outras telas: sem controle segmentado */}
@@ -107,6 +109,8 @@ export function Portrait() {
               : reservePhoto ? <span role="status">Conferindo uma foto deste artista…</span> : image.error||failedPhoto===imageKey ? <>A foto não veio agora. <button onClick={()=>{setFailedPhoto(null);image.retry();}}>tentar a foto novamente</button></> : missingText}</figcaption></figure>
           </article> : <p>Nenhum artista neste recorte.</p>}
         </section>
+        {/* desde o começo, o cartaz ganha a trilha do nome: a curva mês a mês e as faixas que mais tocaram */}
+        {selected && view === "all" && <TrilhaDoArtista key={selected.name} name={selected.name} />}
       </>}
       {topics.length > 0 && <DiscoveryDisclosure className={styles.topics} summary={`assuntos que você silenciou na conversa (${topics.length})`}>
         <ul>{topics.map((topic) => <li key={topic.key}><p>{topic.headline}</p><button disabled={restoring} onClick={() => void restore(topic.key)}>voltar a esse assunto</button></li>)}</ul>

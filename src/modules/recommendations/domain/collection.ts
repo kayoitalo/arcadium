@@ -5,6 +5,8 @@ const selectionItem = z.object({
   trackName: z.string().min(1).max(1000),
   artistName: z.string().min(1).max(1000),
   action: z.enum(["liked", "saved"]),
+  /** A capa da indicação, quando ela tinha: a pilha do Para depois mostra. */
+  coverUrl: z.string().max(2000).nullable().optional(),
 });
 
 export type SelectedTrack = z.infer<typeof selectionItem>;

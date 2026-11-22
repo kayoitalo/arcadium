@@ -6,7 +6,7 @@ import Link from "next/link";
 import { AnimatePresence, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Aviso } from "@/components/amigo/aviso";
-import { Capa, PenLayer, Resposta, Respostas } from "@/components/amigo/fala";
+import { Capa, PenLayer, Resposta, Respostas, shareName } from "@/components/amigo/fala";
 import { Regua } from "@/components/amigo/regua";
 import { Visto } from "@/components/amigo/visto";
 import { band, frame } from "@/components/amigo/gestures";
@@ -33,6 +33,10 @@ import { DiscoveryDisclosure } from "./discovery-disclosure";
 import { DiscoveryTransition, useDiscoveryScene } from "./discovery-transition";
 import type { DiscoveryContext, DiscoveryIntent } from "@/modules/recommendations/domain/discovery-intent";
 import { ASPECTS, feedbackChannel, type FeedbackEntry, type FeedbackChannel } from "@/modules/recommendations/domain/feedback";
+import { Esperando } from "@/components/amigo/esperando";
+import { useDiscoveryRecall } from "./discovery-recall";
+import { useFita } from "@/components/amigo/use-fita";
+import { cleanTitle } from "@/lib/music/track-title";
 
 interface Candidate {
   id: string;
@@ -125,6 +129,9 @@ export function Descobertas({ initialSessionId = null }: {
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const savingRef = useRef(false);
   const selection = useSelection();
+  // a entrada mostra de onde parte: a capa onde a última busca parou e as capas do que você ouviu por último
+  const recall = useDiscoveryRecall();
+  const recentes = useFita();
   const kept = selection.items;
   /** Quantas faixas você guardou nesta visita: cada uma ganha o visto dele, uma vez. */
   const [savedHere, setSavedHere] = useState(0);
@@ -452,11 +459,13 @@ export function Descobertas({ initialSessionId = null }: {
   if (choosing) {
     top = <>
       <DiscoveryEntry busy={busy || saving} hasSession={Boolean(sessionId)} currentRank={index + 1} total={queue?.length ?? 0}
+        resumeCover={recall.latest?.current ? { url: recall.latest.current.coverUrl ?? null, title: recall.latest.current.albumName ?? recall.latest.current.trackName, artist: recall.latest.current.artistName, track: cleanTitle(recall.latest.current.trackName) } : null}
+        ownCovers={recentes.fita.map((folha) => folha.coverUrl)}
         onChoose={(nextProximity, nextFame, nextIntent) => void load(nextProximity, nextFame, "NEW_ENTRY", { intent: nextIntent })}
         onResume={() => void load(proximity, fame, "RESUME")}
         territoryOpen={territoryOpen} onTerritory={() => setTerritoryOpen((open) => !open)}
         territory={<TerritoryDoors busy={busy || saving} onTerritory={(territory) => void load(55, 50, "NEW_ENTRY", { intent: "TERRITORY", territory })} />} />
-      {busy && <p className={styles.quiet} role="status">Procurando tua última busca…</p>}
+      {busy && <Esperando className={styles.quiet}>Procurando tua última busca…</Esperando>}
       {loadError && <p className={styles.entryError} role="alert">{loadError} <button className={styles.textButton} onClick={() => void load(55, 50, "BOOTSTRAP")}>tentar novamente</button></p>}
     </>;
   } else if (!queue && failed) {
@@ -467,7 +476,7 @@ export function Descobertas({ initialSessionId = null }: {
       </Aviso>
     );
   } else if (!queue || busy) {
-    top = <Aviso waiting window="seguindo as tuas pistas" headline="Peraí. Tua próxima descoberta está a caminho." narrative="Tô cruzando tuas referências. Já volto com a primeira." />;
+    top = <Aviso waiting planta="descobrir" window="seguindo as tuas pistas" headline="Peraí. Tua próxima descoberta está a caminho." narrative="Tô cruzando tuas referências. Já volto com a primeira." />;
   } else if (failed) {
     top = (
       <Aviso headline="Me perdi procurando." narrative={loadError ?? "Não consegui buscar nesse canto."}>
@@ -541,7 +550,7 @@ export function Descobertas({ initialSessionId = null }: {
             {current.appleMusicUrl && <a className={styles.textButton} href={current.appleMusicUrl} target="_blank" rel="noreferrer">no Apple Music ↗</a>}
             {mediaState === "error" && <button className={styles.textButton} onClick={() => setMediaAttempt((value) => value + 1)}>procurar o trecho de novo</button>}
           </>}
-          artwork={<Capa cover={{ url: current.coverUrl, title: current.albumName ?? current.trackName, artist: current.artistName }} playing={sound.playing} innerRef={coverRef} className={styles.cover} eager glow />}
+          artwork={<Capa cover={{ url: current.coverUrl, title: current.albumName ?? current.trackName, artist: current.artistName }} playing={sound.playing} innerRef={coverRef} className={styles.cover} eager glow share={shareName(current.artistName, current.trackName)} />}
           metadata={<>{current.albumName && <span>{current.albumName} · </span>}{current.genre && <span>{genreLabel(current.genre)}</span>}
             {current.previewUrl && current.appleMusicUrl && <> · <a href={current.appleMusicUrl} target="_blank" rel="noreferrer">Apple Music ↗</a></>}
             {current.sourceUrl && <> · <a href={current.sourceUrl} target="_blank" rel="noreferrer">referência no Last.fm ↗</a></>}

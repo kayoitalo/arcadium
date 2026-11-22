@@ -60,7 +60,25 @@ export function prismaDatasource(env = process.env, args = process.argv.slice(2)
   if (args[0] === "generate" && !args.some(arg => arg === "--sql" || arg.startsWith("--sql="))) {
     return undefined;
   }
-  return { url: databaseConnectionString(env) };
+  const url = databaseConnectionString(env);
+  // migração e comandos de banco seguram uma trava de sessão do Postgres: pelo
+  // pooler da Neon, ela pode ficar presa numa conexão emprestada e travar todo
+  // deploy seguinte. Esses comandos vão pela conexão direta do mesmo banco.
+  return { url: args[0] === "migrate" || args[0] === "db" ? directConnection(url) : url };
+}
+
+/** O mesmo banco da Neon, sem o pooler: "ep-x-pooler.região" vira "ep-x.região". Outros endereços ficam iguais.
+ * @param {string} value */
+export function directConnection(value) {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.replace(/-pooler(?=.)/, "");
+    if (host === url.hostname) return value;
+    url.hostname = host;
+    return url.toString();
+  } catch {
+    return value;
+  }
 }
 
 /** Explicit manual generation stays disabled until provider-wide quota sharing is verified.

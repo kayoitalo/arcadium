@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { polyLength, toPath, travel, wave, type Point } from "./gestures";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { polyLength, taperOutline, toPath, travel, wave, type Point } from "./gestures";
 import styles from "./trace.module.css";
 
 /*
@@ -69,9 +69,17 @@ interface Segment {
   join?: StrokeJoin;
   dim?: boolean;
   pulse?: boolean;
+  /** A tinta de mão: o contorno afinado que a máscara do traço vai revelando. */
+  outline?: string;
+  /** Onde a ponta pousa, no último pedaço de um gesto de mão. */
+  end?: Point;
 }
 
 const ERASE_MS = 220;
+/** Quanto o pingo leva pra assentar depois que a ponta pousa. */
+const DROP_MS = 340;
+/** Traço de caneta fina, por cima de tudo e de ponta redonda: é esse que ganha mão. */
+const handInk = (layer: "under" | "over", width: number, cap?: StrokeCap) => layer === "over" && (cap ?? "round") === "round" && width <= 4.5;
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -131,6 +139,9 @@ export function Trace({
 }) {
   const [segments, setSegments] = useState<Segment[]>([]);
   const nodes = useRef(new Map<string, SVGPathElement>());
+  const drops = useRef(new Map<string, SVGCircleElement>());
+  const nib = useRef<SVGCircleElement>(null);
+  const maskPrefix = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const pen = useRef<Point | null>(null);
   const clock = useRef({ t0: 0 });
   const live = useRef<{ spec: WaveSpec; readyAt: number } | null>(null);
@@ -204,12 +215,15 @@ export function Trace({
             gestureId: gesture.id,
             closesGesture,
             ...look,
+            ...(handInk(gesture.layer, gesture.width, gesture.cap) && !gesture.pulse
+              ? { outline: taperOutline(stroke, gesture.width * 1.25), end: closesGesture ? stroke[stroke.length - 1] : undefined } : {}),
           });
           at = stroke[stroke.length - 1];
           return;
         }
         travelTo(stroke[0], id);
         const length = polyLength(stroke);
+        const hand = handInk(gesture.layer, gesture.width, gesture.cap) && !gesture.pulse;
         const duration = instant ? 0 : clamp(length / (gesture.layer === "under" ? 2 : 1.9), 200, 640);
         queue.push({
           id,
@@ -223,6 +237,7 @@ export function Trace({
           gestureId: gesture.id,
           closesGesture,
           ...look,
+          ...(hand ? { outline: taperOutline(stroke, gesture.width * 1.25), end: closesGesture ? stroke[stroke.length - 1] : undefined } : {}),
         });
         cursor += duration + (instant ? 0 : 50);
         at = stroke[stroke.length - 1];
@@ -269,6 +284,8 @@ export function Trace({
     const tick = () => {
       const elapsed = performance.now() - clock.current.t0;
       let busy = false;
+      // a ponta: segue o pedaço que está andando agora, e some quando a mão para
+      let tip: { point: DOMPoint; width: number } | null = null;
 
       for (const segment of segments) {
         const node = nodes.current.get(segment.id);
@@ -293,6 +310,19 @@ export function Trace({
         node.setAttribute("stroke-dashoffset", offset);
         node.style.visibility = visible > 0.5 ? "visible" : "hidden";
 
+        if (segment.layer === "over" && (segment.kind === "ink" || segment.kind === "travel") && progress > 0 && progress < 1 && segment.duration > 0) {
+          const along = segment.kind === "travel" ? clamp(easeInOut(progress) * (segment.length + Math.min(140, segment.length * 0.55)), 0, segment.length) : visible;
+          try { tip = { point: node.getPointAtLength(along), width: segment.kind === "travel" ? penWidth : segment.width }; } catch { /* caminho fora do documento */ }
+        }
+        const drop = drops.current.get(segment.id);
+        if (drop) {
+          const landed = segment.duration === 0 ? 1 : clamp((elapsed - segment.start - segment.duration) / DROP_MS, -1, 1);
+          const base = segment.width * 0.62 + 0.6;
+          drop.style.visibility = landed >= 0 && segment.kind === "ink" ? "visible" : "hidden";
+          drop.setAttribute("r", String(landed >= 0 ? base * (1.75 - 0.75 * easeOut(Math.max(0, landed))) : base));
+          if (segment.kind === "ink" && landed < 1) busy = true;
+        }
+
         if (segment.kind === "ink" && segment.gestureId) {
           const startKey = `${segment.gestureId}:start`;
           if (progress > 0 && !fired.current.has(startKey)) {
@@ -305,6 +335,16 @@ export function Trace({
             onGestureRef.current(segment.gestureId, "end");
           }
         }
+      }
+
+      const dot = nib.current;
+      if (dot) {
+        if (tip && !reduced) {
+          dot.setAttribute("cx", String(tip.point.x));
+          dot.setAttribute("cy", String(tip.point.y));
+          dot.setAttribute("r", String(Math.max(1.6, tip.width * 0.5 + 0.7)));
+          dot.style.opacity = "1";
+        } else dot.style.opacity = "0";
       }
 
       if (busy) frame = requestAnimationFrame(tick);
@@ -326,7 +366,38 @@ export function Trace({
     >
       {segments
         .filter((segment) => segment.layer === which)
-        .map((segment) => (
+        .map((segment) => segment.outline && segment.kind !== "travel" && segment.kind !== "wave" ? (
+          // tinta de mão: o contorno afinado aparece por baixo da máscara que o traço desenha
+          <g key={segment.id} data-dim={segment.dim || undefined}>
+            <mask id={`${maskPrefix}-${segment.id.replace(/[^a-zA-Z0-9_-]/g, "_")}`} maskUnits="userSpaceOnUse" x={-200} y={-200} width={size.width + 400} height={size.height + 400}>
+              <path
+                ref={(node) => {
+                  if (node) nodes.current.set(segment.id, node);
+                  else nodes.current.delete(segment.id);
+                }}
+                d={segment.d}
+                strokeWidth={segment.width * 3 + 6}
+                strokeDasharray={initialDash(segment)}
+                style={{ visibility: startsHidden(segment) ? "hidden" : undefined, stroke: "#fff", fill: "none", strokeLinecap: "round", strokeLinejoin: "round" }}
+                data-kind={segment.kind}
+              />
+            </mask>
+            <path d={segment.outline} mask={`url(#${maskPrefix}-${segment.id.replace(/[^a-zA-Z0-9_-]/g, "_")})`} data-fill data-dim={segment.dim || undefined} />
+            {segment.end && (
+              <circle
+                ref={(node) => {
+                  if (node) drops.current.set(segment.id, node);
+                  else drops.current.delete(segment.id);
+                }}
+                cx={segment.end.x}
+                cy={segment.end.y}
+                r={segment.width * 0.62 + 0.6}
+                style={{ visibility: segment.duration === 0 && segment.kind === "ink" ? "visible" : "hidden" }}
+                data-drop
+              />
+            )}
+          </g>
+        ) : (
           <path
             key={segment.id}
             ref={(node) => {
@@ -347,6 +418,7 @@ export function Trace({
             data-pulse={(segment.pulse && segment.kind === "ink") || undefined}
           />
         ))}
+      {which === "over" && <circle ref={nib} r={2} cx={-20} cy={-20} data-nib style={{ opacity: 0 }} />}
     </svg>
   );
 

@@ -50,7 +50,7 @@ export function computeComponents(candidate: RawCandidate, profile: UserProfile,
   return {
     artistSimilarity: Math.max(.3, ...related),
     genreSimilarity: genreFit(candidate, profile),
-    profileRelevance: evidence.some((entry) => entry.region === "feedback") ? .9
+    profileRelevance: evidence.some((entry) => entry.region === "feedback" || entry.region === "loved" || entry.region === "saved") ? .9
       : new Set(evidence.map((entry) => entry.region).filter(Boolean)).size > 1 ? .85
       : evidence.some((entry) => entry.region === "recent") ? .75 : evidence.length ? .65 : .4,
     noveltyFit: known ? .05 : profile.knownArtistNames.has(candidate.artistName.toLowerCase()) ? .65 : .9,
@@ -84,6 +84,8 @@ export function buildEvidenceReason(candidate: RawCandidate, profile: UserProfil
     : genre ? 'O catálogo associa este artista a ' + genre.genre + ', presente no teu histórico.'
     : profile.knownArtistNames.has(candidate.artistName.toLowerCase()) ? 'Uma faixa de um artista presente no teu repertório importado.' : 'Uma sugestão com metadados limitados; vale conferir antes de decidir.';
   if (track?.seedArtist && track.seedTrack && profile.feedbackMap.get(trackFeedbackKey(track.seedArtist, track.seedTrack)) === "LIKED") reason += ' Você marcou essa referência como “curti”.';
+  else if (track?.region === "loved") reason += ' Você marcou essa referência com ♥ no Last.fm.';
+  else if (track?.region === "saved") reason += ' Essa referência está nas tuas Curtidas do Spotify.';
   if (track?.region === "recent" || artist?.region === "recent") reason += ' A referência vem da tua fase recente.';
   if (!profile.knownTrackKeys.has(candidate.artistName.toLowerCase() + "|" + candidate.trackName.toLowerCase())) reason += ' Não apareceu no histórico importado.';
   return reason;

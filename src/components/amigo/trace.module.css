@@ -22,7 +22,7 @@
   stroke: var(--marca);
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: opacity 420ms ease;
+  transition: opacity var(--t-medio) var(--glide);
 }
 
 /* marca-texto tem ponta chata */
@@ -51,4 +51,30 @@
 /* o que ele já disse continua na tela, mais apagado que o assunto da vez */
 .trace path[data-dim="true"] {
   opacity: 0.3;
+}
+
+/* a tinta de mão: o contorno afinado, preenchido, que a máscara do traço revela */
+.trace path[data-fill] {
+  fill: var(--marca);
+  stroke: none;
+}
+
+.trace g[data-dim="true"] path[data-fill],
+.trace g[data-dim="true"] circle {
+  opacity: 0.3;
+}
+
+/* o pingo onde a ponta pousa, e a própria ponta enquanto anda */
+.trace circle[data-drop],
+.trace circle[data-nib] {
+  fill: var(--marca);
+}
+
+.trace circle[data-nib] {
+  transition: opacity var(--t-rapido) var(--glide);
+}
+
+/* entre um gesto e outro só a ponta viaja: o caminho dela não fica desenhado por cima do texto */
+.trace path[data-kind="travel"] {
+  opacity: 0;
 }

@@ -2,6 +2,7 @@
 
 import { motion, useIsPresent, useReducedMotion } from "framer-motion";
 import { useCallback, useLayoutEffect, useState, type ReactNode } from "react";
+import { GLIDE, TEMPO } from "@/lib/motion";
 
 /** A visit matters too: resuming the same item must wait for its new DOM. */
 export function useDiscoveryScene(identity: string | null) {
@@ -32,7 +33,7 @@ export function DiscoveryTransition({ visit, onReady, children }: {
     }}
     initial={reduced ? false : "enter"} animate="visible" exit="leave"
     variants={{ enter: { opacity: 0, x: 6 }, visible: { opacity: 1, x: 0 }, leave: { opacity: 0, x: reduced ? 0 : -6 } }}
-    transition={{ duration: reduced ? 0 : 0.12, ease: "easeOut" }}
+    transition={{ duration: reduced ? 0 : TEMPO.rapido, ease: GLIDE }}
     onAnimationComplete={(phase) => {
       if (phase === "visible" && present) { setEntered(true); onReady(visit); }
     }}

@@ -42,7 +42,7 @@ export default function LongoPrazoPage() {
     };
   }, [attempt]);
 
-  if (state.status === "loading") return <Aviso headline="Peraí, tô puxando da memória." />;
+  if (state.status === "loading") return <Aviso waiting planta="conversa" headline="Peraí, tô puxando da memória." />;
 
   if (state.status === "error") {
     return (

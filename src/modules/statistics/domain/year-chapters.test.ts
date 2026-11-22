@@ -21,7 +21,10 @@ describe("teu ano, em capítulos", () => {
     for (const chapter of chapters) expect(chapter.headline.toLowerCase()).toContain(chapter.mark.toLowerCase());
     expect(chapters[0].headline).toContain("18.432");
     expect(chapters[1].headline).toContain("outubro");
-    expect(chapters[2].headline).toContain("21h");
+    expect(chapters[2].headline).toContain("às 21h");
+    expect(yearChapters({ ...facts, peakHour: { hour: 12, plays: 463 } })[2].headline).toBe("O teu ano tocou mais ao meio-dia.");
+    expect(yearChapters({ ...facts, peakHour: { hour: 0, plays: 9 } })[2].headline).toContain("à meia-noite");
+    expect(yearChapters({ ...facts, peakHour: { hour: 1, plays: 9 } })[2].headline).toContain("à 1h");
     expect(chapters[3].headline).toMatch(/^Março/);
     expect(chapters[4].narrative).toContain("todos os meses");
     expect(chapters[4].proof).toMatchObject({ kind: "cover", tally: 12 });

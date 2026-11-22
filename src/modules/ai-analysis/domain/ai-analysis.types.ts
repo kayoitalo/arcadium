@@ -161,7 +161,17 @@ export interface AttemptAudit {
   before(model: string): Promise<string>;
   after(id: string, result: { status: "COMPLETED" | "FAILED"; tokens?: number }): Promise<void>;
 }
+/** Um lote do modo em lote, na volta: ainda correndo, pronto com o JSON cru, ou perdido. */
+export type PackBatchState =
+  | { state: "running" }
+  | { state: "done"; output: unknown; tokens?: number }
+  | { state: "failed"; message: string; invalid?: boolean };
+
 export interface PackProvider {
   /** Devolve o JSON cru do modelo: a validação é item a item, no serviço. */
   generatePack(input: MusicProfileInput, slots: PackSlot[], audit?: AttemptAudit): Promise<{ output: unknown; model: string }>;
+  /** O modo em lote (metade do preço, sem pressa): quem não tiver, gera na hora. */
+  submitPackBatch?(input: MusicProfileInput, slots: PackSlot[]): Promise<{ job: string; model: string }>;
+  readPackBatch?(job: string): Promise<PackBatchState>;
+  cancelPackBatch?(job: string): Promise<void>;
 }

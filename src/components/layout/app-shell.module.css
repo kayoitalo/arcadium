@@ -52,8 +52,8 @@
   color: var(--tinta-3);
   text-decoration: none;
   transition:
-    color 160ms,
-    border-color 160ms;
+    color var(--t-rapido),
+    border-color var(--t-rapido);
 }
 
 .link:hover {
@@ -129,7 +129,7 @@
     overflow-y: auto;
     background: var(--papel);
     border-top: 1px solid var(--fio);
-    animation: cadernoIn 200ms var(--glide) both;
+    animation: cadernoIn var(--t-rapido) var(--glide) both;
   }
 
   .caderno ul {
@@ -178,6 +178,25 @@
   }
 }
 
-.link { position:relative; }
-.link[aria-current="page"] { border-color:transparent; }
-.activeLine { position:absolute; left:2px; right:2px; bottom:-1.5px; height:1.5px; background:var(--tinta); }
+.nav { position: relative; scrollbar-width: none; }
+.nav::-webkit-scrollbar { display: none; }
+.link { position: relative; transition: color var(--t-rapido), font-variation-settings var(--t-rapido) var(--glide); }
+.link[aria-current="page"] { border-color: transparent; }
+/* a palavra guarda o lugar dela: uma cópia invisível, na letra de repouso, segura a largura, e a vizinha não anda quando esta estreita */
+.link { display: inline-grid; justify-items: start; }
+.link::after { content: attr(data-label); grid-area: 1 / 1; height: 0; overflow: hidden; visibility: hidden; font-variation-settings: "wdth" 96, "wght" 560; }
+.linkTexto { grid-area: 1 / 1; }
+/* no toque, a palavra responde na largura da letra: estreita e encorpa */
+.link:hover, .link:focus-visible { font-variation-settings: "wdth" 80, "wght" 700; }
+
+/* o sumário do caderno, no celular */
+.cadernoNome { display: block; }
+.cadernoNota { display: block; margin-top: 2px; font-size: 13px; line-height: 1.4; color: var(--tinta-3); font-variation-settings: "wdth" 100, "wght" 420; letter-spacing: 0; text-decoration: none; }
+@media (max-width: 760px) {
+  .caderno li { animation: cadernoLinha var(--t-medio) var(--glide) both; }
+  .caderno a[aria-current="page"] { text-decoration: none; }
+  .caderno a[aria-current="page"] .cadernoNome { text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 8px; }
+}
+@keyframes cadernoLinha { from { opacity: 0; transform: translateY(6px); font-variation-settings: "wdth" 125, "wght" 300; } }
+@media (prefers-reduced-motion: reduce) { .caderno li { animation: none; } .link { transition: none; } }
+

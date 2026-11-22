@@ -9,6 +9,7 @@ import { fallbackCover } from "./cover-fallback";
 import { loadArtistGenres } from "@/modules/statistics/application/artist-genres";
 import { decadeDistribution } from "@/modules/statistics/application/decades";
 import { getPeriodRanges, type PeriodKey } from "@/modules/statistics/application/overview-service";
+import { countsNewArtists, rankedUnit, unitsAgree } from "@/modules/conversation/domain/fact-check";
 import type {
   ConversationCover,
   ConversationMoment,
@@ -64,6 +65,8 @@ const NIGHT_STEPS = 6;
 /** Os mesmos limites de quem escreve (profile-builder): a prova mede o que a leitura viu. */
 const COMEBACK_GAP_DAYS = 90;
 const DOMINANT_GENRES = 5;
+/** Menos que isso, o primeiro de uma lista não é prova de nada. */
+const MIN_RANKING_PLAYS = 3;
 const TOP_ARTISTS = 10;
 /** Linhas de lista na prova; a tela mostra 5 e "me mostra mais" abre o resto. */
 const ROWS = 10;
@@ -400,16 +403,18 @@ async function bingeEvidence(data: PeriodData, reading: ProfileNarrative, timeZo
 /** O ponto fora da curva: um artista cujo gênero não conversa com nenhum dos que dominam a janela. */
 async function outlierEvidence(data: PeriodData, reading: ProfileNarrative): Promise<Evidence | null> {
   const artists = await data.artists();
-  const genres = await loadArtistGenres(artists.map((artist) => artist.name));
+  const loaded = await loadArtistGenres(artists.map((artist) => artist.name));
+  // "ROCK" e "rock" são o mesmo gênero, e a conta é a mesma dos fatos que ele recebe
+  const genresOf = (name: string) => [...new Set((loaded.get(name) ?? []).map((tag) => tag.trim().toLowerCase()).filter(Boolean))];
   const weight = new Map<string, number>();
   for (const artist of artists) {
-    const own = genres.get(artist.name) ?? [];
+    const own = genresOf(artist.name);
     for (const genre of own) weight.set(genre, (weight.get(genre) ?? 0) + artist.plays / own.length);
   }
   const ranked = [...weight.entries()].sort((a, b) => b[1] - a[1]);
   const dominant = ranked.slice(0, DOMINANT_GENRES);
   const outliers = findOutliers(
-    artists.map((artist) => ({ ...artist, genres: genres.get(artist.name) ?? [] })),
+    artists.map((artist) => ({ ...artist, genres: genresOf(artist.name) })),
     dominant.map(([genre]) => genre),
     { exclude: new Set(artists.slice(0, TOP_ARTISTS).map((artist) => artist.name)), limit: 50 },
   );
@@ -476,13 +481,17 @@ async function rankingEvidence(data: PeriodData, reading: ProfileNarrative): Pro
   if (units.length === 0) return null;
 
   const lists = await Promise.all(units.map(async (unit) => ({ unit, rows: await data.top(unit) })));
-  const focus = focusIn(
-    fieldsOf(reading),
-    lists.map(({ unit, rows }) => ({ unit, labels: rows.map((row) => row.label) })),
-  );
+  const labeled = lists.map(({ unit, rows }) => ({ unit, labels: rows.map((row) => row.label) }));
+  // "o disco mais rodado" procura primeiro entre os discos, mesmo que a manchete cite uma faixa dele
+  const ranked = rankedUnit(textOf(reading));
+  const focus =
+    (ranked ? focusIn(fieldsOf(reading), labeled.filter((list) => list.unit === ranked)) : null) ??
+    focusIn(fieldsOf(reading), labeled);
   if (!focus) return null;
   const rows = lists.find((list) => list.unit === focus.unit)!.rows;
   const chosen = rows[focus.index];
+  // duas audições não "dominam" nada: abaixo de três, a lista não prova o que a frase diz
+  if (chosen.plays < MIN_RANKING_PLAYS) return null;
   const artist = focus.unit === "artist" ? chosen.label : chosen.sub;
 
   // todo "N vezes" e todo "N%" da frase precisam bater com algum número de verdade
@@ -675,18 +684,29 @@ async function evidenceFor(
   };
   // a prova segue o ângulo da leitura e, depois, o que ela cita, na ordem em
   // que cita: uma leitura de época que também cita o topo é sobre a época
+  const text = textOf(reading);
   const kinds = [
     ...new Set(
-      [KIND_OF_ANGLE[reading.angle ?? ""], ...(reading.referencedEvidence ?? []).map((signal) => KIND_OF_SIGNAL[signal])].filter(Boolean),
+      [
+        // quem conta artistas novos é mostrado pela prova de estreia, se ela existir
+        countsNewArtists(text) ? ("debut" as const) : undefined,
+        KIND_OF_ANGLE[reading.angle ?? ""],
+        ...(reading.referencedEvidence ?? []).map((signal) => KIND_OF_SIGNAL[signal]),
+      ].filter((kind): kind is EvidenceKind => Boolean(kind)),
     ),
   ];
   const attempts = kinds.map((kind) => [kind, resolvers[kind]] as const);
 
+  // a prova da unidade da frase vem primeiro; sem ela, fica a primeira que passou nos números
+  let fallback: Candidate | null = null;
   for (const [kind, attempt] of attempts) {
     const evidence = await attempt();
-    if (evidence) return { period: data.period, kind, reading, evidence };
+    if (!evidence) continue;
+    const candidate: Candidate = { period: data.period, kind, reading, evidence };
+    if (unitsAgree(text, evidence)) return candidate;
+    fallback ??= candidate;
   }
-  return null;
+  return fallback;
 }
 
 export class ConversationService {

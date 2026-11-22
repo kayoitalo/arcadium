@@ -37,6 +37,16 @@ describe("a pista dos gêneros", () => {
     for (const lane of race.lanes) for (const place of lane.places) if (place !== null) expect(place).toBeLessThanOrEqual(3);
   });
 
+  it("always runs the genres the sentence cites, even outside the pack", () => {
+    const rows = ["a", "b", "c", "d", "e"].flatMap((artist, index) => [
+      { month: "2026-10", artist, plays: 10 + index }, { month: "2026-11", artist, plays: 20 - index },
+    ]);
+    const race = buildRace(["2026-10", "2026-11"], monthShares(rows, (artist) => [artist]), 3, ["E", "nobody-has-this"]);
+    expect(race.lanes).toHaveLength(3);
+    expect(race.lanes.map((lane) => lane.genre)).toContain("e");
+    expect(race.lanes.map((lane) => lane.genre)).not.toContain("nobody-has-this");
+  });
+
   it("names the six months up to the current one across a year boundary", () => {
     expect(lastMonths("2026-02", 6)).toEqual(["2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02"]);
   });

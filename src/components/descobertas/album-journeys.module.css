@@ -57,7 +57,7 @@
 .library > li[data-open="true"] .jacket { aspect-ratio: 1; padding: 12px; gap: 10px; }
 .library > li[data-open="true"] .jacket b { font-size: 19px; }
 .library > li[data-open="true"] .jacket small { display: none; }
-.editions { margin: 24px 0 0; border-bottom: 0; padding: 28px 0 4px; animation: unfoldVersion .18s ease-out; }
+.editions { margin: 24px 0 0; border-bottom: 0; padding: 28px 0 4px; animation: unfoldVersion var(--t-rapido) var(--glide); }
 .versionHeading { display: flex; justify-content: space-between; align-items: start; gap: 24px; }
 .versionHeading h2 { margin: 0; scroll-margin-top: calc(var(--bar-h,90px) + 24px); }
 .editionList > li { display: flex; align-items: start; gap: 24px; }
@@ -75,7 +75,7 @@
 .library[data-shelf="true"] > li[data-open="true"] { grid-column: auto; border-top: 0; padding-top: 0; }
 .albums .spine { display: flex; align-items: flex-start; justify-content: center; width: var(--grossura, 34px); height: calc(var(--estante) * var(--altura, 1)); min-height: 0;
   padding: 12px 0; border: 0; border-radius: 2px 2px 0 0; background: color-mix(in srgb, rgb(var(--lombada)) 84%, var(--papel)); color: rgb(11 11 10 / .9); overflow: hidden;
-  box-shadow: inset -3px 0 0 rgb(0 0 0 / .16), inset 1px 0 0 rgb(255 255 255 / .1); transition: translate 260ms var(--glide), box-shadow 260ms ease; }
+  box-shadow: inset -3px 0 0 rgb(0 0 0 / .16), inset 1px 0 0 rgb(255 255 255 / .1); transition: translate var(--t-rapido) var(--glide), box-shadow var(--t-rapido) var(--glide); }
 .albums .spine[data-ink="light"] { color: rgb(242 239 231 / .94); }
 /* sem capa: lombada de papel, com borda. É etiqueta, não arte fingida. */
 .albums .spine[data-bare="true"] { background: var(--papel); color: var(--tinta-2); box-shadow: inset 0 0 0 1px var(--fio-2); }
@@ -97,18 +97,21 @@
 .pulledRecord { width: min(100%, 240px); }
 .pulledCover { width: 100%; aspect-ratio: 1; }
 /* a capa sai da estante: vem da esquerda, passa um pouco do lugar e assenta */
-.pulledRecord { animation: pullOut 560ms var(--glide) both; }
-.pulledTitle { animation: quietRise 420ms ease-out 140ms both; }
+.pulledRecord { animation: pullOut var(--t-lento) var(--glide) both; }
+.pulledTitle { animation: quietRise var(--t-medio) var(--glide) var(--t-rapido) both; }
 .pulledTitle h2 { margin: 0; font-size: clamp(28px, 2.8vw, 40px); line-height: .96; letter-spacing: -.02em; text-transform: uppercase; font-variation-settings: "wdth" 64, "wght" 800; overflow-wrap: anywhere; }
 .pulledTitle p { margin: 8px 0 0; font-size: 13px; color: var(--tinta-3); }
-.pulled .editions { margin: 0; padding: 18px 0 4px; border-top: 1px solid var(--fio-2); border-bottom: 0; animation: quietRise 420ms ease-out 220ms both; }
+.pulled .editions { margin: 0; padding: 18px 0 4px; border-top: 1px solid var(--fio-2); border-bottom: 0; animation: quietRise var(--t-medio) var(--glide) var(--t-rapido) both; }
 .pulled .editionList { margin: 12px 0 0; }
 .pulled .editionList > li { gap: 16px; padding: 18px 0; }
 .pulled .editionCover { width: 72px; }
 .pulled .editionList h3 { font-size: 20px; }
 /* nenhum disco puxado ainda: o lugar dele, em fio, pra estante não mudar de largura depois */
 .pulledHint { display: grid; gap: 14px; margin: 22px 0 0; color: var(--tinta-3); font-size: 13px; line-height: 1.6; }
-.pulledHint span { display: block; width: min(100%, 200px); aspect-ratio: 1; border: 1px dashed var(--fio-2); }
+/* o vão de quem ainda não puxou nada: um disco sem capa, que diz o que fazer */
+.pulledHint span { display: block; width: min(100%, 220px); aspect-ratio: 1; opacity: .7; }
+/* sem capa, o selo do disco ocupa o quadrado da capa */
+.selo { aspect-ratio: 1; width: 100%; overflow: hidden; }
 @keyframes pullOut {
   0% { opacity: 0; translate: -72px 0; rotate: -5deg; }
   62% { opacity: 1; translate: 8px 0; rotate: .8deg; }
@@ -129,3 +132,6 @@
 
 .versionHeading h2 {position:relative;z-index:3;}
 .versionHeading h2[data-marked="true"] {color:var(--sobre-marca);}
+
+/* a estante pede a largura toda: em tela média, o disco puxado abre embaixo dela, sem apertar as lombadas */
+@media (max-width: 1180px) { .shelfLayout { grid-template-columns: minmax(0, 1fr); row-gap: 28px; } .pulled { max-width: 640px; } }

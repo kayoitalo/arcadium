@@ -4,6 +4,7 @@ import { fitHeadline, layoutMarked, layoutPlain, type CardLine } from "@/lib/car
 import { coverProxyUrl } from "@/lib/cover";
 import { readTint, type Tint } from "@/lib/cover-tint";
 import type { ConversationCover, ConversationMoment } from "@/modules/conversation/domain/conversation.types";
+import { gapLabel } from "@/lib/format/gap";
 
 /*
  * O cartão da leitura: um assunto da conversa como imagem 4:5, pra mandar
@@ -176,22 +177,25 @@ export async function drawCard(moment: CardContent, family: string): Promise<HTM
     const [left, right] = [MARGIN, CARD.width - MARGIN - coverSide];
     drawCover(context, images[0], covers[0], left, proofTop, coverSide, tints[0], family);
     drawCover(context, images[1], covers[1], right, proofTop, coverSide, tints[1], family);
-    // a cota dele entre as duas capas, e o grito no meio
+    // a cota de planta entre as duas capas: a linha abre um vão e a medida do tempo mora nele
     const [a, b, y] = [left + coverSide + 28, right - 28, proofTop + coverSide * 0.56];
+    const label = gapLabel(moment.jump.gapMinutes);
+    setFont(context, family, 40, 820, "condensed", 0);
+    const half = Math.min((b - a) / 2 - 12, context.measureText(label).width / 2 + 18);
     context.strokeStyle = INK.marca;
     context.lineWidth = 4;
     context.lineCap = "square";
     context.beginPath();
     context.moveTo(a, y - 22); context.lineTo(a, y + 22);
     context.moveTo(b, y - 22); context.lineTo(b, y + 22);
-    context.moveTo(a, y); context.lineTo(b, y);
+    context.moveTo(a, y); context.lineTo((a + b) / 2 - half, y);
+    context.moveTo((a + b) / 2 + half, y); context.lineTo(b, y);
     context.stroke();
-    setFont(context, family, 64, 860, "condensed", -0.01);
     context.fillStyle = INK.marca;
     context.textAlign = "center";
-    context.fillText("PAM.", (a + b) / 2, y - 34);
-    setFont(context, family, 22, 500, "normal");
-    context.fillText(moment.jump.gapMinutes < 1 ? "logo em seguida" : `${moment.jump.gapMinutes} min depois`, (a + b) / 2, y + 44);
+    context.textBaseline = "middle";
+    context.fillText(label, (a + b) / 2, y + 2);
+    context.textBaseline = "alphabetic";
     context.textAlign = "left";
     moment.jump.captions.forEach((caption, index) => {
       const x = index === 0 ? left : right;

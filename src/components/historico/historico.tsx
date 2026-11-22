@@ -14,8 +14,9 @@ import { usePen, type PenDrawing } from "@/components/amigo/use-pen";
 import { usePulse } from "@/components/amigo/use-pulse";
 import { useSound } from "@/components/amigo/use-sound";
 import { useTabTitle } from "@/components/amigo/use-tab-title";
+import { useScrollMemory } from "@/components/amigo/use-scroll-memory";
 import styles from "./historico.module.css";
-import { splitTrackTitle } from "@/lib/music/track-title";
+import { cleanTitle, splitTrackTitle } from "@/lib/music/track-title";
 import type { MonthCovers } from "@/modules/statistics/domain/month-calendar";
 import { dayWords, MesEmCapas } from "./mes-em-capas";
 
@@ -67,6 +68,8 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
   const [query, setQuery] = useState(initialSearch);
   const [page, setPage] = useState(1);
   const [data, setData] = useState<HistoryPayload | null>(null);
+  // voltando pelo navegador, a lista desce até onde você estava
+  useScrollMemory("historico", data !== null);
   const [busy, setBusy] = useState(true);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -296,7 +299,7 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
     );
   }
 
-  if (!data) return <Aviso waiting headline="Peraí, tô puxando teu histórico." />;
+  if (!data) return <Aviso waiting planta="historico" headline="Peraí, tô puxando teu histórico." />;
 
   if (data.totalItems === 0 && !loadedQuery && !query && !loadedDay && !day) {
     return (
@@ -423,7 +426,7 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
                         abrir no Apple Music <ArrowUpRight size={11} aria-hidden="true" />
                       </a>
                     ) : (
-                      <span className={styles.album}>{event.rawAlbumName ?? ""}</span>
+                      <span className={styles.album}>{event.rawAlbumName ? cleanTitle(event.rawAlbumName) : ""}</span>
                     )}
                     {event.previewUrl ? (
                       <button

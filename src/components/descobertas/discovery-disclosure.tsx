@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { GLIDE, TEMPO } from "@/lib/motion";
 
 /** Native summary activation/keyboard semantics; retain the body only for closing. */
 export function DiscoveryDisclosure({ id, className, bodyClassName, summary, children, open: controlledOpen, onOpenChange }: {
@@ -33,7 +34,7 @@ export function DiscoveryDisclosure({ id, className, bodyClassName, summary, chi
     <motion.div id={bodyId} ref={body} inert={!open} aria-hidden={!open} style={{ overflow: "hidden" }}
       initial={false} animate={open ? "open" : "closed"}
       variants={{ open: { height: "auto", opacity: 1 }, closed: { height: 0, opacity: 0 } }}
-      transition={{ duration: reduced ? 0 : 0.18, ease: "easeOut" }}
+      transition={{ duration: reduced ? 0 : TEMPO.rapido, ease: GLIDE }}
       onAnimationComplete={(phase) => { if (phase === "closed" && !openRef.current) setRetained(false); }}>
       {(open || retained) && <div className={bodyClassName}>{children}</div>}
     </motion.div>

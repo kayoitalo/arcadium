@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { band, check, circle, dimension, draft, highlight, jump, polyLength, seeded, strike, tally, wave } from "./gestures";
+import { band, check, circle, dimension, draft, highlight, jump, polyLength, seeded, strike, tally, wave, asterisk, bracket, dimensionArrow, inkWidth, taperOutline } from "./gestures";
 
 const box = { left: 100, top: 200, width: 300, height: 40 };
 
@@ -137,5 +137,34 @@ describe("o traço do amigo", () => {
     expect(fifth[1].x).toBeGreaterThan(seven.strokes[3][0].x);
     expect(tally(12, 20).width).toBeGreaterThan(seven.width);
     expect(tally(7, 20)).toEqual(seven);
+  });
+});
+
+describe("a mão da caneta", () => {
+  it("draws the ink thin at the start, full in the middle and settled at the landing", () => {
+    expect(inkWidth(0, 4)).toBeLessThan(inkWidth(0.5, 4));
+    expect(inkWidth(1, 4)).toBeLessThan(inkWidth(0.5, 4));
+    expect(inkWidth(0.5, 4)).toBeLessThanOrEqual(4.2);
+  });
+
+  it("outlines a closed shape around the stroke", () => {
+    const outline = taperOutline([{ x: 0, y: 0 }, { x: 100, y: 0 }], 4);
+    expect(outline.startsWith("M")).toBe(true);
+    expect(outline.endsWith("Z")).toBe(true);
+    expect(taperOutline([{ x: 0, y: 0 }], 4)).toBe("");
+  });
+
+  it("brackets a group of rows with the hooks pointing inward", () => {
+    const pts = bracket({ left: 0, top: 10, width: 100, height: 60 }, "right", 10, 8);
+    expect(pts[1]).toEqual({ x: 110, y: 10 });
+    expect(pts[0].x).toBeLessThan(pts[1].x);
+    expect(pts[3]).toEqual({ x: 102, y: 70 });
+  });
+
+  it("writes an asterisk as three crossing strokes and a dimension arrow that lands on the target", () => {
+    expect(asterisk({ x: 0, y: 0 }, 10)).toHaveLength(3);
+    const arrow = dimensionArrow({ x: 0, y: 0 }, { x: 50, y: 40 });
+    expect(arrow[1]).toEqual({ x: 50, y: 0 });
+    expect(arrow.at(-2)).toEqual({ x: 50, y: 40 });
   });
 });

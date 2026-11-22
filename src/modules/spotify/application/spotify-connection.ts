@@ -6,7 +6,9 @@ const PROVIDER = "spotify";
 const AUTHORIZE_URL = "https://accounts.spotify.com/authorize";
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
 
-export const SPOTIFY_SCOPES = ["playlist-modify-private", "playlist-modify-public"];
+/** Criar playlists e ler as Curtidas — que viram ponto de partida do Descobrir. */
+export const LIBRARY_SCOPE = "user-library-read";
+export const SPOTIFY_SCOPES = ["playlist-modify-private", "playlist-modify-public", LIBRARY_SCOPE];
 
 const REFRESH_MARGIN_MS = 60_000;
 
@@ -16,13 +18,20 @@ interface StoredTokens {
   expiresAt: number;
   spotifyUserId: string;
   displayName: string;
+  /** O que o Spotify de fato concedeu. Conexão antiga, de antes das Curtidas, não tem. */
+  scope?: string;
 }
+
+/** A conexão já pode ler as Curtidas? Sem o escopo gravado, não: ela é de antes da permissão existir. */
+export const grantsLibrary = (scope?: string) => (scope ?? "").split(" ").includes(LIBRARY_SCOPE);
 
 export interface SpotifyConnectionStatus {
   configured: boolean;
   connected: boolean;
   displayName?: string;
   reason?: string;
+  /** Conectado, mas sem a permissão das Curtidas: pede pra reconectar. */
+  libraryMissing?: boolean;
 }
 
 function credentials() {
@@ -96,6 +105,7 @@ export async function completeConnection(userId: string, code: string): Promise<
     expiresAt: Date.now() + tokens.expires_in * 1000,
     spotifyUserId: profile.id,
     displayName: profile.display_name || profile.id,
+    scope: typeof tokens.scope === "string" ? tokens.scope : undefined,
   };
 
   await prisma.providerConnection.upsert({
@@ -117,7 +127,7 @@ export async function completeConnection(userId: string, code: string): Promise<
   return stored.displayName;
 }
 
-async function readTokens(userId: string): Promise<StoredTokens | null> {
+export async function readTokens(userId: string): Promise<StoredTokens | null> {
   const connection = await prisma.providerConnection.findUnique({
     where: { userId_provider: { userId, provider: PROVIDER } },
   });
@@ -132,12 +142,12 @@ async function readTokens(userId: string): Promise<StoredTokens | null> {
 
 export async function getValidAccessToken(
   userId: string,
-): Promise<{ accessToken: string; spotifyUserId: string } | null> {
+): Promise<{ accessToken: string; spotifyUserId: string; scope?: string } | null> {
   const stored = await readTokens(userId);
   if (!stored) return null;
 
   if (stored.expiresAt - REFRESH_MARGIN_MS > Date.now()) {
-    return { accessToken: stored.accessToken, spotifyUserId: stored.spotifyUserId };
+    return { accessToken: stored.accessToken, spotifyUserId: stored.spotifyUserId, scope: stored.scope };
   }
 
   try {
@@ -150,6 +160,7 @@ export async function getValidAccessToken(
       accessToken: refreshed.access_token,
       refreshToken: refreshed.refresh_token ?? stored.refreshToken,
       expiresAt: Date.now() + refreshed.expires_in * 1000,
+      scope: typeof refreshed.scope === "string" ? refreshed.scope : stored.scope,
     };
 
     await prisma.providerConnection.update({
@@ -157,7 +168,7 @@ export async function getValidAccessToken(
       data: { encryptedTokens: encryptJson(next) },
     });
 
-    return { accessToken: next.accessToken, spotifyUserId: next.spotifyUserId };
+    return { accessToken: next.accessToken, spotifyUserId: next.spotifyUserId, scope: next.scope };
   } catch (error) {
     // A shared quota pause is not a revoked authorization.
     if (error instanceof SpotifyUnavailable) return null;
@@ -186,11 +197,14 @@ export async function getConnectionStatus(userId: string): Promise<SpotifyConnec
     where: { userId_provider: { userId, provider: PROVIDER } },
   });
 
+  const connected = connection?.status === "ACTIVE" && Boolean(connection.encryptedTokens);
+  const tokens = connected ? await readTokens(userId) : null;
   return {
     configured: true,
-    connected: connection?.status === "ACTIVE" && Boolean(connection.encryptedTokens),
+    connected,
     displayName: connection?.username,
     reason: connection?.status === "NEEDS_REAUTH" ? "A autorização expirou; conecte de novo." : undefined,
+    libraryMissing: connected && !grantsLibrary(tokens?.scope),
   };
 }
 

@@ -11,7 +11,7 @@ import { useScreenLines } from "@/components/amigo/use-screen-lines";
 import { Mudou } from "@/components/mudou/mudou";
 import { shiftHeadline, verifyShiftLine } from "@/modules/conversation/domain/shift-line";
 import type { OverviewData, TasteShiftItem } from "@/modules/statistics/application/overview-service";
-import type { GenreRace } from "@/modules/statistics/domain/genre-race";
+import type { GenreMovers } from "@/modules/statistics/application/genre-movers";
 
 type Window = "30d" | "1y";
 
@@ -42,17 +42,9 @@ export default function OQueMudouPage() {
   /** O que ele diz: `undefined` enquanto decide, `null` quando não há o que dizer. */
   const [said, setSaid] = useState<{ headline: string; cited: string[] } | null | undefined>(undefined);
   const lines = useScreenLines("evolution", period);
-  /** A pista dos seis meses: prova à parte, que não segura a tela se demorar ou falhar. */
-  const [race, setRace] = useState<GenreRace | null>(null);
+  /** Quem puxou a mudança: os discos do gênero que subiu e do que caiu. */
+  const [movers, setMovers] = useState<GenreMovers | null>(null);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    privateFetch("/api/genre-race", { signal: controller.signal, cache: "no-store" })
-      .then((response) => (response.ok ? (response.json() as Promise<GenreRace>) : null))
-      .then((payload) => { if (payload && !controller.signal.aborted) setRace(payload); })
-      .catch(() => undefined);
-    return () => controller.abort();
-  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -90,6 +82,21 @@ export default function OQueMudouPage() {
     setSaid(picked ?? (fallback ? { headline: fallback.headline, cited: fallback.genres } : null));
   }, [lines, period, state]);
 
+  // quem puxou: depois da frase, os discos dos gêneros que ela cita, um que subiu e um que caiu
+  const risingCited = state.status === "ready" && said ? said.cited.find((genre) => state.shift.rising.some((item) => item.genre === genre)) ?? null : null;
+  const fallingCited = state.status === "ready" && said ? said.cited.find((genre) => state.shift.declining.some((item) => item.genre === genre)) ?? null : null;
+  useEffect(() => {
+    setMovers(null);
+    if (!risingCited && !fallingCited) return;
+    const controller = new AbortController();
+    const query = new URLSearchParams({ period, ...(risingCited ? { rising: risingCited } : {}), ...(fallingCited ? { falling: fallingCited } : {}) });
+    privateFetch(`/api/genre-movers?${query}`, { signal: controller.signal, cache: "no-store" })
+      .then((response) => (response.ok ? (response.json() as Promise<GenreMovers>) : null))
+      .then((payload) => { if (payload && !controller.signal.aborted) setMovers(payload); })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [period, risingCited, fallingCited]);
+
   const janela = (
     <Janela options={WINDOWS} value={period} onChange={setPeriod} before="comparando" after={`com ${BEFORE[period]}`} />
   );
@@ -103,7 +110,7 @@ export default function OQueMudouPage() {
   }
 
   if (state.status === "loading" || said === undefined) {
-    return <Aviso waiting window={janela} headline="Peraí, tô comparando." />;
+    return <Aviso waiting planta="mudou" window={janela} headline="Peraí, tô comparando." later="Comparar dois períodos inteiros demora um pouco. Já volto." />;
   }
 
   const { shift, before } = state;
@@ -130,5 +137,5 @@ export default function OQueMudouPage() {
     );
   }
 
-  return <Mudou shift={shift} headline={said.headline} cited={said.cited} window={janela} race={race} />;
+  return <Mudou shift={shift} headline={said.headline} cited={said.cited} window={janela} movers={movers} />;
 }

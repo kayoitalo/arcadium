@@ -2,7 +2,7 @@
 /* overflow-y escondido: o traço da aba ativa não pode gerar uma barra de rolagem vertical */
 .nav { display: flex; gap: clamp(18px, 3vw, 40px); border-bottom: 1px solid var(--fio); margin: 8px 0 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .nav::-webkit-scrollbar { display: none; }
-.tab { position: relative; flex-shrink: 0; padding: 12px 0 14px; color: var(--tinta-3); text-decoration: none; transition: color 160ms; }
+.tab { position: relative; flex-shrink: 0; padding: 12px 0 14px; color: var(--tinta-3); text-decoration: none; transition: color var(--t-rapido); }
 .tab strong { display: flex; align-items: center; gap: 7px; min-height: 20px; font-size: 15px; font-variation-settings: "wdth" 88, "wght" 620; }
 /* o contador de "Para depois": remonta a cada faixa nova e pulsa uma vez */
 .count { display: inline-grid; place-items: center; min-width: 19px; height: 19px; padding: 0 6px; border: 1px solid var(--fio-2); border-radius: 999px;

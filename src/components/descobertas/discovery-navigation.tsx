@@ -5,6 +5,7 @@ import { LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import type { ReactNode } from "react";
 import { useSelection } from "./selection-provider";
 import styles from "./discovery-navigation.module.css";
+import { GLIDE, TEMPO } from "@/lib/motion";
 export const DISCOVERY_PAGES = [
   { href: "/discovery", title: "Descobrir", hint: "a próxima faixa" },
   { href: "/discovery/week", title: "Semana", hint: "as portas da semana" },
@@ -27,7 +28,7 @@ export function DiscoveryNavigation({ pathname, showWeekly = true, kept }: { pat
     const active = pathname === page.href;
     return <Link key={page.href} href={page.href} className={styles.tab} aria-current={active ? "page" : undefined}>
       <strong>{page.title}{page.href === "/discovery/collection" && kept}</strong><small>{page.hint}</small>
-      {active && <motion.span className={styles.line} layoutId="discovery-tab-line" transition={{ duration: reduced ? 0 : .24, ease: "easeOut" }} />}
+      {active && <motion.span className={styles.line} layoutId="discovery-tab-line" transition={{ duration: reduced ? 0 : TEMPO.medio, ease: GLIDE }} />}
     </Link>;
   })}</nav></LayoutGroup>;
 }
@@ -36,5 +37,5 @@ export function DiscoveryNavigationCurrent({ showWeekly = true }: { showWeekly?:
 }
 export function DiscoveryPageTransition({ children }: { children: ReactNode }) {
   const reduced = Boolean(useReducedMotion());
-  return <motion.div data-discovery-page initial={reduced ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .2, ease: "easeOut" }}>{children}</motion.div>;
+  return <motion.div data-discovery-page initial={reduced ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: TEMPO.rapido, ease: GLIDE }}>{children}</motion.div>;
 }
