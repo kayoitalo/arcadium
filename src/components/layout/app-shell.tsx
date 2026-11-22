@@ -71,8 +71,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               data-href={section.href}
               className={styles.link}
               aria-current={section.href === current.href ? "page" : undefined}
+              data-label={section.label}
             >
-              {section.label}
+              <span className={styles.linkTexto}>{section.label}</span>
             </Link>
           ))}
           {/* o sublinhado é a caneta, em tinta: viaja da tela de antes até a nova */}

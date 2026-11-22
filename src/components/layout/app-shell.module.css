@@ -182,6 +182,10 @@
 .nav::-webkit-scrollbar { display: none; }
 .link { position: relative; transition: color var(--t-rapido), font-variation-settings var(--t-rapido) var(--glide); }
 .link[aria-current="page"] { border-color: transparent; }
+/* a palavra guarda o lugar dela: uma cópia invisível, na letra de repouso, segura a largura, e a vizinha não anda quando esta estreita */
+.link { display: inline-grid; justify-items: start; }
+.link::after { content: attr(data-label); grid-area: 1 / 1; height: 0; overflow: hidden; visibility: hidden; font-variation-settings: "wdth" 96, "wght" 560; }
+.linkTexto { grid-area: 1 / 1; }
 /* no toque, a palavra responde na largura da letra: estreita e encorpa */
 .link:hover, .link:focus-visible { font-variation-settings: "wdth" 80, "wght" 700; }
 

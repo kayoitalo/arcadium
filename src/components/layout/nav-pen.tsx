@@ -18,8 +18,16 @@ export function NavPen({ nav, current, reduced }: { nav: RefObject<HTMLElement |
   /** Enquanto a caneta anda, a medida de tamanho não redesenha por cima dela. */
   const moving = useRef(false);
 
+  /**
+   * O menu onde a caneta mora. Na primeira montagem o efeito daqui roda antes
+   * de o React ligar a ref do <nav> (o pai): sem isso, a caneta não achava a
+   * palavra, o sublinhado não aparecia ao abrir o app e a primeira troca de
+   * tela não viajava. O próprio <svg> já está ligado e mora dentro do <nav>.
+   */
+  const hostOf = () => nav.current ?? (svg.current?.parentElement as HTMLElement | null) ?? null;
+
   const lineFor = (): Point[] | null => {
-    const host = nav.current;
+    const host = hostOf();
     const link = host?.querySelector<HTMLElement>(`[data-href="${current}"]`);
     if (!host || !link) return null;
     const a = link.getBoundingClientRect();
@@ -30,7 +38,7 @@ export function NavPen({ nav, current, reduced }: { nav: RefObject<HTMLElement |
   };
 
   useLayoutEffect(() => {
-    const host = nav.current;
+    const host = hostOf();
     const path = ink.current;
     const travelPath = trail.current;
     const dot = nib.current;
@@ -92,7 +100,7 @@ export function NavPen({ nav, current, reduced }: { nav: RefObject<HTMLElement |
 
   // tela redimensionada: o sublinhado vai junto, sem animar
   useEffect(() => {
-    const host = nav.current;
+    const host = hostOf();
     if (!host) return;
     // o observador avisa uma vez assim que liga: essa primeira medida é a mesma que a caneta acabou de usar
     let first = true;

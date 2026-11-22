@@ -3,8 +3,12 @@
 import { useEffect, useState } from "react";
 import { privateFetch } from "@/lib/http/private-fetch";
 import { cleanTitle } from "@/lib/music/track-title";
+import { genreLabel } from "@/lib/format/genre";
 
 const time = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
+const day = new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "short" });
+/** "às 19:53" hoje; "em 20 de nov., 19:53" noutro dia. */
+const when = (date: Date) => (date.toDateString() === new Date().toDateString() ? `às ${time.format(date)}` : `em ${day.format(date)}, ${time.format(date)}`);
 
 async function json<T>(url: string, signal: AbortSignal): Promise<T | null> {
   try {
@@ -40,6 +44,19 @@ export function useMenuNotes(open: boolean): Record<string, string> {
     });
     void json<{ year: number; chapters: unknown[] }>("/api/year", controller.signal).then((year) => {
       put("/year", year && year.chapters.length > 0 ? `${year.year} em ${year.chapters.length} capítulos` : null);
+    });
+    // a conversa só ganha nota quando tem música tocando agora
+    void json<{ playing: { track: string; artist: string } | null }>("/api/now-playing", controller.signal).then((now) => {
+      put("/overview", now?.playing ? `tocando agora: ${cleanTitle(now.playing.track)}, ${now.playing.artist}` : null);
+    });
+    void json<{ tasteShift?: { rising: Array<{ genre: string }> } }>("/api/overview?period=30d", controller.signal).then((overview) => {
+      const rising = overview?.tasteShift?.rising[0]?.genre;
+      put("/taste-evolution", rising ? `${genreLabel(rising)} subindo nos últimos 30 dias` : null);
+    });
+    // a hora em que a última busca terminou — não a da última música, que é outra coisa
+    void json<{ latestRun: { finishedAt: string | null; startedAt: string } | null }>("/api/sync", controller.signal).then((sync) => {
+      const at = sync?.latestRun?.finishedAt ?? sync?.latestRun?.startedAt;
+      put("/settings", at ? `última busca no Last.fm ${when(new Date(at))}` : null);
     });
     return () => controller.abort();
   }, [open]);
