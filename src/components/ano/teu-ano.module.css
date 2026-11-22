@@ -350,7 +350,7 @@
 
 /* a corrida dos gêneros: o número das posições ganhas e a tabela do mês */
 .corrida { display: grid; gap: 16px; width: min(100%, 380px); margin: 0; }
-.corridaTopo { display: flex; align-items: baseline; gap: 14px; }
+.corridaTopo { display: flex; align-items: baseline; gap: 30px; padding-bottom: 10px; }
 .corridaNumero { font-size: clamp(64px, 7vw, 110px); line-height: .84; font-variation-settings: "wdth" 62, "wght" 800; letter-spacing: -.03em; padding: 4px 8px; }
 .corridaTopo span { font-size: 13px; color: var(--tinta-3); }
 .corridaMeses { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -363,3 +363,5 @@
 .corridaFatia { font-size: 12px; color: var(--tinta-3); font-variant-numeric: tabular-nums; }
 .corridaLista li[data-citado] .corridaPos, .corridaLista li[data-citado] .corridaNome { color: var(--tinta); }
 .corridaLista li[data-citado] { box-shadow: inset 3px 0 0 var(--tinta); padding-left: 8px; }
+/* no celular o círculo da caneta passaria da margem: o número entra um pouco */
+@media (max-width: 640px) { .corridaTopo { padding-left: 10px; gap: 22px; } }
