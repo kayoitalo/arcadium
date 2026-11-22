@@ -9,7 +9,7 @@ import { fallbackCover } from "./cover-fallback";
 import { loadArtistGenres } from "@/modules/statistics/application/artist-genres";
 import { decadeDistribution } from "@/modules/statistics/application/decades";
 import { getPeriodRanges, type PeriodKey } from "@/modules/statistics/application/overview-service";
-import { factsAgree } from "@/modules/conversation/domain/fact-check";
+import { countsNewArtists, rankedUnit, unitsAgree } from "@/modules/conversation/domain/fact-check";
 import type {
   ConversationCover,
   ConversationMoment,
@@ -481,10 +481,12 @@ async function rankingEvidence(data: PeriodData, reading: ProfileNarrative): Pro
   if (units.length === 0) return null;
 
   const lists = await Promise.all(units.map(async (unit) => ({ unit, rows: await data.top(unit) })));
-  const focus = focusIn(
-    fieldsOf(reading),
-    lists.map(({ unit, rows }) => ({ unit, labels: rows.map((row) => row.label) })),
-  );
+  const labeled = lists.map(({ unit, rows }) => ({ unit, labels: rows.map((row) => row.label) }));
+  // "o disco mais rodado" procura primeiro entre os discos, mesmo que a manchete cite uma faixa dele
+  const ranked = rankedUnit(textOf(reading));
+  const focus =
+    (ranked ? focusIn(fieldsOf(reading), labeled.filter((list) => list.unit === ranked)) : null) ??
+    focusIn(fieldsOf(reading), labeled);
   if (!focus) return null;
   const rows = lists.find((list) => list.unit === focus.unit)!.rows;
   const chosen = rows[focus.index];
@@ -682,19 +684,29 @@ async function evidenceFor(
   };
   // a prova segue o ângulo da leitura e, depois, o que ela cita, na ordem em
   // que cita: uma leitura de época que também cita o topo é sobre a época
+  const text = textOf(reading);
   const kinds = [
     ...new Set(
-      [KIND_OF_ANGLE[reading.angle ?? ""], ...(reading.referencedEvidence ?? []).map((signal) => KIND_OF_SIGNAL[signal])].filter(Boolean),
+      [
+        // quem conta artistas novos é mostrado pela prova de estreia, se ela existir
+        countsNewArtists(text) ? ("debut" as const) : undefined,
+        KIND_OF_ANGLE[reading.angle ?? ""],
+        ...(reading.referencedEvidence ?? []).map((signal) => KIND_OF_SIGNAL[signal]),
+      ].filter((kind): kind is EvidenceKind => Boolean(kind)),
     ),
   ];
   const attempts = kinds.map((kind) => [kind, resolvers[kind]] as const);
 
+  // a prova da unidade da frase vem primeiro; sem ela, fica a primeira que passou nos números
+  let fallback: Candidate | null = null;
   for (const [kind, attempt] of attempts) {
     const evidence = await attempt();
-    // os números já foram conferidos; aqui, os nomes entre aspas e a unidade da frase
-    if (evidence && factsAgree(textOf(reading), evidence)) return { period: data.period, kind, reading, evidence };
+    if (!evidence) continue;
+    const candidate: Candidate = { period: data.period, kind, reading, evidence };
+    if (unitsAgree(text, evidence)) return candidate;
+    fallback ??= candidate;
   }
-  return null;
+  return fallback;
 }
 
 export class ConversationService {
