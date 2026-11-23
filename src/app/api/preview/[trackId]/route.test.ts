@@ -29,7 +29,7 @@ describe("owned preview revalidation", () => {
     expect(response.headers.get("location")).toBe("https://audio.test/live");
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(mocks.track).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "track", listeningEvents: { some: { userId: "owner" } } } }));
-    expect(mocks.preview).toHaveBeenCalledWith("Band", "Song (Live)");
+    expect(mocks.preview).toHaveBeenCalledWith("Band", "Song (Live)", { anyEdition: true });
   });
   it("does not leak another owner's track through provider requests", async () => {
     mocks.track.mockResolvedValue(null);

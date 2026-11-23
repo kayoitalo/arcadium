@@ -24,5 +24,6 @@ export interface TrackPreview {
 }
 
 export interface PreviewProvider {
-  findPreview(artistName: string, trackName: string): Promise<TrackPreview | null>;
+  /** anyEdition: nas telas de escuta, outra edição da mesma música serve (sem identidade de gravação). */
+  findPreview(artistName: string, trackName: string, options?: { anyEdition?: boolean }): Promise<TrackPreview | null>;
 }

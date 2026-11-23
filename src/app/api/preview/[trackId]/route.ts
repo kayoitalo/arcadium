@@ -8,6 +8,8 @@ export const maxDuration = 60;
 
 /** Validate legacy catalog matches when played, without a lookup for every
  * album on the home page. Never redirect to an unverified stored preview URL.
+ * A listening preview may borrow another edition of the same song (a remaster
+ * the storefront lacks); live, remix and other versions still have to match.
  */
 export async function GET(request: Request, context: { params: Promise<{ trackId: string }> }) {
   const access = await authorizeApi(request);
@@ -19,7 +21,7 @@ export async function GET(request: Request, context: { params: Promise<{ trackId
   });
   if (!track) return NextResponse.json({ error: "Faixa não encontrada." }, { status: 404, headers: { "Cache-Control": "no-store" } });
   let preview;
-  try { preview = await previews.findPreview(track.artist.name, track.name); }
+  try { preview = await previews.findPreview(track.artist.name, track.name, { anyEdition: true }); }
   catch { return NextResponse.json({ error: "Prévia temporariamente indisponível." }, { status: 503, headers: { "Cache-Control": "no-store" } }); }
   if (!preview) return NextResponse.json({ error: "Prévia compatível indisponível." }, { status: 404, headers: { "Cache-Control": "no-store" } });
   return NextResponse.redirect(preview.url, { status: 307, headers: { "Cache-Control": "private, no-store" } });

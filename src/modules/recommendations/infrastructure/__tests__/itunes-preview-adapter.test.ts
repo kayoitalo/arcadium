@@ -28,6 +28,20 @@ describe("preview reliability", () => {
     expect(searchTrack).toHaveBeenCalledTimes(2);
   });
 
+  it("plays another edition on listening screens without claiming the same recording", async () => {
+    const searchTrack = vi.fn().mockResolvedValue({
+      trackId: "77", artistName: "Edition Band", name: "Song", previewUrl: "https://audio.test/song",
+      appleMusicUrl: null, artworkUrl: null,
+    });
+    const adapter = new ItunesPreviewAdapter({ storefront: "BR", searchTrack } as unknown as ItunesCatalogAdapter);
+    const preview = await adapter.findPreview("Edition Band", "Song - 2004 Remaster", { anyEdition: true });
+    expect(searchTrack).toHaveBeenCalledWith("Edition Band", "Song - 2004 Remaster", { anyEdition: true });
+    expect(preview?.url).toBe("https://audio.test/song");
+    expect(preview?.identity).toBeUndefined();
+    await adapter.findPreview("Edition Band", "Song - 2004 Remaster");
+    expect(searchTrack).toHaveBeenCalledTimes(2);
+  });
+
   it("shares pacing between the default preview adapter and the enrichment catalog", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(100_000);

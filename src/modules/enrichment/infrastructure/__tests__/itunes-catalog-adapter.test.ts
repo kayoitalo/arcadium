@@ -146,6 +146,19 @@ describe("ItunesCatalogAdapter", () => {
     expect((await catalog().searchTrack("Linkin Park", "Numb - Live"))?.trackId).toBe("10");
   });
 
+  it("borrows another edition only when asked, preferring the same edition", async () => {
+    respond([song({ trackId: 20, trackName: "Numb (Live)" }), song({ trackId: 21, trackName: "Numb" })]);
+    expect(await catalog().searchTrack("Linkin Park", "Numb - 2003 Remaster")).toBeNull();
+    expect((await catalog().searchTrack("Linkin Park", "Numb - 2003 Remaster", { anyEdition: true }))?.trackId).toBe("21");
+    expect(String(vi.mocked(fetch).mock.calls.at(-1)?.[0])).toContain("term=Linkin+Park+Numb&");
+
+    respond([song({ trackId: 30, trackName: "Numb" }), song({ trackId: 31, trackName: "Numb (2003 Remaster)" })]);
+    expect((await catalog().searchTrack("Linkin Park", "Numb - 2003 Remaster", { anyEdition: true }))?.trackId).toBe("31");
+
+    respond([song({ trackName: "Numb (Live)" })]);
+    expect(await catalog().searchTrack("Linkin Park", "Numb", { anyEdition: true })).toBeNull();
+  });
+
   it("throws on HTTP errors so the album stays in the queue", async () => {
     vi.mocked(fetch).mockResolvedValue({ ok: false, status: 403 } as Response);
     await expect(catalog().findAlbumCover("Kiss", "Love Gun")).rejects.toThrow("HTTP 403");

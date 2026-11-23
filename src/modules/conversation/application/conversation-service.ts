@@ -197,7 +197,7 @@ class PeriodData {
 /** Known tracks are revalidated on play; old stored URLs do not prove version. */
 async function previewFor(trackId: string | null, artist: string, track: string) {
   if (trackId) return { url: previewPath(trackId), artworkUrl: null as string | null };
-  const found = await previews.findPreview(artist, track).catch(() => null);
+  const found = await previews.findPreview(artist, track, { anyEdition: true }).catch(() => null);
   return { url: found?.url ?? null, artworkUrl: found?.artworkUrl ?? null };
 }
 

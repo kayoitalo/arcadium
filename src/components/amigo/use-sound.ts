@@ -102,26 +102,50 @@ export function useSound(onStarted?: (url: string) => void) {
         return;
       }
 
+      /** A faixa que já soava segue até o fim: o corte só vale se houver pra onde cortar. */
+      const finish = (index: number) => {
+        const audio = queue[index];
+        audio.onended = () => stop();
+        setStep(index);
+        setCurrent(steps[index].url);
+        setLoading(false);
+        if (audio.ended) stop();
+        else if (audio.paused) void audio.play().catch(() => stop());
+      };
+
       const run = (index: number) => {
         if (token !== playbackRun.current) return;
+        const next = queue[index + 1];
+        // a seguinte já avisou que não abre: sem corte, esta toca inteira
+        if (index > 0 && queue[index].error) {
+          finish(index - 1);
+          return;
+        }
         queue[index - 1]?.pause();
         const audio = queue[index];
         audio.currentTime = 0;
         setLoading(true);
-        void audio.play().then(() => {
-          if (token === playbackRun.current) { setLoading(false); startedRef.current?.(steps[index].url); }
-        }).catch(() => {
-          if (token !== playbackRun.current) return;
-          stop();
-          setError("Não consegui tocar a prévia. Confere a conexão e tenta de novo.");
-        });
         setStep(index);
         setCurrent(steps[index].url);
-        if (index < queue.length - 1) {
-          timers.current.push(window.setTimeout(() => run(index + 1), (steps[index].seconds ?? 8) * 1000));
-        } else {
-          audio.onended = () => stop();
-        }
+        void audio.play().then(() => {
+          if (token !== playbackRun.current) return;
+          setLoading(false);
+          startedRef.current?.(steps[index].url);
+          // o tempo até o corte conta de quando o som começou, não do clique:
+          // a prévia pode levar segundos pra chegar e o corte comeria a faixa
+          if (next && !next.error) timers.current.push(window.setTimeout(() => run(index + 1), (steps[index].seconds ?? 8) * 1000));
+        }).catch(() => {
+          if (token !== playbackRun.current) return;
+          // uma ponta sem prévia não derruba a outra
+          if (index > 0) finish(index - 1);
+          else if (next) run(index + 1);
+          else {
+            stop();
+            setError("Não consegui tocar a prévia. Confere a conexão e tenta de novo.");
+          }
+        });
+        // acabou antes do corte (prévia curta): segue pra próxima, se ela abrir
+        audio.onended = () => (next && !next.error ? run(index + 1) : stop());
       };
 
       setPlaying(true);

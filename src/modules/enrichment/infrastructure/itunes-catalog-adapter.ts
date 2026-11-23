@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { compatibleRecording, sameRecordingText } from "@/lib/music/recording-match";
+import { compatibleRecording, editionlessTitle, sameRecordingText, sameSongAnyEdition } from "@/lib/music/recording-match";
 import { parseEdition, parseAlbumEdition, type EditionSummary, type AlbumEdition } from "@/modules/recommendations/domain/album-journey";
 import { filterGenreTags } from "../domain/genre-tags";
 import type { AlbumCoverFallbackProvider, CoverArtResult } from "../domain/cover-art-provider.interface";
@@ -280,19 +280,22 @@ export class ItunesCatalogAdapter implements AlbumCoverFallbackProvider {
    * mesmo artista e o mesmo título: tocar outra música do artista com o
    * nome desta no cartão seria pior do que não tocar nada.
    */
-  async searchTrack(artistName: string, trackName: string): Promise<CatalogTrack | null> {
+  async searchTrack(artistName: string, trackName: string, options: { anyEdition?: boolean } = {}): Promise<CatalogTrack | null> {
     if (!artistName.trim() || !trackName.trim()) return null;
 
+    // atrás de qualquer edição, a busca vai pelo nome limpo: o sufixo do Spotify espanta a da Apple
     const results = await this.request("search", {
-      term: `${artistName} ${trackName}`,
+      term: `${artistName} ${options.anyEdition ? editionlessTitle(trackName) : trackName}`,
       entity: "song",
       limit: "10",
     });
 
-    const match = results
+    const tracks = results
       .map((result) => trackSchema.safeParse(result))
-      .flatMap((parsed) => (parsed.success ? [parsed.data] : []))
-      .find((track) => compatibleRecording({ artistName, trackName }, track));
+      .flatMap((parsed) => (parsed.success ? [parsed.data] : []));
+    // a mesma edição sempre ganha; outra edição da mesma música só quando pedida
+    const match = tracks.find((track) => compatibleRecording({ artistName, trackName }, track))
+      ?? (options.anyEdition ? tracks.find((track) => sameSongAnyEdition({ artistName, trackName }, track)) : undefined);
 
     return match ? toCatalogTrack(match) : null;
   }
