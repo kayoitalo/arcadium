@@ -20,7 +20,7 @@ describe("a fita da espera", () => {
 });
 
 describe("o dia de hoje", () => {
-  it("counts only what played since yesterday and names the day without -feira", async () => {
+  it("counts only the last 24 hours, the same window as the reading, and names the day without -feira", async () => {
     const { diaFrom } = await import("./use-fita");
     const now = new Date(2026, 10, 20, 10, 0);
     const page = {
@@ -33,8 +33,27 @@ describe("o dia de hoje", () => {
     };
     const dia = diaFrom(page, now);
     expect(dia.date).toBe("sexta, 20 de novembro");
-    expect(dia.plays).toBe(2);
-    expect(dia.capas.map((capa) => capa.key)).toEqual(["a", "b"]);
+    expect(dia.plays).toBe(1);
+    expect(dia.capas.map((capa) => capa.key)).toEqual(["a"]);
     expect(dia.last?.track).toBe("No More Tears");
+  });
+
+  const at = (days: number, now: Date) => ({ events: [{ ...event("a", "X", "https://x/a.jpg"), playedAt: new Date(now.getTime() - days * 86_400_000).toISOString() }], totalItems: 1, since: null });
+
+  it("names the weekday only while it cannot be mistaken for this week", async () => {
+    const { diaFrom } = await import("./use-fita");
+    const now = new Date(2026, 10, 22, 16, 0);
+    expect(diaFrom(at(3, now), now).last?.day).toBe("quinta");
+    expect(diaFrom(at(7, now), now).last?.day).toBe("15 de novembro");
+    expect(diaFrom(at(24, now), now).last?.day).toBe("29 de outubro");
+    expect(diaFrom(at(330, now), now).last?.day).toBe("27 de dezembro de 2025");
+  });
+
+  it("says 'pelo menos' only when the page was full", async () => {
+    const { diaFrom } = await import("./use-fita");
+    const now = new Date(2026, 10, 22, 16, 0);
+    const many = (n: number) => ({ events: Array.from({ length: n }, (_, i) => ({ ...event(String(i), "X", null), playedAt: new Date(now.getTime() - (i + 1) * 60_000).toISOString() })), totalItems: n, since: null });
+    expect(diaFrom(many(100), now).atLeast).toBe(true);
+    expect(diaFrom(many(99), now).atLeast).toBe(false);
   });
 });

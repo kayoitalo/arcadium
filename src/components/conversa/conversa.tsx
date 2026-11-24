@@ -93,7 +93,58 @@ function claimsOf(evidence: Evidence | null | undefined): Array<Claim & { target
       { id: `decada-s:${decade}`, text: `${decade}s`, target: `bar:${decade}` },
     ]);
   }
-  return [];
+  // nas outras provas, a faixa citada aponta pra linha dela, quando a prova tem lista; o resto, pra capa
+  const rows: Array<[string, string]> =
+    evidence.kind === "night" ? evidence.steps.map((step, order) => [step.track, `linha:${order}`])
+    : evidence.kind === "binge" ? evidence.tracks.map((row, order) => [row.track, `linha:${order}`])
+    : evidence.kind === "outlier" ? [[evidence.genre, "fora"]]
+    : [];
+  const names =
+    evidence.kind === "loop" ? [evidence.track, evidence.artist]
+    : evidence.kind === "night" ? evidence.steps.map((step) => step.artist)
+    : evidence.kind === "debut" ? [evidence.artist, evidence.firstTrack]
+    : [evidence.artist];
+  const seen = new Set<string>();
+  return [...rows, ...names.map((name): [string, string] => [name, "cover"])]
+    .map(([name, target]) => [cleanTitle(name), target] as const)
+    .filter(([text]) => text && !seen.has(text.toLocaleLowerCase("pt-BR")) && seen.add(text.toLocaleLowerCase("pt-BR")))
+    .map(([text, target], order) => ({ id: `nome:${order}`, text, target }));
+}
+
+/** O que a prévia está tocando, como a aba mostra: a faixa e de quem é. */
+function previewLabel(evidence: Evidence | null | undefined): string | null {
+  if (!evidence || evidence.kind === "transition" || evidence.kind === "decades") return null;
+  if (evidence.kind === "night") {
+    // a prévia toca a faixa citada; leituras antigas não guardam qual, e aí era a que abriu a noite
+    if (evidence.previewTrack) return `${evidence.previewTrack} · ${evidence.previewArtist ?? evidence.cover.artist}`;
+    return evidence.steps[0] ? `${evidence.steps[0].track} · ${evidence.steps[0].artist}` : null;
+  }
+  if (evidence.kind === "ranking") return evidence.previewTrack;
+  const track = evidence.kind === "loop" ? evidence.track : evidence.previewTrack;
+  return track ? `${track} · ${evidence.artist}` : evidence.artist;
+}
+
+/**
+ * Quanto rolar para levar o assunto até a leitura: inteiro entre a barra do
+ * topo e o pé, se couber; se não, o começo dele logo abaixo da barra. Nunca
+ * por trás de uma das duas.
+ */
+/** Gestos de quem assume a rolagem no meio de um salto: a página passa a ser dela. */
+const TAKE_OVER = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
+
+function offsetFor(block: HTMLElement): number {
+  const top = document.getElementById("arcadium-header")?.getBoundingClientRect().bottom ?? 0;
+  const nav = block.parentElement?.querySelector<HTMLElement>(":scope > nav");
+  const foot = window.innerHeight - (nav?.offsetHeight ?? 0);
+  const rects = [...block.children]
+    .filter((child) => getComputedStyle(child).position !== "absolute")
+    .map((child) => child.getBoundingClientRect())
+    .filter((rect) => rect.height > 0);
+  if (rects.length === 0) return block.getBoundingClientRect().top - top;
+  const start = Math.min(...rects.map((rect) => rect.top));
+  const end = Math.max(...rects.map((rect) => rect.bottom));
+  const room = foot - top - 24;
+  return end - start <= room ? start - top - 12 - (room - (end - start)) / 2 : start - top - 12;
 }
 
 /** A capa que representa o assunto no índice: a de chegada numa transição; décadas não têm capa. */
@@ -155,7 +206,8 @@ export function Conversa({
 
   const stageRef = useRef<HTMLDivElement>(null);
   const parts = useRef(new Map<string, HTMLElement>());
-  const dismissTimer = useRef(0);
+  /** Rolando até um assunto escolhido: os que passam no caminho não viram o assunto da vez nem contam como vistos. */
+  const steering = useRef<{ timer: number; release: () => void } | null>(null);
   useEffect(() => {
     const key = moments[active]?.editorialKey;
     const element = parts.current.get(`${active}:headline`);
@@ -199,7 +251,7 @@ export function Conversa({
       const side = playingSide === "from" ? evidence.from : evidence.to;
       return `${side.track} · ${side.artist}`;
     }
-    return evidence.kind === "ranking" ? evidence.previewTrack : null;
+    return previewLabel(evidence);
   }, [active, moments, playingSide, sound.playing]);
   useTabTitle(soundingLabel);
 
@@ -389,10 +441,11 @@ export function Conversa({
 
   // ---------- o assunto da vez ----------
 
-  // o bloco que cruza o meio da tela é o assunto; quem já passou por ali fica no fio
+  // o bloco que cruza a linha de leitura (um pouco acima do meio) é o assunto; quem já passou por ali fica no fio
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
+        if (steering.current) return;
         for (const entry of entries) {
           if (!entry.isIntersecting) continue;
           const index = Number((entry.target as HTMLElement).dataset.index);
@@ -400,7 +453,7 @@ export function Conversa({
           setSeen((current) => (current.includes(index) ? current : [...current, index]));
         }
       },
-      { rootMargin: "-45% 0px -45% 0px" },
+      { rootMargin: "-35% 0px -60% 0px" },
     );
     for (let index = 0; index < total; index += 1) {
       const block = parts.current.get(`${index}:block`);
@@ -425,11 +478,55 @@ export function Conversa({
 
   const go = useCallback(
     (index: number) => {
-      const target = parts.current.get(`${Math.max(0, Math.min(total - 1, index))}:block`);
-      target?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+      const target = Math.max(0, Math.min(total - 1, index));
+      const block = parts.current.get(`${target}:block`);
+      if (!block) return;
+      // o assunto escolhido é o da vez já; a rolagem só leva até ele
+      setActive(target);
+      setSeen((current) => (current.includes(target) ? current : [...current, target]));
+      steering.current?.release();
+      // a condução dura enquanto a rolagem anda, por mais que ela demore: termina
+      // quando chega, quando para, ou quando a pessoa mesma pega a página
+      let frame = 0;
+      const release = () => {
+        if (steering.current !== handle) return;
+        window.clearTimeout(handle.timer);
+        window.cancelAnimationFrame(frame);
+        window.removeEventListener("scrollend", release);
+        for (const type of TAKE_OVER) window.removeEventListener(type, release);
+        steering.current = null;
+      };
+      // rede de segurança para aba em segundo plano, onde os quadros não andam
+      const handle = { timer: window.setTimeout(release, 8000), release };
+      steering.current = handle;
+      for (const type of TAKE_OVER) window.addEventListener(type, release, { passive: true });
+      // mede depois que a troca de assunto pintou: a manchete que deixa de ser a da vez encolhe e puxa tudo pra cima
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (steering.current !== handle) return;
+        // o primeiro volta pro alto da página, com o dia em cima
+        const top = target === 0 ? 0 : window.scrollY + offsetFor(block);
+        const goal = Math.round(Math.min(Math.max(0, top), document.documentElement.scrollHeight - window.innerHeight));
+        window.scrollTo({ top: goal, behavior: reduced ? "auto" : "smooth" });
+        window.addEventListener("scrollend", release);
+        let last = Number.NaN;
+        let still = 0;
+        const watch = () => {
+          if (steering.current !== handle) return;
+          const y = window.scrollY;
+          // chegou, ou ficou parada um terço de segundo fora do alvo (onde não há scrollend)
+          if (Math.abs(y - goal) < 2) return release();
+          still = y === last ? still + 1 : 0;
+          last = y;
+          if (still > 20) return release();
+          frame = window.requestAnimationFrame(watch);
+        };
+        frame = window.requestAnimationFrame(watch);
+      }));
     },
     [reduced, total],
   );
+
+  useEffect(() => () => steering.current?.release(), []);
 
   const activeDismissed = dismissed.includes(active);
   const atEnd = active >= moments.length;
@@ -450,7 +547,11 @@ export function Conversa({
     setExpanded((current) => (current.includes(active) ? current.filter((index) => index !== active) : [...current, active]));
   }, [active, canExpand]);
 
-  /** "nada a ver" risca o assunto e o esquece; no assunto riscado, desfaz. */
+  /**
+   * "nada a ver" risca o assunto e o esquece; no assunto riscado, desfaz.
+   * A tela fica nele: quem quer seguir aperta "e o que mais?", e o
+   * "volta atrás" continua no mesmo lugar, preso ao assunto riscado.
+   */
   const dismiss = useCallback(async () => {
     const moment = moments[active];
     if (!moment || editorialBusy.current) return;
@@ -462,7 +563,6 @@ export function Conversa({
       } catch (cause) { setEditorialError(cause instanceof Error ? cause.message : "Falha ao guardar escolha."); return; }
       finally { editorialBusy.current = false; }
     }
-    window.clearTimeout(dismissTimer.current);
     if (activeDismissed) {
       setDismissed((current) => current.filter((index) => index !== active));
       return;
@@ -471,8 +571,7 @@ export function Conversa({
     setDismissed((current) => [...current, active]);
     setExpanded((current) => current.filter((index) => index !== active));
     forget(`${active}:`);
-    dismissTimer.current = window.setTimeout(() => go(active + 1), 1400);
-  }, [active, activeDismissed, forget, go, moments, stop]);
+  }, [active, activeDismissed, forget, moments, stop]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -481,8 +580,8 @@ export function Conversa({
       const target = event.target instanceof Element ? event.target : null;
       if (target?.closest("input, textarea, select, button, a, summary, [contenteditable='true']")) return;
       const key = event.key.toLowerCase();
-      // em botão ou link com foco, Enter e espaço são dele
-      if ((key === "enter" || key === " ") && target?.closest("button, a")) return;
+      // em botão, link ou trecho com foco, Enter e espaço são dele
+      if ((key === "enter" || key === " ") && target?.closest("button, a, [role='button']")) return;
       if (key === "arrowright" || key === "enter") {
         event.preventDefault();
         go(active >= total - 1 ? 0 : active + 1);
@@ -493,13 +592,11 @@ export function Conversa({
         event.preventDefault();
         toggleSound();
       } else if (key === "m") toggleMore();
-      else if (key === "n") dismiss();
+      // "nada a ver" grava na conta: fica sem tecla solta, só no botão
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, dismiss, go, toggleMore, toggleSound, total]);
-
-  useEffect(() => () => window.clearTimeout(dismissTimer.current), []);
+  }, [active, go, toggleMore, toggleSound, total]);
 
   // outro assunto, outro cartão
   useEffect(() => { setCard("idle"); }, [active]);
@@ -586,12 +683,18 @@ export function Conversa({
                 register={refs}
               />
             )}
-            {evidence?.kind === "loop" && <ProvaLoop evidence={evidence} playing={isActive && sound.playing} />}
-            {evidence?.kind === "comeback" && <ProvaVolta evidence={evidence} playing={isActive && sound.playing} />}
-            {evidence?.kind === "outlier" && <ProvaSurpresa evidence={evidence} playing={isActive && sound.playing} />}
-            {evidence?.kind === "debut" && <ProvaEstreia evidence={evidence} playing={isActive && sound.playing} />}
-            {evidence?.kind === "night" && <ProvaMadrugada evidence={evidence} playing={isActive && sound.playing} />}
-            {evidence?.kind === "binge" && <ProvaMaratona evidence={evidence} playing={isActive && sound.playing} />}
+            {evidence?.kind === "loop" && <ProvaLoop evidence={evidence} playing={isActive && sound.playing} glow={isActive && !isDismissed} register={refs} />}
+            {evidence?.kind === "comeback" && <ProvaVolta evidence={evidence} playing={isActive && sound.playing} glow={isActive && !isDismissed} register={refs} />}
+            {evidence?.kind === "outlier" && <ProvaSurpresa evidence={evidence} playing={isActive && sound.playing} glow={isActive && !isDismissed} register={refs} />}
+            {evidence?.kind === "debut" && <ProvaEstreia evidence={evidence} playing={isActive && sound.playing} glow={isActive && !isDismissed} register={refs} />}
+            {evidence?.kind === "night" && <ProvaMadrugada evidence={evidence} playing={isActive && sound.playing} glow={isActive && !isDismissed} register={refs} />}
+            {evidence?.kind === "binge" && <ProvaMaratona evidence={evidence} playing={isActive && sound.playing} glow={isActive && !isDismissed} register={refs} />}
+            {/* no celular, "me mostra mais" mora junto da prova que ele abre, e o pé fica numa linha só */}
+            {isActive && canExpand && (
+              <button type="button" className={styles.moreInline} onClick={toggleMore} aria-expanded={isExpanded} aria-controls={`assunto-${index}`}>
+                {isExpanded ? "menos" : "me mostra mais"}
+              </button>
+            )}
             {/* o fio conferido: a lista do que ele contou hoje, com o que você fez com cada assunto */}
             {!moment && moments.length > 1 && (
               <div className={styles.fio}>
@@ -657,15 +760,15 @@ export function Conversa({
           <>
             {/* o que não dá pra fazer neste assunto não ocupa lugar: o texto acima já diz que não há prévia */}
             {steps.length > 0 && <Resposta onClick={toggleSound} disabled={activeDismissed} hint="T">
-              {sound.loading ? "carregando prévia…" : sound.playing ? "para aí" : "toca aí"}
+              {sound.loading ? "carregando…" : sound.playing ? "para aí" : "toca aí"}
             </Resposta>}
             <Resposta onClick={() => go(active + 1)} hint="→" primary>
               e o que mais?
             </Resposta>
-            {canExpand && <Resposta onClick={toggleMore} hint="M" expanded={expanded.includes(active)} controls={`assunto-${active}`}>
+            {canExpand && <Resposta onClick={toggleMore} hint="M" expanded={expanded.includes(active)} controls={`assunto-${active}`} className={styles.moreFoot}>
               {expanded.includes(active) ? "menos" : "me mostra mais"}
             </Resposta>}
-            <Resposta onClick={dismiss} hint="N">
+            <Resposta onClick={dismiss}>
               {activeDismissed ? "volta atrás" : "nada a ver"}
             </Resposta>
           </>

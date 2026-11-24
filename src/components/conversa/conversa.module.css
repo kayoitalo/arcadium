@@ -19,12 +19,19 @@
 .cardButton:disabled { color: var(--tinta-3); cursor: default; }
 /* o índice em mini-capas: a da vez acesa, as vistas apagadas, as dispensadas com o risco da caneta */
 .ticks { display: flex; flex-shrink: 0; gap: 6px; }
-.ticks button { position: relative; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; background: var(--fio); cursor: pointer; opacity: .5; transition: opacity var(--t-rapido), transform var(--t-medio) var(--glide), box-shadow var(--t-medio); }
-.ticks button img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* o apagado mora na capa, não no botão: o número fica legível, e o que falta ver se distingue do que já viu */
+.ticks button { position: relative; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; background: var(--fio); cursor: pointer; transition: transform var(--t-medio) var(--glide), box-shadow var(--t-medio); }
+/* o alvo do dedo é maior que a mini-capa */
+.ticks button::before { content: ""; position: absolute; inset: -7px -2px; }
+.ticks button img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: .82; transition: opacity var(--t-rapido); }
 .ticks button i { font-style: normal; font-size: 11px; color: var(--tinta-2); font-variation-settings: "wdth" 70, "wght" 800; }
-.ticks button:hover { opacity: .85; }
-.ticks button[data-seen] { opacity: .38; }
-.ticks button[aria-pressed="true"] { opacity: 1; transform: translateY(-3px); box-shadow: 0 0 0 1px var(--tinta); }
+.ticks button:hover img { opacity: 1; }
+.ticks button[data-seen] img { opacity: .34; }
+.ticks button[data-seen] i { color: var(--tinta-3); }
+.ticks button[aria-pressed="true"] { transform: translateY(-3px); box-shadow: 0 0 0 1px var(--tinta); }
+.ticks button[aria-pressed="true"] img { opacity: 1; }
+.ticks button[aria-pressed="true"] i { color: var(--tinta); }
+.ticks button:focus-visible { outline: 1.5px solid var(--tinta); outline-offset: 3px; }
 .ticks button[data-dismissed]::after { content: ""; position: absolute; left: -3px; right: -3px; top: 52%; height: 2.4px; background: var(--marca); transform: rotate(-8deg); transform-origin: left; animation: risco var(--t-medio) var(--glide) both; }
 @keyframes risco { from { transform: rotate(-8deg) scaleX(0); } }
 .stage > nav { background: var(--papel); border-top: 1px solid var(--fio-2); padding-top: 16px; }
@@ -195,6 +202,10 @@
   min-width: 0;
 }
 
+/* sem espaço, quem encolhe primeiro é o artista: o nome da faixa é o que a frase cita */
+.rowText > .rowLabel { flex: 0 1 auto; min-width: 3ch; }
+.rowText > .rowSub { flex: 0 4 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
 .rowLabel {
   overflow: hidden;
   white-space: nowrap;
@@ -341,6 +352,9 @@
 .diaData span { display: inline-block; }
 .diaConta { margin: 0; font-size: 13px; color: var(--tinta-2); }
 .diaConta b { font-weight: inherit; color: var(--tinta); font-variation-settings: "wdth" 90, "wght" 680; }
+.diaTentar { font: inherit; color: var(--tinta); background: none; border: 0; padding: 6px 0; margin: -6px 0; cursor: pointer; text-decoration: underline; text-decoration-color: var(--tinta-3); text-underline-offset: 3px; }
+.diaTentar:hover { text-decoration-color: var(--tinta); }
+.diaTentar:focus-visible { outline: 1.5px solid var(--tinta-2); outline-offset: 3px; }
 .diaFita { display: flex; gap: 6px; list-style: none; margin: 0; padding: 0; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
 .diaFita li { flex: none; }
 .diaFita img { display: block; width: 30px; height: 30px; object-fit: cover; }
@@ -353,9 +367,32 @@
 .fio button:hover { color: var(--tinta); }
 .fio li[data-gone] button { color: var(--tinta-3); }
 
+/* "me mostra mais": no pé no desktop; no celular, logo abaixo da prova que ele abre */
+.moreInline { display: none; }
+@media (max-width: 760px) {
+  .stage > nav > .moreFoot { display: none; }
+  .moreInline { display: inline-flex; align-items: center; justify-self: start; min-height: 44px; margin-top: -12px; padding: 0; border: 0; background: none;
+    color: var(--tinta-2); font: inherit; font-size: 14px; text-decoration: underline; text-decoration-color: var(--tinta-3); text-underline-offset: 6px; cursor: pointer; }
+  .moreInline:hover { color: var(--tinta); }
+}
+
+/* no celular estreito, a mini-capa acesa já diz em que página está: o texto fica só pra quem ouve a tela */
+@media (max-width: 380px) {
+  .thread > .position { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .thread { justify-content: flex-end; }
+}
+
+/* o dia enquanto o histórico chega: a data já está certa, o resto guarda o lugar */
+.dia[data-pending] .diaConta { min-height: 1.5em; }
+.diaFitaVazia { height: 30px; }
+/* no celular a conta desce pra baixo da data e costuma ocupar duas linhas */
+@media (max-width: 760px) { .diaFitaVazia { height: 26px; } .dia[data-pending] .diaConta { flex-basis: 100%; min-height: 3em; } }
+
 @media (max-width: 760px) {
   .ticks { gap: 4px; }
   .ticks button { width: 26px; height: 26px; }
+  .ticks button::before { inset: -9px -2px; }
+  .thread > .position { white-space: nowrap; }
   .diaFita img { width: 26px; height: 26px; }
 }
 

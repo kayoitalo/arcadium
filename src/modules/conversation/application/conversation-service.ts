@@ -197,7 +197,7 @@ class PeriodData {
 /** Known tracks are revalidated on play; old stored URLs do not prove version. */
 async function previewFor(trackId: string | null, artist: string, track: string) {
   if (trackId) return { url: previewPath(trackId), artworkUrl: null as string | null };
-  const found = await previews.findPreview(artist, track).catch(() => null);
+  const found = await previews.findPreview(artist, track, { anyEdition: true }).catch(() => null);
   return { url: found?.url ?? null, artworkUrl: found?.artworkUrl ?? null };
 }
 
@@ -369,6 +369,8 @@ async function nightEvidence(data: PeriodData, reading: ProfileNarrative, timeZo
     steps: run.slice(0, NIGHT_STEPS).map((event) => ({ artist: event.artist, track: event.track, when: formatWhen(event.playedAt, timeZone) })),
     cover: media.cover,
     previewUrl: media.previewUrl,
+    previewTrack: media.previewTrack,
+    previewArtist: lead.artist,
   };
 }
 

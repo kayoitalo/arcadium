@@ -485,7 +485,7 @@
   .reaction {
     flex: 1 1 auto;
     justify-content: center;
-    min-height: 40px;
+    min-height: 44px;
     height: auto;
     padding: 0 12px;
     font-size: 14px;
@@ -512,6 +512,12 @@
   color: var(--tinta);
   text-decoration-color: transparent;
   outline: none;
+}
+
+/* pelo teclado, o trecho em foco tem contorno: a cor sozinha não diz onde o foco está */
+.claim:focus-visible {
+  outline: 1.5px solid var(--tinta-2);
+  outline-offset: 3px;
 }
 
 /* ---------- a espera com a cara do app ---------- */
