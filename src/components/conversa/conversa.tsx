@@ -114,7 +114,11 @@ function claimsOf(evidence: Evidence | null | undefined): Array<Claim & { target
 /** O que a prévia está tocando, como a aba mostra: a faixa e de quem é. */
 function previewLabel(evidence: Evidence | null | undefined): string | null {
   if (!evidence || evidence.kind === "transition" || evidence.kind === "decades") return null;
-  if (evidence.kind === "night") return evidence.steps[0] ? `${evidence.steps[0].track} · ${evidence.steps[0].artist}` : null;
+  if (evidence.kind === "night") {
+    // a prévia toca a faixa citada; leituras antigas não guardam qual, e aí era a que abriu a noite
+    if (evidence.previewTrack) return `${evidence.previewTrack} · ${evidence.previewArtist ?? evidence.cover.artist}`;
+    return evidence.steps[0] ? `${evidence.steps[0].track} · ${evidence.steps[0].artist}` : null;
+  }
   if (evidence.kind === "ranking") return evidence.previewTrack;
   const track = evidence.kind === "loop" ? evidence.track : evidence.previewTrack;
   return track ? `${track} · ${evidence.artist}` : evidence.artist;
@@ -125,6 +129,9 @@ function previewLabel(evidence: Evidence | null | undefined): string | null {
  * topo e o pé, se couber; se não, o começo dele logo abaixo da barra. Nunca
  * por trás de uma das duas.
  */
+/** Gestos de quem assume a rolagem no meio de um salto: a página passa a ser dela. */
+const TAKE_OVER = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
+
 function offsetFor(block: HTMLElement): number {
   const top = document.getElementById("arcadium-header")?.getBoundingClientRect().bottom ?? 0;
   const nav = block.parentElement?.querySelector<HTMLElement>(":scope > nav");
@@ -478,19 +485,42 @@ export function Conversa({
       setActive(target);
       setSeen((current) => (current.includes(target) ? current : [...current, target]));
       steering.current?.release();
+      // a condução dura enquanto a rolagem anda, por mais que ela demore: termina
+      // quando chega, quando para, ou quando a pessoa mesma pega a página
+      let frame = 0;
       const release = () => {
-        if (!steering.current) return;
-        window.clearTimeout(steering.current.timer);
+        if (steering.current !== handle) return;
+        window.clearTimeout(handle.timer);
+        window.cancelAnimationFrame(frame);
         window.removeEventListener("scrollend", release);
+        for (const type of TAKE_OVER) window.removeEventListener(type, release);
         steering.current = null;
       };
-      steering.current = { timer: window.setTimeout(release, reduced ? 150 : 1500), release };
-      window.addEventListener("scrollend", release);
+      // rede de segurança para aba em segundo plano, onde os quadros não andam
+      const handle = { timer: window.setTimeout(release, 8000), release };
+      steering.current = handle;
+      for (const type of TAKE_OVER) window.addEventListener(type, release, { passive: true });
       // mede depois que a troca de assunto pintou: a manchete que deixa de ser a da vez encolhe e puxa tudo pra cima
       requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (steering.current !== handle) return;
         // o primeiro volta pro alto da página, com o dia em cima
         const top = target === 0 ? 0 : window.scrollY + offsetFor(block);
-        window.scrollTo({ top: Math.max(0, top), behavior: reduced ? "auto" : "smooth" });
+        const goal = Math.round(Math.min(Math.max(0, top), document.documentElement.scrollHeight - window.innerHeight));
+        window.scrollTo({ top: goal, behavior: reduced ? "auto" : "smooth" });
+        window.addEventListener("scrollend", release);
+        let last = Number.NaN;
+        let still = 0;
+        const watch = () => {
+          if (steering.current !== handle) return;
+          const y = window.scrollY;
+          // chegou, ou ficou parada um terço de segundo fora do alvo (onde não há scrollend)
+          if (Math.abs(y - goal) < 2) return release();
+          still = y === last ? still + 1 : 0;
+          last = y;
+          if (still > 20) return release();
+          frame = window.requestAnimationFrame(watch);
+        };
+        frame = window.requestAnimationFrame(watch);
       }));
     },
     [reduced, total],

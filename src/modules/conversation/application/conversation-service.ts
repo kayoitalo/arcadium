@@ -369,6 +369,8 @@ async function nightEvidence(data: PeriodData, reading: ProfileNarrative, timeZo
     steps: run.slice(0, NIGHT_STEPS).map((event) => ({ artist: event.artist, track: event.track, when: formatWhen(event.playedAt, timeZone) })),
     cover: media.cover,
     previewUrl: media.previewUrl,
+    previewTrack: media.previewTrack,
+    previewArtist: lead.artist,
   };
 }
 

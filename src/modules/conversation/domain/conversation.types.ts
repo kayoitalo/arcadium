@@ -126,6 +126,9 @@ export type Evidence =
       steps: ListeningStep[];
       cover: ConversationCover;
       previewUrl: string | null;
+      /** A faixa que a prévia toca: a citada na frase, que nem sempre abriu a noite. Ausente nas leituras antigas. */
+      previewTrack?: string | null;
+      previewArtist?: string;
     }
   | {
       kind: "binge";

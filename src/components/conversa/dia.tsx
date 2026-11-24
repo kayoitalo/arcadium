@@ -39,10 +39,24 @@ function useNowPlaying(): NowPlaying | null {
  * linha vira "tocando agora", com a capa e uma corda curta vibrando.
  *
  * Sem `dia`, o histórico ainda não chegou: a data já aparece e o resto
- * guarda o lugar, pra manchete não descer quando ele chegar.
+ * guarda o lugar, pra manchete não descer quando ele chegar. Se ele falhou,
+ * a data fica e a linha diz isso, com como tentar de novo.
  */
-export function DiaDeHoje({ dia }: { dia: Dia | null }) {
+export function DiaDeHoje({ dia, failed = false, onRetry }: { dia: Dia | null; failed?: boolean; onRetry?: () => void }) {
   const playing = useNowPlaying();
+  if (!dia && failed) {
+    return (
+      <header className={styles.dia}>
+        <div className={styles.diaTopo}>
+          <p className={styles.diaData}><span data-dia>{dateOf()}</span></p>
+          <p className={styles.diaConta} role="status">
+            não consegui ler o que tocou agora
+            {onRetry && <> · <button type="button" className={styles.diaTentar} onClick={onRetry}>tenta de novo</button></>}
+          </p>
+        </div>
+      </header>
+    );
+  }
   if (!dia) {
     return (
       <header className={styles.dia} data-pending aria-busy="true">

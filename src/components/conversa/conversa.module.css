@@ -352,6 +352,9 @@
 .diaData span { display: inline-block; }
 .diaConta { margin: 0; font-size: 13px; color: var(--tinta-2); }
 .diaConta b { font-weight: inherit; color: var(--tinta); font-variation-settings: "wdth" 90, "wght" 680; }
+.diaTentar { font: inherit; color: var(--tinta); background: none; border: 0; padding: 6px 0; margin: -6px 0; cursor: pointer; text-decoration: underline; text-decoration-color: var(--tinta-3); text-underline-offset: 3px; }
+.diaTentar:hover { text-decoration-color: var(--tinta); }
+.diaTentar:focus-visible { outline: 1.5px solid var(--tinta-2); outline-offset: 3px; }
 .diaFita { display: flex; gap: 6px; list-style: none; margin: 0; padding: 0; overflow: hidden; -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
 .diaFita li { flex: none; }
 .diaFita img { display: block; width: 30px; height: 30px; object-fit: cover; }

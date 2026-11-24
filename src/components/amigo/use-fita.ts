@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { coverProxyUrl } from "@/lib/cover";
+import { deadline } from "@/lib/http/deadline";
 import { privateFetch } from "@/lib/http/private-fetch";
 import { cleanTitle } from "@/lib/music/track-title";
 import type { Folha } from "./aviso";
@@ -87,16 +88,33 @@ export function fitaFrom(page: HistoryPage, limit = 10): { fita: Folha[]; later:
  * O histórico recente chega em um segundo; a conversa pode levar dez. Ele
  * busca uma vez, e a espera mostra o que já sabe: a fita e a conta real.
  */
-export function useFita(enabled = true): { fita: Folha[]; later: string | null; dia: Dia | null; settled: boolean } {
-  const [value, setValue] = useState<{ fita: Folha[]; later: string | null; dia: Dia | null; settled: boolean }>({ fita: [], later: null, dia: null, settled: false });
+/** O histórico recente responde em um segundo; passado disso, algo travou no caminho. */
+const HISTORY_MS = 20_000;
+
+interface FitaState { fita: Folha[]; later: string | null; dia: Dia | null; settled: boolean; failed: boolean }
+
+export function useFita(enabled = true): FitaState & { retry: () => void } {
+  const [value, setValue] = useState<FitaState>({ fita: [], later: null, dia: null, settled: false, failed: false });
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (!enabled) return;
     const controller = new AbortController();
-    privateFetch("/api/history?limit=100", { signal: controller.signal, cache: "no-store" })
+    // sem prazo, uma resposta que trava deixaria o cabeçalho esperando pra sempre
+    const limit = deadline(controller.signal, HISTORY_MS);
+    const fail = () => { if (!controller.signal.aborted) setValue((current) => ({ ...current, settled: true, failed: true })); };
+    privateFetch("/api/history?limit=100", { signal: limit.signal, cache: "no-store" })
       .then((response) => (response.ok ? (response.json() as Promise<HistoryPage>) : null))
-      .then((page) => { if (!controller.signal.aborted) setValue(page ? { ...fitaFrom(page), dia: diaFrom(page), settled: true } : (current) => ({ ...current, settled: true })); })
-      .catch(() => { if (!controller.signal.aborted) setValue((current) => ({ ...current, settled: true })); });
-    return () => controller.abort();
-  }, [enabled]);
-  return value;
+      .then((page) => {
+        limit.done();
+        if (!page) fail();
+        else if (!controller.signal.aborted) setValue({ ...fitaFrom(page), dia: diaFrom(page), settled: true, failed: false });
+      })
+      .catch(() => { limit.done(); fail(); });
+    return () => { controller.abort(); limit.done(); };
+  }, [enabled, attempt]);
+  const retry = useCallback(() => {
+    setValue((current) => ({ ...current, settled: false, failed: false }));
+    setAttempt((current) => current + 1);
+  }, []);
+  return { ...value, retry };
 }

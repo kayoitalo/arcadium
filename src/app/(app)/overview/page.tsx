@@ -1,5 +1,6 @@
 "use client";
 
+import { deadline } from "@/lib/http/deadline";
 import { privateFetch } from "@/lib/http/private-fetch";
 
 import { useEffect, useState } from "react";
@@ -15,6 +16,8 @@ import type { ConversationView } from "@/modules/conversation/domain/conversatio
 const POLL_MS = 10_000;
 /** …até uns três minutos: depois disso ele admite a demora em vez de pedir mais um minuto pra sempre. */
 const POLL_LIMIT = 18;
+/** Uma resposta só da conversa não passa disso; depois, é a mesma demora de cima. */
+const REQUEST_MS = 45_000;
 
 type State = { status: "loading" } | { status: "error" } | { status: "slow" } | { status: "ready"; view: ConversationView };
 
@@ -30,22 +33,27 @@ function ConversationBody() {
   const recall = useDiscoveryRecall();
   // enquanto a conversa chega, ele folheia o que tocou por último
   // e o mesmo histórico recente vira o cabeçalho do dia, em cima do fio
-  const { fita, later, dia, settled } = useFita();
+  const { fita, later, dia, settled, failed, retry } = useFita();
 
   useEffect(() => {
     const controller = new AbortController();
     let timer = 0;
     let polls = 0;
     const load = async () => {
+      // uma resposta que nunca chega também é demora: sem prazo, a espera não acabaria
+      const limit = deadline(controller.signal, REQUEST_MS);
       try {
-        const response = await privateFetch("/api/conversation", { signal: controller.signal, cache: "no-store" });
+        const response = await privateFetch("/api/conversation", { signal: limit.signal, cache: "no-store" });
         if (!response.ok) throw new Error(`conversa ${response.status}`);
         const view = (await response.json()) as ConversationView;
+        limit.done();
         if (view.writing && polls >= POLL_LIMIT) { setState({ status: "slow" }); return; }
         setState({ status: "ready", view });
         if (view.writing) { polls += 1; timer = window.setTimeout(load, POLL_MS); }
       } catch {
-        if (!controller.signal.aborted) setState({ status: "error" });
+        limit.done();
+        if (limit.expired()) setState({ status: "slow" });
+        else if (!controller.signal.aborted) setState({ status: "error" });
       }
     };
     void load();
@@ -122,8 +130,8 @@ function ConversationBody() {
   return (
     <Conversa
       moments={view.moments}
-      // sem resposta do histórico, nada de cabeçalho; enquanto ela não vem, a data guarda o lugar
-      masthead={dia || !settled ? <DiaDeHoje dia={dia} /> : null}
+      // a data fica sempre: enquanto o histórico não vem, guarda o lugar; se ele falhar, diz e deixa tentar de novo
+      masthead={<DiaDeHoje dia={dia} failed={settled && failed} onRetry={retry} />}
       epilogue={<DiscoveryRecall recall={recall} />}
       // a retomada logo acima já tem "retomar esse caminho" e "ver o que ficou pra depois":
       // no pé, só o caminho genérico quando ela não tem nada a mostrar
