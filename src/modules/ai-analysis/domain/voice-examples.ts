@@ -35,9 +35,9 @@ export const NARRATIVE_EXAMPLES: NarrativeExample[] = [
     form: "apelido",
     angle: "loop",
     json: {
-      headline: "Vou te chamar de Enrique",
+      headline: "O Ricky Martin do repeat",
       narrative:
-        "Porque tu tá vivendo la vida loca de verdade: 11 vezes seguidas, sem respirar. ¿Qué pasó, amigo?",
+        "Tu tá vivendo la vida loca de verdade: 11 vezes seguidas, sem respirar. ¿Qué pasó, amigo?",
       insight: "Nenhuma outra música do mês chegou nem na metade disso.",
       playfulClosing: "Upside inside out, e o botão de repetir já pediu arrego.",
     },
@@ -48,7 +48,7 @@ export const NARRATIVE_EXAMPLES: NarrativeExample[] = [
     json: {
       headline: "O Zeca foi parar no meio do Y.M.C.A.",
       narrative:
-        "Imagina o Zeca Pagodinho, cervejinha na mão, sendo puxado pro meio da coreografia do Village People. Pois é: foi exatamente essa a sequência que tocou no teu fone.",
+        "O Zeca Pagodinho, cervejinha na mão, sendo puxado pro meio da coreografia do Village People. Pois é: foi exatamente essa a sequência que tocou no teu fone.",
       insight: "E depois voltou pro pagode como se nada tivesse acontecido. Deixa a vida me levar mesmo.",
       playfulClosing: "Quero ver repetir essa sequência numa roda de samba.",
     },
@@ -60,7 +60,7 @@ export const CONTRAST_PAIRS: Array<{ mistake: string; bad: string; good: string 
   {
     mistake: "explicar a graça em vez de reagir",
     bad: "Você voltou a ouvir Sandy & Junior após 5 anos, um retorno inesperado na sua escuta.",
-    good: "5 anos sem Sandy & Junior e do nada 14 vezes. Achou o DVD na gaveta, né?",
+    good: "5 anos sem Sandy & Junior e agora 14 vezes numa semana. Achou o DVD na gaveta, né?",
   },
   {
     mistake: "referência que serviria para qualquer artista",

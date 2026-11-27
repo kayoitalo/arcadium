@@ -57,7 +57,7 @@ interface EnrichmentCoverage {
 type AddressAs = "masculino" | "feminino" | "neutro";
 
 const ADDRESS_OPTIONS: Array<{ value: AddressAs; label: string; sample: string }> = [
-  { value: "masculino", label: "mano", sample: "“Caraca, mermão, 22 vezes o mesmo disco?”" },
+  { value: "masculino", label: "mano", sample: "“Caraca, mano, 22 vezes o mesmo disco?”" },
   { value: "feminino", label: "mina", sample: "“Caraca, amiga, 22 vezes o mesmo disco?”" },
   { value: "neutro", label: "sem apelido", sample: "“Caraca, 22 vezes o mesmo disco?”" },
 ];
