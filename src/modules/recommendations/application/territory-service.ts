@@ -9,37 +9,52 @@ import { mergeCandidates } from "./hybrid-candidates";
 import { isCollaborationOfKnownArtist } from "../domain/candidate-filters";
 
 const DOOR_SAMPLE = 1000;
+/** A partir de quantos artistas teus um gênero já é da casa: aí não é outro universo. */
+const HOME_GENRE_ARTISTS = 3;
 
 /** "afro-fusion", "afro fusion" e "Afro_Fusion" são a mesma porta. */
 const doorKey = (genre: string) => genre.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
 
 /**
- * Agrupa as tags em portas: variações de grafia viram uma porta só, com a
- * grafia mais frequente (a que `resolve` encontra por tag exata), e as portas
- * mais sustentadas pelo catálogo vêm primeiro.
+ * As portas do "outro universo": estilos que quase não aparecem no teu fone.
+ * Só contam os artistas que você nunca ouviu (os mesmos que `resolve` vai
+ * poder oferecer), então porta aberta é porta com o que mostrar. Gênero que
+ * já tem artistas teus suficientes é da casa e fica de fora. Variações de
+ * grafia viram uma porta só, com a grafia mais frequente (a que `resolve`
+ * encontra por tag exata), e as portas mais sustentadas vêm primeiro.
  */
-export function territoryDoors(rows: Array<{ name: string; tags: string | null }>, limit = 24) {
-  const groups = new Map<string, { spellings: Map<string, Set<string>>; names: Set<string> }>();
-  for (const artist of rows) for (const genre of filterGenreTags((artist.tags ?? "").split(","))) {
-    const group = groups.get(doorKey(genre)) ?? { spellings: new Map(), names: new Set<string>() };
-    const spelled = group.spellings.get(genre) ?? new Set<string>();
-    spelled.add(artist.name); group.spellings.set(genre, spelled); group.names.add(artist.name);
-    groups.set(doorKey(genre), group);
+export function territoryDoors(rows: Array<{ name: string; tags: string | null }>, knownArtists: Set<string>, limit = 24) {
+  const groups = new Map<string, { spellings: Map<string, Set<string>>; names: Set<string>; yours: number }>();
+  for (const artist of rows) {
+    const yours = isCollaborationOfKnownArtist(artist.name, knownArtists);
+    for (const genre of filterGenreTags((artist.tags ?? "").split(","))) {
+      const group = groups.get(doorKey(genre)) ?? { spellings: new Map(), names: new Set<string>(), yours: 0 };
+      if (yours) group.yours += 1;
+      else {
+        const spelled = group.spellings.get(genre) ?? new Set<string>();
+        spelled.add(artist.name); group.spellings.set(genre, spelled); group.names.add(artist.name);
+      }
+      groups.set(doorKey(genre), group);
+    }
   }
-  return [...groups.values()].map(({ spellings, names }) => {
+  return [...groups.values()].filter(({ spellings, yours }) => spellings.size > 0 && yours < HOME_GENRE_ARTISTS).map(({ spellings, names, yours }) => {
     const [genre, spelled] = [...spellings].sort(([a, x], [b, y]) => y.size - x.size || a.localeCompare(b))[0];
-    return { genre, artists: spelled.size, examples: [...spelled].slice(0, 3), related: names.size };
-  }).sort((a, b) => b.related - a.related || a.genre.localeCompare(b.genre)).slice(0, limit)
+    return { genre, artists: spelled.size, examples: [...spelled].slice(0, 3), related: names.size, yours };
+  }).sort((a, b) => b.related - a.related || a.yours - b.yours || a.genre.localeCompare(b.genre)).slice(0, limit)
     .map(({ genre, artists, examples }) => ({ genre, artists, examples }));
 }
 
 export class TerritoryService {
-  async doors() {
-    const rows = await prisma.artist.findMany({ where: { metadataStatus: "RESOLVED", tags: { not: null }, enrichedAt: { not: null } },
-      // Só nome e tags: mil linhas cabem numa consulta e evitam que a amostra pare na letra C.
-      orderBy: [{ name: "asc" }, { id: "asc" }], take: DOOR_SAMPLE + 1, select: { name: true, tags: true } });
+  async doors(userId: string) {
+    const [rows, heard] = await Promise.all([
+      prisma.artist.findMany({ where: { metadataStatus: "RESOLVED", tags: { not: null }, enrichedAt: { not: null } },
+        // Só nome e tags: mil linhas cabem numa consulta e evitam que a amostra pare na letra C.
+        orderBy: [{ name: "asc" }, { id: "asc" }], take: DOOR_SAMPLE + 1, select: { name: true, tags: true } }),
+      prisma.listeningEvent.groupBy({ by: ["rawArtistName"], where: { userId } }),
+    ]);
+    const knownArtists = new Set(heard.map((row) => row.rawArtistName.toLowerCase()));
     return { version: TERRITORY_VERSION, scope: "artist-tag", limited: rows.length > DOOR_SAMPLE,
-      doors: territoryDoors(rows.slice(0, DOOR_SAMPLE)),
+      doors: territoryDoors(rows.slice(0, DOOR_SAMPLE), knownArtists),
       proposals: CURATION_PROPOSALS,
       capabilities: { territoryScope: "Associação de artista no catálogo; não certifica gênero de cada gravação.",
         repertoire: ["albumGenre", "maxDurationMs"], unavailable: ["moment", "vocals", "instrumentation", "mood"] } };

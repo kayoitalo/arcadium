@@ -210,6 +210,6 @@ describe("real isolated PostgreSQL operations", () => {
     })).rejects.toThrow(rollback.message);
     writeFileSync(".local/evaluation/postgres-explain.json", JSON.stringify({ evidence: "REAL_DATABASE_5000_SYNTHETIC_SESSIONS", baseline, indexed }, null, 2));
     expect(JSON.stringify(indexed)).toContain("recommendation_session_resume_idx");
-    expect(await new TerritoryService().doors()).toMatchObject({ version: TERRITORY_VERSION });
+    expect(await new TerritoryService().doors(user)).toMatchObject({ version: TERRITORY_VERSION });
   });
 });
