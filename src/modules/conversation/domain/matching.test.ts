@@ -10,6 +10,8 @@ import {
   pickTransition,
   selectMoments,
   subjectsOf,
+  weightyDecades,
+  byCitation,
   windowLabel,
 } from "./matching";
 
@@ -177,6 +179,34 @@ describe("selectMoments", () => {
       kind: (["transition", "ranking", "decades"] as const)[index % 3],
     }));
     expect(selectMoments(many, { limit: 3 })).toHaveLength(3);
+  });
+});
+
+describe("weightyDecades", () => {
+  it("deixa de fora da soma a década citada de passagem", () => {
+    // "31,8% pros anos 90 e 31,8% pros 2020 … o restinho pros anos 70": somam 63,6, não 72,7
+    const items = [{ decade: 1970, share: 9.1 }, { decade: 1990, share: 31.8 }, { decade: 2010, share: 18.2 }, { decade: 2020, share: 31.8 }];
+    expect(weightyDecades([1970, 1990, 2020], items)).toEqual([1990, 2020]);
+    // "quase 70% é 2000 e 2010 … os anos 80 mal tiveram chance com 2,8%"
+    const longo = [{ decade: 1980, share: 2.8 }, { decade: 2000, share: 26.1 }, { decade: 2010, share: 40.5 }];
+    expect(weightyDecades([1980, 2000, 2010], longo)).toEqual([2000, 2010]);
+  });
+
+  it("mantém a década sozinha e ignora a que não tem audição", () => {
+    expect(weightyDecades([1970], [{ decade: 1970, share: 4 }])).toEqual([1970]);
+    expect(weightyDecades([1960, 1990], [{ decade: 1990, share: 30 }])).toEqual([1990]);
+  });
+});
+
+describe("byCitation", () => {
+  const artists = [{ name: "Vulfpeck", plays: 4 }, { name: "Jorge Ben", plays: 2 }];
+  it("a manchete manda: quem ela cita vem primeiro, mesmo com menos audições", () => {
+    expect(byCitation(artists, "Jorge Ben estreou", "Vulfpeck também. Jorge Ben estreou").map((row) => row.name)).toEqual(["Jorge Ben", "Vulfpeck"]);
+  });
+
+  it("manchete sem nome (trecho de letra): vale quem aparece antes no texto", () => {
+    const text = "CHOVE CHUVA! Jorge Ben pisou no teu fone pela primeira vez. Junto com o Vulfpeck, ele foi uma das estreias.";
+    expect(byCitation(artists, "CHOVE CHUVA!", text).map((row) => row.name)).toEqual(["Jorge Ben", "Vulfpeck"]);
   });
 });
 

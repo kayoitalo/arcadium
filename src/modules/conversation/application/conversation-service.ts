@@ -21,6 +21,7 @@ import type {
   TransitionSide,
 } from "../domain/conversation.types";
 import {
+  byCitation,
   claimedCounts,
   claimedShares,
   claimsAgree,
@@ -33,6 +34,7 @@ import {
   observedGap,
   pickTransition,
   selectMoments,
+  weightyDecades,
   subjectsOf,
   windowLabel,
 } from "../domain/matching";
@@ -284,7 +286,8 @@ async function comebackEvidence(
   // em "tudo" não existe um antes de onde voltar
   if (data.period === "all") return null;
   const text = textOf(reading);
-  const cited = (await data.artists()).filter((artist) => mentions(text, artist.name));
+  // na ordem em que a leitura fala deles, como na estreia
+  const cited = byCitation((await data.artists()).filter((artist) => mentions(text, artist.name)), reading.headline, text);
   for (const artist of cited) {
     const last = await prisma.listeningEvent.findFirst({
       where: { userId: data.userId, rawArtistName: artist.name, playedAt: { lt: data.start } },
@@ -322,7 +325,8 @@ async function comebackEvidence(
 async function debutEvidence(data: PeriodData, reading: ProfileNarrative, timeZone: string): Promise<Evidence | null> {
   if (data.period === "all") return null;
   const text = textOf(reading);
-  const cited = (await data.artists()).filter((artist) => artist.plays >= 2 && mentions(text, artist.name));
+  // na ordem em que a leitura fala deles: o assunto da manchete, não quem tocou mais
+  const cited = byCitation((await data.artists()).filter((artist) => artist.plays >= 2 && mentions(text, artist.name)), reading.headline, text);
   for (const artist of cited) {
     const first = await prisma.listeningEvent.findFirst({
       where: { userId: data.userId, rawArtistName: artist.name },
@@ -571,7 +575,8 @@ async function decadesEvidence(data: PeriodData, reading: ProfileNarrative): Pro
   if (distribution.coverage < MIN_DECADE_COVERAGE || distribution.items.length === 0) return null;
 
   const available = new Set(distribution.items.map((item) => item.decade));
-  let focus = decadesIn(textOf(reading)).filter((decade) => available.has(decade));
+  // só as que a frase diz que pesam: a citada de passagem ("o restinho dos anos 70") não soma
+  let focus = weightyDecades(decadesIn(textOf(reading)).filter((decade) => available.has(decade)), distribution.items);
   if (focus.length === 0) {
     // a frase fala de época sem nomear a década: as que somam a maior parte
     const sorted = [...distribution.items].sort((a, b) => b.share - a.share);
