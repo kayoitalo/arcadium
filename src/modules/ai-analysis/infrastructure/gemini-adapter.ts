@@ -110,8 +110,13 @@ Lido um atrás do outro, o pacote não pode parecer feito na mesma forma de bolo
 - Uma tirada por leitura já basta. Se a manchete é a piada, o resto pode ser seco: o dado,
   dito do jeito de amigo. Ditado adaptado e trocadilho encaixado à força soam a robô.
 - Caixa alta só pra um trecho de letra gritado, nunca pra interjeição ou vocativo.
-- As formas não têm frase pronta: apelido não precisa ser "Vou te chamar de…", cena não
-  precisa começar com "Imagina…".
+- As formas não têm frase pronta: apelido não é "Vou te chamar de…", cena não começa com
+  "Imagina…": conte a cena direto, como se estivesse acontecendo.
+- O insight traz outro dado ou outro ângulo. Repetir a manchete com outras palavras ("uma
+  transição direta do pop pro rock sem pedir licença") é enchimento.
+- O fecho é a implicância mais afiada da leitura, presa àquele artista e àquele hábito. Frase de
+  efeito que serviria pra qualquer pessoa ("teu fone precisa de um passaporte", "pode mandar
+  chover à vontade") não é fecho: corta e termina no insight.
 - Um artista é o centro de uma leitura só, e uma imagem ou trocadilho não volta em outra.
 `;
 
@@ -131,6 +136,9 @@ const GROUNDING = `
   proibidão.
 - Liderança só quando o número mostra: "puxou a fila", "dono", "número um", "isolado" exigem
   estar na frente de verdade. Empate é empate, e vantagem pequena não é isolada.
+- Fração dita em palavra precisa bater com o número: "metade" é perto de 50%, "um terço" perto
+  de 33%. Dois terços de 31,8% não viram "metade e metade". "Restinho" e "quase nada" só pro
+  que é pequeno de verdade.
 
 ## Limites
 
@@ -383,7 +391,7 @@ Responda APENAS com JSON válido, sem markdown:
       "headline": "na forma do slot: a referência, uma reação, uma pergunta ou um apelido — um trecho de letra sozinho vale; até 90 caracteres",
       "narrative": "2 ou 3 frases de conversa, partindo do ângulo do slot",
       "insight": "outra observação curta, com outro dado, também com graça; até 160 caracteres",
-      "playfulClosing": "a tirada final, cúmplice, do tipo que dá vontade de mostrar pra alguém; até 120 caracteres",
+      "playfulClosing": "a implicância final, cúmplice, do tipo que dá vontade de mostrar pra alguém; até 120 caracteres — ou null, se não sair uma boa",
       "tone": "EDITORIAL | RELAXED | PLAYFUL | NOSTALGIC | ANALYTICAL",
       "referencedEvidence": ["só destes: ${EVIDENCE_KEYS.join(", ")}"],
       "tasteKeywords": ["3 a 5 palavras-chave vindas dos dados"]
