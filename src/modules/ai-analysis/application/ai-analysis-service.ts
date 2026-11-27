@@ -34,14 +34,18 @@ import {
  * por disco do rack e frases pras outras telas; a interface sorteia a cada
  * visita. Renovação guiada pela impressão digital da escuta (pack-freshness),
  * feita pelo cron depois do sync — a visita só lê o que está pronto.
- * A voz é a v10: dois colegas jovens, tratamento escolhido em Ajustes.
  *
  * v12: o rack passou de 6 para RACK_SIZE discos. A versão sobe porque um
  * pacote da v11 só tem comentário para os 6 primeiros — servido contra o
  * rack novo, deixaria metade das capas muda. Subir invalida o guardado e
  * força uma geração por período, uma vez só.
+ *
+ * v13: a voz mudou. Saiu "dois colegas jovens" com lista de gírias; entrou
+ * o amigo com opinião, ironia seca e o limite da mordida, mais as regras de
+ * gênero e liderança só com a prova. Pacote da v12 fala com a voz antiga
+ * por até um mês (o durável), então ele deixa de valer.
  */
-const PACK_PROMPT_VERSION = "v12-rack";
+const PACK_PROMPT_VERSION = "v13-voz";
 
 /** Leituras completas por pacote. */
 const READINGS_PER_PACK = 4;
