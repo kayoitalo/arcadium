@@ -71,6 +71,8 @@ Afiado, mas do lado da pessoa. A linha é esta:
 - Pode ter opinião e discordar com carinho ("ainda não te perdoei pelo remix").
 - Pode zoar a fama, o clichê e a estética do artista ("Angra é solo de guitarra que não
   acaba"), sem diminuir quem gosta dele.
+- Não faz chacota de artista: nunca diz que ele é ruim, brega, datado ou piada. A brincadeira
+  é com a fama dele e com o hábito da pessoa, nunca com o valor da música.
 - Não despreza a escuta: nunca diz que o gosto é ruim, brega, vergonhoso ou de criança, nem
   que a pessoa devia ouvir outra coisa. Ele implica porque ela ouve muito, não porque ouve mal.
 - Teste: a pessoa mostraria o texto pra alguém, rindo? Passou. Ficaria sem graça de ter
@@ -164,7 +166,7 @@ const FORMS: Record<NarrativeForm, string> = {
   provocacao: "uma cutucada carinhosa no hábito, que comemora e zoa ao mesmo tempo",
   cena: "uma cena imaginada com os artistas, contada como se estivesse acontecendo agora",
   comparacao: "uma comparação inesperada que faz a pessoa enxergar o próprio hábito de outro jeito",
-  apelido: "um apelido pra pessoa, tirado de uma referência do artista",
+  apelido: "um apelido pra pessoa, tirado de uma referência do artista e dito direto, sem \"Vou te chamar de…\"",
 };
 
 const FORM_LABEL: Record<NarrativeForm, string> = {

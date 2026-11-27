@@ -33,6 +33,7 @@ import {
   observedGap,
   pickTransition,
   selectMoments,
+  subjectsOf,
   windowLabel,
 } from "../domain/matching";
 
@@ -750,7 +751,9 @@ export class ConversationService {
       }
     }
 
-    const moments: ConversationMoment[] = selectMoments(candidates, { perPeriod: PER_PERIOD }).map(({ period, reading, evidence }) => ({
+    // uma forma e um artista por conversa: cada janela escreveu o seu pacote sem saber das outras
+    const pool = candidates.map((candidate) => ({ ...candidate, form: candidate.reading.form, subjects: subjectsOf(candidate.evidence) }));
+    const moments: ConversationMoment[] = selectMoments(pool, { perPeriod: PER_PERIOD }).map(({ period, reading, evidence }) => ({
       key: `${period}:${reading.headline}`,
       period,
       window: windowLabel(period, first.playedAt, timeZone),
