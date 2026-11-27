@@ -178,7 +178,8 @@ export function AlbumJourneys({ initialItem = null, initialCuration = null, onBe
         /* as versões do disco escolhido: o mesmo bloco na estante (ao lado) e nos cartões (dentro do disco) */
         const versions = (album: AlbumReference, index: number) => <section id="album-versions" className={styles.editions} aria-label="Versões deste álbum" aria-busy={busy}>
           <div className={styles.versionHeading}><h2 ref={heading} data-marked={pen.started.has(queryInk)} tabIndex={-1}>{curation ? "Confere a edição da jornada." : "Qual versão vai pro play?"}</h2><button disabled={busy} onClick={() => close(index)}>fechar ↑</button></div>
-          <p className={styles.note}>Estúdio, ao vivo, com faixas extras: escolhe a que você quer percorrer.</p>
+          {/* o convite pra escolher só aparece quando tem o que escolher */}
+          {editions && editions.length > 1 && <p className={styles.note}>Estúdio, ao vivo, com faixas extras: escolhe a que você quer percorrer.</p>}
           {busy && <p className={styles.note} role="status">{editions ? "Conferindo a ordem das faixas…" : "Procurando as versões desse disco…"}</p>}
           {error && <p role="alert">{error}{!editions && <> <button disabled={busy} onClick={() => void findEditions(album)}>tenta de novo</button></>}</p>}
           {editions?.length === 0 && <p className={styles.note}>{curation ? "Essa edição saiu do catálogo por enquanto." : "Não achei uma versão desse disco no catálogo. Tenta outro."}

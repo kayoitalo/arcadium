@@ -14,7 +14,8 @@ export type EditionSummary = z.infer<typeof editionSummarySchema>;
 export interface EditionTrack { trackId: string; artistName: string; trackName: string; disc: number; number: number; durationMs: number | null; previewUrl: string | null; sourceUrl: string | null }
 export interface AlbumEdition { album: EditionSummary; tracks: EditionTrack[] }
 export interface AlbumEditionProvider {
-  searchEditions(artist: string, album: string): Promise<EditionSummary[]>;
+  /** `anyEdition`: "Hybrid Theory (Bonus Edition)" também acha "Hybrid Theory" e a deluxe, para quem escolhe a versão. */
+  searchEditions(artist: string, album: string, options?: { anyEdition?: boolean }): Promise<EditionSummary[]>;
   lookupEdition(id: string): Promise<AlbumEdition | null>;
 }
 export function catalogURL(value: unknown): string | null {

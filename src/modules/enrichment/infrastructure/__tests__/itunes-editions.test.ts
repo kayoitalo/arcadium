@@ -15,6 +15,17 @@ describe("bounded catalog edition queries", () => {
     await new ItunesCatalogAdapter({ minIntervalMs: 0 }).searchEditions("Banda", "Disco"); expect(fetch).toHaveBeenCalledOnce();
     await new ItunesCatalogAdapter({ minIntervalMs: 0, country: "US" }).searchEditions("Banda", "Disco"); expect(fetch).toHaveBeenCalledTimes(2);
   });
+  it("lets an edition from the history find the others when the person is choosing the version", async () => {
+    const { ItunesCatalogAdapter } = await import("../itunes-catalog-adapter");
+    vi.mocked(fetch).mockResolvedValue(ok([collection(1), collection(2, "Disco (Deluxe Edition)"), collection(3, "Disco 2"), { ...collection(4), artistName: "Outra Banda" }]));
+    const provider = new ItunesCatalogAdapter({ minIntervalMs: 0 });
+    const found = await provider.searchEditions("Banda", "Disco (Bonus Edition)", { anyEdition: true });
+    // a edição não esconde o disco, mas um nome que só começa igual não é o mesmo disco
+    expect(found.map((row) => row.collectionId)).toEqual(["1", "2"]);
+    expect(new URL(String(vi.mocked(fetch).mock.calls[0][0])).searchParams.get("term")).toBe("Banda Disco");
+    // sem a opção, continua exigindo o título escrito igual
+    expect(await provider.searchEditions("Banda", "Disco (Bonus Edition)")).toEqual([]);
+  });
   it("loads only the chosen collection with one lookup and does not retry a failed request", async () => {
     const { ItunesCatalogAdapter } = await import("../itunes-catalog-adapter"); const provider = new ItunesCatalogAdapter({ minIntervalMs: 0 });
     vi.mocked(fetch).mockResolvedValue(ok([collection(1), { wrapperType: "track", kind: "song", trackId: 10, collectionId: 1, collectionName: "Disco", artistName: "Banda", trackName: "Faixa", discNumber: 1, discCount: 1, trackNumber: 1 }]));

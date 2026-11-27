@@ -50,7 +50,7 @@ export class AlbumJourneyService {
       const edition = await this.catalog.lookupEdition(curation.collectionId);
       return { reference, editions: matchesCuratedEdition(curation, edition) ? [edition.album] : [] };
     }
-    return { reference, editions: await this.catalog.searchEditions(reference.artistName, reference.albumName) };
+    return { reference, editions: await this.catalog.searchEditions(reference.artistName, reference.albumName, { anyEdition: true }) };
   }
 
   async begin(userId: string, source: AlbumSource, collectionId: string, requestKey: string) {
@@ -91,7 +91,7 @@ export class AlbumJourneyService {
       throw error;
     }
     try {
-      const chosen = curation ? null : (await this.catalog.searchEditions(reference.artistName, reference.albumName)).find((row) => row.collectionId === collectionId);
+      const chosen = curation ? null : (await this.catalog.searchEditions(reference.artistName, reference.albumName, { anyEdition: true })).find((row) => row.collectionId === collectionId);
       if (!curation && !chosen) throw new DiscoveryConflict("Essa edição não está entre os resultados deste álbum. Consulte as edições novamente.", 400);
       const edition = await this.catalog.lookupEdition(collectionId);
       if (curation && !matchesCuratedEdition(curation, edition)) throw new DiscoveryConflict("A edição publicada desta curadoria está indisponível no catálogo. Tente novamente mais tarde.", 422);
