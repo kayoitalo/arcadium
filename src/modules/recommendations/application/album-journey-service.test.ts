@@ -92,6 +92,19 @@ describe("owned album journeys", () => {
       scoreComponents: { albumEdition: { collectionId: "42", trackId: "1", disc: 1, number: 1 } } });
     expect(data.items.create[0]).not.toHaveProperty("feedback");
   });
+  it("starts the edition the person chose even when the history spells another edition", async () => {
+    // o Last.fm gravou "(Bonus Edition)"; a pessoa escolheu a edição sem sufixo, que a busca tolerante achou
+    db.album.mockResolvedValue({ name: "Disco (Bonus Edition)", artist: { name: "Banda" } });
+    const base = { ...summary, albumName: "Disco" };
+    const api = provider(); api.searchEditions.mockResolvedValue([base]); api.lookupEdition.mockResolvedValue({ ...edition(), album: base });
+    await new AlbumJourneyService(api).begin("owner", source, "42", key);
+    expect(api.searchEditions).toHaveBeenCalledWith("Banda", "Disco (Bonus Edition)", { anyEdition: true });
+    expect(db.update.mock.calls[0][0].data.discoveryContext.journey.album).toEqual(base);
+  });
+  it("still refuses a lookup that answers with another album than the chosen edition", async () => {
+    const api = provider(); api.lookupEdition.mockResolvedValue({ ...edition(), album: { ...summary, albumName: "Outro Disco" } });
+    await expect(new AlbumJourneyService(api).begin("owner", source, "42", key)).rejects.toThrow("Não consegui confirmar a edição");
+  });
   it("replays the same active request without external calls and rejects a changed fingerprint", async () => {
     const api = provider(); const service = new AlbumJourneyService(api);
     db.unique.mockResolvedValue({ id: "new", status: "ACTIVE", requestFingerprint: JSON.stringify({ algorithmVersion: "album-v1", source, collectionId: "42" }) });

@@ -9,6 +9,7 @@ import {
   observedGap,
   pickTransition,
   selectMoments,
+  subjectsOf,
   windowLabel,
 } from "./matching";
 
@@ -141,6 +142,33 @@ describe("selectMoments", () => {
       { id: "d", period: "all" as const, kind: "ranking" as const },
     ]);
     expect(chosen.map((entry) => entry.id)).toEqual(["a", "b", "d"]);
+  });
+
+  it("leva uma leitura de cada forma: três apelidos não viram três \"Vou te chamar de\"", () => {
+    const chosen = selectMoments([
+      { id: "a", period: "1d" as const, kind: "transition" as const, form: "apelido" },
+      { id: "b", period: "7d" as const, kind: "debut" as const, form: "apelido" },
+      { id: "c", period: "7d" as const, kind: "outlier" as const, form: "cena" },
+      { id: "d", period: "30d" as const, kind: "ranking" as const, form: "apelido" },
+    ]);
+    expect(chosen.map((entry) => entry.id)).toEqual(["a", "c"]);
+  });
+
+  it("um artista é o centro de um assunto só, mesmo escrito diferente", () => {
+    const chosen = selectMoments([
+      { id: "a", period: "1d" as const, kind: "debut" as const, subjects: ["Jorge Ben"] },
+      { id: "b", period: "1d" as const, kind: "transition" as const, subjects: ["jorge ben", "Seu Jorge"] },
+      { id: "c", period: "7d" as const, kind: "outlier" as const, subjects: ["Ckay"] },
+      { id: "d", period: "30d" as const, kind: "decades" as const, subjects: [] },
+    ]);
+    expect(chosen.map((entry) => entry.id)).toEqual(["a", "c", "d"]);
+  });
+
+  it("sabe de quem cada prova fala", () => {
+    const side = (artist: string) => ({ artist, track: "x", genre: null, cover: null, previewUrl: null, when: "" });
+    expect(subjectsOf({ kind: "transition", from: side("Jorge Ben"), to: side("Seu Jorge"), gapMinutes: 4, context: { before: [], after: [] } } as never)).toEqual(["Jorge Ben", "Seu Jorge"]);
+    expect(subjectsOf({ kind: "ranking", rows: [{ label: "Tha Carter III", sub: "Lil Wayne", plays: 3 }, { label: "Linkin Park", sub: "", plays: 2 }], focusIndex: 1 } as never)).toEqual(["Linkin Park"]);
+    expect(subjectsOf({ kind: "decades", bars: [], focus: [], focusShare: 0, coverage: 0 })).toEqual([]);
   });
 
   it("para no limite", () => {

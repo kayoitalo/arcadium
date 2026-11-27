@@ -10,10 +10,37 @@ describe("territory door list", () => {
     const doors = territoryDoors([
       { name: "Burna Boy", tags: "afro fusion" }, { name: "Omah Lay", tags: "afro-fusion" }, { name: "Rema", tags: "afro-fusion" },
       { name: "The Doors", tags: "acid rock" },
-    ]);
+    ], new Set());
     expect(doors.map((door) => door.genre)).toEqual(["afro-fusion", "acid rock"]);
     // a porta usa a grafia que `resolve` encontra; os exemplos são só dessa grafia
     expect(doors[0]).toEqual({ genre: "afro-fusion", artists: 2, examples: ["Omah Lay", "Rema"] });
+  });
+
+  it("opens only styles that barely show up in your listening, with artists you never heard", () => {
+    const known = new Set(["2pac", "50 cent", "dr. dre", "massive attack"]);
+    const doors = territoryDoors([
+      // hip hop é da casa: três artistas teus, mesmo com um novo no catálogo
+      { name: "2Pac", tags: "hip hop" }, { name: "50 Cent", tags: "hip hop" }, { name: "Dr. Dre", tags: "hip hop" },
+      { name: "Aesop Rock", tags: "hip hop" },
+      // dub tem um artista teu só: ainda é outro universo, e o exemplo é quem você não ouviu
+      { name: "Massive Attack", tags: "dub" }, { name: "Portishead", tags: "dub" }, { name: "Tricky", tags: "dub" },
+      // colaboração de quem você ouve não vira exemplo de artista novo
+      { name: "50 Cent & Guest", tags: "dub" },
+      // só artistas teus: não tem o que mostrar, porta nenhuma
+      { name: "Dr. Dre", tags: "g-funk" },
+    ], known);
+    expect(doors).toEqual([{ genre: "dub", artists: 2, examples: ["Portishead", "Tricky"] }]);
+  });
+
+  it("counts your artists once and keeps ambiguous names out of the examples", () => {
+    const doors = territoryDoors([
+      // duas linhas do mesmo artista teu não fazem dele dois: soul continua com um só
+      { name: "Al Green", tags: "soul" }, { name: "Al Green", tags: "soul" }, { name: "Bill Withers", tags: "soul" },
+      { name: "Otis Redding", tags: "soul" },
+      // nome em duas linhas: `resolve` recusa, então não pode ser o exemplo da porta
+      { name: "Twin", tags: "soul" }, { name: "Twin", tags: "soul" },
+    ], new Set(["al green", "bill withers"]));
+    expect(doors).toEqual([{ genre: "soul", artists: 1, examples: ["Otis Redding"] }]);
   });
 });
 describe("destination-scoped territory doors", () => {

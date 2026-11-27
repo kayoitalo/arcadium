@@ -97,14 +97,17 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
   const { stop } = sound;
   const signal = usePulse(stageRef, sound.playing, sound.read);
 
-  // a busca espera a pessoa parar de digitar
+  // a busca espera a pessoa parar de digitar. Procurar por nome é no
+  // histórico inteiro: o calendário some durante a busca, então o dia que
+  // estava escolhido não pode continuar recortando sem ninguém ver.
   useEffect(() => {
     const timer = window.setTimeout(() => {
+      const next = search.trim();
       setQuery((current) => {
-        const next = search.trim();
         if (next !== current) setPage(1);
         return next;
       });
+      if (next) setDay(null);
     }, 300);
     return () => window.clearTimeout(timer);
   }, [search]);
@@ -398,7 +401,6 @@ export function Historico({ initialSearch = "" }: { initialSearch?: string } = {
 
 
       <div className={styles.log} aria-busy={busy}>
-        {days.length === 0 && loadedQuery && <p className={styles.empty}>Nada por aqui com esse nome.</p>}
         {days.map(([key, events]) => (
           <section key={key} aria-label={dayName(key, events[0].playedAt)}>
             <header className={styles.dayHead}>

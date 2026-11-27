@@ -5,6 +5,6 @@ import { TerritoryService } from "@/modules/recommendations/application/territor
 export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const access = await authorizeApi(request); if (access.response) return access.response;
-  try { return NextResponse.json(await new TerritoryService().doors(), { headers: { "Cache-Control": "private, no-store" } }); }
+  try { return NextResponse.json(await new TerritoryService().doors(access.userId), { headers: { "Cache-Control": "private, no-store" } }); }
   catch (error) { return discoveryError(error); }
 }

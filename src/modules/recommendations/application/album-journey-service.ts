@@ -50,7 +50,7 @@ export class AlbumJourneyService {
       const edition = await this.catalog.lookupEdition(curation.collectionId);
       return { reference, editions: matchesCuratedEdition(curation, edition) ? [edition.album] : [] };
     }
-    return { reference, editions: await this.catalog.searchEditions(reference.artistName, reference.albumName) };
+    return { reference, editions: await this.catalog.searchEditions(reference.artistName, reference.albumName, { anyEdition: true }) };
   }
 
   async begin(userId: string, source: AlbumSource, collectionId: string, requestKey: string) {
@@ -91,12 +91,14 @@ export class AlbumJourneyService {
       throw error;
     }
     try {
-      const chosen = curation ? null : (await this.catalog.searchEditions(reference.artistName, reference.albumName)).find((row) => row.collectionId === collectionId);
+      const chosen = curation ? null : (await this.catalog.searchEditions(reference.artistName, reference.albumName, { anyEdition: true })).find((row) => row.collectionId === collectionId);
       if (!curation && !chosen) throw new DiscoveryConflict("Essa edição não está entre os resultados deste álbum. Consulte as edições novamente.", 400);
       const edition = await this.catalog.lookupEdition(collectionId);
       if (curation && !matchesCuratedEdition(curation, edition)) throw new DiscoveryConflict("A edição publicada desta curadoria está indisponível no catálogo. Tente novamente mais tarde.", 422);
       if (!edition || (chosen && (edition.album.collectionId !== collectionId || edition.tracks.length !== edition.album.trackCount || edition.album.storefront !== chosen.storefront || !sameRecordingText(edition.album.artistName, reference.artistName)
-        || !sameRecordingText(edition.album.albumName, reference.albumName) || edition.album.trackCount !== chosen.trackCount
+        // a edição escolhida já casou com o disco do histórico sem a edição ("Hybrid Theory (Bonus
+        // Edition)" → "Hybrid Theory"): a consulta confere que é ela mesma, título escrito igual
+        || !sameRecordingText(edition.album.albumName, chosen.albumName) || edition.album.trackCount !== chosen.trackCount
         || (edition.album.explicitness ?? null) !== (chosen.explicitness ?? null)))) {
         throw new DiscoveryConflict("Não consegui confirmar a edição e a ordem completa das faixas. Escolha outro álbum.", 422);
       }

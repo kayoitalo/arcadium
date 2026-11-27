@@ -1,5 +1,5 @@
 import type { PeriodKey } from "@/modules/statistics/application/overview-service";
-import type { EvidenceKind } from "./conversation.types";
+import type { Evidence, EvidenceKind } from "./conversation.types";
 
 /*
  * Como a frase da IA encontra a prova no banco — e como a conversa percebe
@@ -184,12 +184,36 @@ export function loopRun(
  * prova dentro dela nem usar o mesmo tipo mais de `perKind` vezes na
  * conversa inteira, até `limit` no total.
  */
-export function selectMoments<T extends { period: PeriodKey; kind: EvidenceKind }>(
+/** De quem o assunto fala: os artistas no centro da prova. Década não tem dono. */
+export function subjectsOf(evidence: Evidence): string[] {
+  switch (evidence.kind) {
+    case "transition": return [evidence.from.artist, evidence.to.artist];
+    case "ranking": {
+      // a linha é o artista, ou a faixa ou o disco dele (aí o artista vem em `sub`)
+      const row = evidence.rows[evidence.focusIndex];
+      return row ? [row.sub || row.label] : [];
+    }
+    case "night": return evidence.previewArtist ? [evidence.previewArtist] : [];
+    case "decades": return [];
+    default: return [evidence.artist];
+  }
+}
+
+/**
+ * Cada janela escreve o seu pacote sem saber das outras: sem cuidado, três
+ * pacotes que sortearam "apelido" viram três "Vou te chamar de…" no mesmo
+ * dia, e um artista que tocou muito vira assunto em todas as janelas. Por
+ * isso a conversa leva no máximo uma leitura de cada forma, e um artista é
+ * o centro de um assunto só.
+ */
+export function selectMoments<T extends { period: PeriodKey; kind: EvidenceKind; form?: string; subjects?: string[] }>(
   candidates: T[],
   { limit = 6, perPeriod = 2, perKind = 2 }: { limit?: number; perPeriod?: number; perKind?: number } = {},
 ): T[] {
   const chosen: T[] = [];
   const used = new Map<EvidenceKind, number>();
+  const forms = new Set<string>();
+  const subjects = new Set<string>();
   for (const period of PERIOD_ORDER) {
     const kinds = new Set<EvidenceKind>();
     const pool = candidates
@@ -198,8 +222,13 @@ export function selectMoments<T extends { period: PeriodKey; kind: EvidenceKind 
     for (const candidate of pool) {
       if (chosen.length >= limit || kinds.size >= perPeriod) break;
       if (kinds.has(candidate.kind) || (used.get(candidate.kind) ?? 0) >= perKind) continue;
+      if (candidate.form && forms.has(candidate.form)) continue;
+      const about = (candidate.subjects ?? []).map(normalize).filter(Boolean);
+      if (about.some((name) => subjects.has(name))) continue;
       kinds.add(candidate.kind);
       used.set(candidate.kind, (used.get(candidate.kind) ?? 0) + 1);
+      if (candidate.form) forms.add(candidate.form);
+      for (const name of about) subjects.add(name);
       chosen.push(candidate);
     }
   }
