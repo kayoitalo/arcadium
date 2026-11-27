@@ -26,6 +26,28 @@ export function mentions(text: string, name: string | null | undefined): boolean
   return new RegExp(`(^|[^a-z0-9])${escaped}($|[^a-z0-9])`).test(normalize(text));
 }
 
+/** Onde o nome aparece pela primeira vez na frase; Infinity quando não aparece. */
+function firstMention(text: string, name: string): number {
+  const needle = normalize(name);
+  if (needle.length < 3) return Infinity;
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const found = new RegExp(`(^|[^a-z0-9])${escaped}($|[^a-z0-9])`).exec(normalize(text));
+  return found ? found.index : Infinity;
+}
+
+/**
+ * Os citados na ordem em que a leitura fala deles: quem está na manchete
+ * primeiro, depois quem aparece antes no texto. É o assunto que manda na
+ * prova, não quem tocou mais: "CHOVE CHUVA!" é sobre o Jorge Ben, mesmo
+ * que o Vulfpeck, citado de passagem, tenha mais audições.
+ */
+export function byCitation<T extends { name: string }>(items: T[], headline: string, text: string): T[] {
+  return items
+    .map((item, order) => ({ item, order, inHeadline: mentions(headline, item.name), at: firstMention(text, item.name) }))
+    .sort((a, b) => Number(b.inHeadline) - Number(a.inHeadline) || a.at - b.at || a.order - b.order)
+    .map(({ item }) => item);
+}
+
 /**
  * O par de audições seguidas que a frase cita: cada lado vale 2 se a frase
  * cita a faixa e 1 se cita só o artista, os dois lados precisam estar nela
@@ -119,6 +141,18 @@ export function decadesIn(text: string, now = new Date()): number[] {
   }
 
   return [...found].filter((decade) => decade >= 1900 && decade <= current).sort((a, b) => a - b);
+}
+
+/**
+ * Das décadas que a frase cita, as que ela diz que pesam. Década citada
+ * pra contrastar ("o restinho foi dos anos 70", "os anos 80 mal tiveram
+ * chance") não entra na conta nem no destaque: fica quem tem pelo menos
+ * metade da fatia da maior citada.
+ */
+export function weightyDecades(mentioned: number[], items: Array<{ decade: number; share: number }>): number[] {
+  const share = (decade: number) => items.find((item) => item.decade === decade)?.share ?? 0;
+  const top = Math.max(0, ...mentioned.map(share));
+  return mentioned.filter((decade) => share(decade) > 0 && share(decade) >= top / 2);
 }
 
 /**
