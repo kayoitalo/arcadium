@@ -96,7 +96,9 @@ export class AlbumJourneyService {
       const edition = await this.catalog.lookupEdition(collectionId);
       if (curation && !matchesCuratedEdition(curation, edition)) throw new DiscoveryConflict("A edição publicada desta curadoria está indisponível no catálogo. Tente novamente mais tarde.", 422);
       if (!edition || (chosen && (edition.album.collectionId !== collectionId || edition.tracks.length !== edition.album.trackCount || edition.album.storefront !== chosen.storefront || !sameRecordingText(edition.album.artistName, reference.artistName)
-        || !sameRecordingText(edition.album.albumName, reference.albumName) || edition.album.trackCount !== chosen.trackCount
+        // a edição escolhida já casou com o disco do histórico sem a edição ("Hybrid Theory (Bonus
+        // Edition)" → "Hybrid Theory"): a consulta confere que é ela mesma, título escrito igual
+        || !sameRecordingText(edition.album.albumName, chosen.albumName) || edition.album.trackCount !== chosen.trackCount
         || (edition.album.explicitness ?? null) !== (chosen.explicitness ?? null)))) {
         throw new DiscoveryConflict("Não consegui confirmar a edição e a ordem completa das faixas. Escolha outro álbum.", 422);
       }

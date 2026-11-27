@@ -24,22 +24,27 @@ const doorKey = (genre: string) => genre.replace(/[-_]+/g, " ").replace(/\s+/g, 
  * encontra por tag exata), e as portas mais sustentadas vêm primeiro.
  */
 export function territoryDoors(rows: Array<{ name: string; tags: string | null }>, knownArtists: Set<string>, limit = 24) {
-  const groups = new Map<string, { spellings: Map<string, Set<string>>; names: Set<string>; yours: number }>();
+  // o mesmo nome em mais de uma linha é ambíguo: `resolve` recusa, então não vira exemplo de porta
+  const rowsByName = new Map<string, number>();
+  for (const artist of rows) rowsByName.set(artist.name.toLowerCase(), (rowsByName.get(artist.name.toLowerCase()) ?? 0) + 1);
+  const groups = new Map<string, { spellings: Map<string, Set<string>>; names: Set<string>; yours: Set<string> }>();
   for (const artist of rows) {
     const yours = isCollaborationOfKnownArtist(artist.name, knownArtists);
+    const ambiguous = (rowsByName.get(artist.name.toLowerCase()) ?? 0) > 1;
     for (const genre of filterGenreTags((artist.tags ?? "").split(","))) {
-      const group = groups.get(doorKey(genre)) ?? { spellings: new Map(), names: new Set<string>(), yours: 0 };
-      if (yours) group.yours += 1;
-      else {
+      const group = groups.get(doorKey(genre)) ?? { spellings: new Map(), names: new Set<string>(), yours: new Set<string>() };
+      // artista teu conta uma vez, quantas linhas ele tiver
+      if (yours) group.yours.add(artist.name.toLowerCase());
+      else if (!ambiguous) {
         const spelled = group.spellings.get(genre) ?? new Set<string>();
         spelled.add(artist.name); group.spellings.set(genre, spelled); group.names.add(artist.name);
       }
       groups.set(doorKey(genre), group);
     }
   }
-  return [...groups.values()].filter(({ spellings, yours }) => spellings.size > 0 && yours < HOME_GENRE_ARTISTS).map(({ spellings, names, yours }) => {
+  return [...groups.values()].filter(({ spellings, yours }) => spellings.size > 0 && yours.size < HOME_GENRE_ARTISTS).map(({ spellings, names, yours }) => {
     const [genre, spelled] = [...spellings].sort(([a, x], [b, y]) => y.size - x.size || a.localeCompare(b))[0];
-    return { genre, artists: spelled.size, examples: [...spelled].slice(0, 3), related: names.size, yours };
+    return { genre, artists: spelled.size, examples: [...spelled].slice(0, 3), related: names.size, yours: yours.size };
   }).sort((a, b) => b.related - a.related || a.yours - b.yours || a.genre.localeCompare(b.genre)).slice(0, limit)
     .map(({ genre, artists, examples }) => ({ genre, artists, examples }));
 }

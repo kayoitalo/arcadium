@@ -210,6 +210,11 @@ describe("real isolated PostgreSQL operations", () => {
     })).rejects.toThrow(rollback.message);
     writeFileSync(".local/evaluation/postgres-explain.json", JSON.stringify({ evidence: "REAL_DATABASE_5000_SYNTHETIC_SESSIONS", baseline, indexed }, null, 2));
     expect(JSON.stringify(indexed)).toContain("recommendation_session_resume_idx");
-    expect(await new TerritoryService().doors(user)).toMatchObject({ version: TERRITORY_VERSION });
+    // o usuário ouviu "Synthetic Dub 0": a porta do dub abre só com quem ele nunca ouviu
+    const doors = await new TerritoryService().doors(user);
+    expect(doors).toMatchObject({ version: TERRITORY_VERSION });
+    const dub = doors.doors.find((door) => door.genre === "dub");
+    expect(dub?.examples.length).toBeGreaterThan(0);
+    expect(doors.doors.flatMap((door) => door.examples)).not.toContain("Synthetic Dub 0");
   });
 });

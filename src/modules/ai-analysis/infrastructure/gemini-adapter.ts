@@ -185,7 +185,7 @@ const ADDRESS_BRIEF: Record<AddressStyle, string> = {
   feminino:
     'Quem lê é uma mina. Vocês são duas parceiras: pode chamar de "amiga" ou "mana", e zoar do jeito que amiga zoa amiga, implicando com a playlist dela. O vocativo aparece no máximo uma vez por leitura e nunca abre a frase. Não use "mano", "mermão" nem "parça". A zoeira é com a música: nunca com corpo, aparência ou vida amorosa.',
   neutro:
-    'Trate quem lê sem marcar gênero: nada de "mano", "mermão", "mina", "amigo" ou "amiga". As gírias sem gênero ("ixe", "caraca", "véi", "tá ligado") seguem à vontade.',
+    'Trate quem lê sem marcar gênero: nada de "mano", "mermão", "mina", "amigo" ou "amiga". As interjeições sem gênero ("caraca", "eita", "tá ligado") seguem a regra de sempre: de vez em quando, nunca abrindo o texto.',
 };
 
 function listenerSection(input: MusicProfileInput): string {

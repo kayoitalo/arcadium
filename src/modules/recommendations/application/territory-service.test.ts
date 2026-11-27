@@ -31,6 +31,17 @@ describe("territory door list", () => {
     ], known);
     expect(doors).toEqual([{ genre: "dub", artists: 2, examples: ["Portishead", "Tricky"] }]);
   });
+
+  it("counts your artists once and keeps ambiguous names out of the examples", () => {
+    const doors = territoryDoors([
+      // duas linhas do mesmo artista teu não fazem dele dois: soul continua com um só
+      { name: "Al Green", tags: "soul" }, { name: "Al Green", tags: "soul" }, { name: "Bill Withers", tags: "soul" },
+      { name: "Otis Redding", tags: "soul" },
+      // nome em duas linhas: `resolve` recusa, então não pode ser o exemplo da porta
+      { name: "Twin", tags: "soul" }, { name: "Twin", tags: "soul" },
+    ], new Set(["al green", "bill withers"]));
+    expect(doors).toEqual([{ genre: "soul", artists: 1, examples: ["Otis Redding"] }]);
+  });
 });
 describe("destination-scoped territory doors", () => {
   it("uses exact tags, excludes observed artists and ambiguous catalog identities", async () => {

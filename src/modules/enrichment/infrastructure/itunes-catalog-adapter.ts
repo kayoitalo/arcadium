@@ -128,6 +128,10 @@ export function sameTitle(expected: string, found: string): boolean {
 const searchable = (value: string) =>
   value.replace(/\(.*?\)|\[.*?\]/g, " ").replace(/\s+/g, " ").trim() || value;
 
+/** O termo sem nenhuma marca de edição: nem parêntese, nem " - 2004 Remaster" no fim. */
+const EDITION_SUFFIX_ANY_CASE = new RegExp(EDITION_SUFFIX.source, "i");
+const editionless = (value: string) => searchable(value).replace(EDITION_SUFFIX_ANY_CASE, "").trim() || value;
+
 const upsize = (url?: string) => (url ? url.replace(/\/\d+x\d+bb\./, "/600x600bb.") : null);
 
 /* ------------------------------------------------------------------ */
@@ -229,7 +233,7 @@ export class ItunesCatalogAdapter implements AlbumCoverFallbackProvider {
    */
   async searchEditions(artist: string, album: string, options: { anyEdition?: boolean } = {}): Promise<EditionSummary[]> {
     if (!artist.trim() || !album.trim()) return [];
-    const term = `${artist} ${options.anyEdition ? searchable(album) : album}`;
+    const term = `${artist} ${options.anyEdition ? editionless(album) : album}`;
     const data = await this.editionRequest("search", { term, media: "music", entity: "album", limit: "10" });
     const sameAlbum = (found: string) => (options.anyEdition ? sameTitle(album, found) : sameRecordingText(found, album));
     const found = data.results.map((row) => parseEdition(row, this.storefront, data.fetchedAt))

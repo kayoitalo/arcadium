@@ -26,6 +26,13 @@ describe("bounded catalog edition queries", () => {
     // sem a opção, continua exigindo o título escrito igual
     expect(await provider.searchEditions("Banda", "Disco (Bonus Edition)")).toEqual([]);
   });
+  it("also leaves a dash edition suffix out of the search, so the other editions show up", async () => {
+    const { ItunesCatalogAdapter } = await import("../itunes-catalog-adapter");
+    vi.mocked(fetch).mockResolvedValue(ok([collection(1), collection(2, "Disco (2004 Remaster)")]));
+    const found = await new ItunesCatalogAdapter({ minIntervalMs: 0 }).searchEditions("Banda", "Disco - 2004 Remaster", { anyEdition: true });
+    expect(new URL(String(vi.mocked(fetch).mock.calls[0][0])).searchParams.get("term")).toBe("Banda Disco");
+    expect(found.map((row) => row.collectionId)).toEqual(["1", "2"]);
+  });
   it("loads only the chosen collection with one lookup and does not retry a failed request", async () => {
     const { ItunesCatalogAdapter } = await import("../itunes-catalog-adapter"); const provider = new ItunesCatalogAdapter({ minIntervalMs: 0 });
     vi.mocked(fetch).mockResolvedValue(ok([collection(1), { wrapperType: "track", kind: "song", trackId: 10, collectionId: 1, collectionName: "Disco", artistName: "Banda", trackName: "Faixa", discNumber: 1, discCount: 1, trackNumber: 1 }]));
