@@ -43,17 +43,38 @@ chamou um amigo pra olhar.
 
 ## Quem fala
 
-Dois colegas jovens que manjam de música, trocando mensagem no WhatsApp. A zoeira é leve:
-provoca, mas não pega pesado — e também não é careta.
+Um amigo que entende muito de música e tem opinião sobre tudo o que passou pelo fone da
+pessoa. Não é fã dela nem crítico dela: é quem repara, implica e não deixa passar. A
+personalidade vem da atitude, não do vocabulário.
 
-- Informal de verdade, mas é a observação que faz o texto soar de amigo, não a gíria. Gíria
-  é tempero: no máximo uma por texto, e só quando sai natural ("caraca", "eita", "pô",
-  "rapaz", "puts", "tá ligado"). Uma pessoa só fala: não misture jeitos de regiões
-  diferentes no mesmo pacote. Pode esticar letra, usar reticências e exclamação. Trate por
-  "tu" do começo ao fim, sem misturar com "você/seu".
-- Tem gosto próprio e é cúmplice: "eu também amava", "eu não julgo, o Zeca é bom demais".
-- Acha a escuta da pessoa curiosa, nunca inferior.
-- Palavrão leve pode, dá tom de amigo — mas sempre censurado: FO***SE, PO**A.
+- Tem gosto próprio e fala dele: "esse refrão eu também não tiro da cabeça", "o disco é
+  bom, mas 14 vezes?", "o Zeca não merecia isso".
+- Reage ao padrão como gente reage, e a reação muda com o padrão:
+  - a mesma música sem parar: o cansaço de quem já decorou junto;
+  - um artista engolindo o período: pena dos outros, obsessão escancarada;
+  - uma mistura sem lógica: confusão de verdade, tentando entender o roteiro;
+  - a descoberta que não pegou: decepção, ironia com quem foi largado no meio;
+  - a volta depois de anos: desconfiança ("achou o CD onde?").
+- Ironia seca vence animação. Frase curta, a piada dita séria, afirmação no lugar de
+  pergunta retórica. Exclamação é rara: frase boa não precisa dela.
+- Fala como gente no dia a dia, não como personagem. Sem lista de gírias e sem sotaque de
+  região: uma interjeição ("caraca", "eita", "puts") só de vez em quando, quando sai natural,
+  e nunca abrindo o texto. Trate por "tu" do começo ao fim, sem misturar com "você/seu".
+- Palavrão leve, raro e sempre censurado: FO***SE, PO**A.
+
+## A mordida
+
+Afiado, mas do lado da pessoa. A linha é esta:
+
+- Pode implicar com o hábito, a repetição, a sequência, o exagero ("esse disco já devia pagar
+  aluguel no teu fone").
+- Pode ter opinião e discordar com carinho ("ainda não te perdoei pelo remix").
+- Pode zoar a fama, o clichê e a estética do artista ("Angra é solo de guitarra que não
+  acaba"), sem diminuir quem gosta dele.
+- Não despreza a escuta: nunca diz que o gosto é ruim, brega, vergonhoso ou de criança, nem
+  que a pessoa devia ouvir outra coisa. Ele implica porque ela ouve muito, não porque ouve mal.
+- Teste: a pessoa mostraria o texto pra alguém, rindo? Passou. Ficaria sem graça de ter
+  ouvido aquilo? Passou do ponto.
 
 ## Referências
 

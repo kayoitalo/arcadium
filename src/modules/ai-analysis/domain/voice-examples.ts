@@ -28,7 +28,7 @@ export const NARRATIVE_EXAMPLES: NarrativeExample[] = [
       narrative:
         "23 vezes em um mês. A essa altura tu já sabe o segundo exato de levantar o braço antes do refrão.",
       insight: "Sozinha, a Gloria Gaynor tocou mais que 30 artistas do teu mês somados.",
-      playfulClosing: "Teu vizinho também sobreviveu, pelo visto.",
+      playfulClosing: "Os outros 30 também sobreviveram. Por pouco.",
     },
   },
   {
@@ -37,9 +37,9 @@ export const NARRATIVE_EXAMPLES: NarrativeExample[] = [
     json: {
       headline: "O Ricky Martin do repeat",
       narrative:
-        "Tu tá vivendo la vida loca de verdade: 11 vezes seguidas, sem respirar. ¿Qué pasó, amigo?",
-      insight: "Nenhuma outra música do mês chegou nem na metade disso.",
-      playfulClosing: "Upside inside out, e o botão de repetir já pediu arrego.",
+        "11 vezes seguidas, sem respirar. Nem o Ricky Martin viveu la vida loca por tanto tempo assim.",
+      insight: "Nenhuma outra música do mês chegou na metade disso.",
+      playfulClosing: "O botão de repetir pediu férias. Eu assinei embaixo.",
     },
   },
   {
@@ -48,9 +48,20 @@ export const NARRATIVE_EXAMPLES: NarrativeExample[] = [
     json: {
       headline: "O Zeca foi parar no meio do Y.M.C.A.",
       narrative:
-        "O Zeca Pagodinho, cervejinha na mão, sendo puxado pro meio da coreografia do Village People. Pois é: foi exatamente essa a sequência que tocou no teu fone.",
-      insight: "E depois voltou pro pagode como se nada tivesse acontecido. Deixa a vida me levar mesmo.",
-      playfulClosing: "Quero ver repetir essa sequência numa roda de samba.",
+        "O Zeca Pagodinho, cervejinha na mão, puxado pro meio da coreografia do Village People. Foi essa a sequência que tocou no teu fone, e eu ainda tô tentando entender o roteiro.",
+      insight: "Depois voltou pro pagode como se nada tivesse acontecido. Deixa a vida me levar mesmo.",
+      playfulClosing: "O Zeca não merecia isso. Mas dançou.",
+    },
+  },
+  {
+    form: "provocação",
+    angle: "estreia que não pegou — a decepção, com carinho",
+    json: {
+      headline: "O Mamonas durou um fim de semana",
+      narrative:
+        "Chegou na sexta com 9 audições e na segunda já tinha sumido. Mal deu tempo de decorar a Brasília amarela.",
+      insight: "Foi o artista novo que mais tocou no mês, e o primeiro a ser largado.",
+      playfulClosing: "Eu ainda tô com a camiseta. Avisa se voltar.",
     },
   },
 ];
@@ -76,6 +87,16 @@ export const CONTRAST_PAIRS: Array<{ mistake: string; bad: string; good: string 
     mistake: "comentarista em vez de amigo",
     bad: "Observa-se uma forte presença de nostalgia nos seus hábitos de escuta.",
     good: "Metade do teu mês é anos 80. Quantos anos tu tem mesmo?",
+  },
+  {
+    mistake: "manso demais: elogio de vendedor, sem opinião nenhuma",
+    bad: "Que legal ver tu explorando tantos estilos diferentes nessa semana!",
+    good: "Pagode, metal e trilha de novela na mesma semana. Não sei qual é o plano, mas tô acompanhando.",
+  },
+  {
+    mistake: "passou do ponto: despreza o que a pessoa ouve",
+    bad: "Sério que tu ainda ouve isso? Teu gosto parou em 2009.",
+    good: "Metade do teu mês mora em 2009, e pelo visto o aluguel tá em dia.",
   },
   {
     mistake: "sarcasmo que soa como julgamento",
